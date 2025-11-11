@@ -1,0 +1,283 @@
+bundle:
+  name: realworld_example
+
+include:
+  - resources/*.yml
+  - resources/*/*.yml
+  - variables.yml
+  - cluster_configs.yml
+
+targets:
+  # ------------------------
+  # Local Development Target
+  # ------------------------
+  user:
+    mode: development
+    default: true
+    workspace:
+      host: https://dbc-eeb3ccef-c1ef.cloud.databricks.com/
+      root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
+    presets:
+      name_prefix: "[user ${workspace.current_user.short_name}] "
+      trigger_pause_status: PAUSED
+      pipelines_development: true
+      tags:
+        environment: user
+
+    #### Variables ####
+    variables:
+      catalog_name: "users_<domain>"
+      default_schema_name: "${workspace.current_user.short_name}_bronze"
+      pipeline_min_workers: 1
+      pipeline_max_workers: 1
+      photon_enabled: false
+      continuous_mode: false
+      failure_notification_emails: []
+      max_retries: 0  # No retries in dev mode - fail fast
+      job_cluster_min_workers: 1
+      job_cluster_max_workers: 1
+
+    #### Resource Overrides ####
+    resources:
+      jobs:
+        sample_ingestion:
+          # Override schedule - don't run automatically in user env
+          schedule:
+            quartz_cron_expression: 0 0 2 * * ?  # Same time but paused
+            timezone_id: UTC
+            pause_status: PAUSED
+
+        sample_pipeline_trigger:
+          schedule:
+            quartz_cron_expression: 0 0 * * * ?
+            timezone_id: UTC
+            pause_status: PAUSED
+
+  # -----------------------
+  # Development Environment
+  # -----------------------
+  dev:
+    mode: production
+    presets:
+      name_prefix: "[dev] "
+      trigger_pause_status: PAUSED
+      tags:
+        environment: dev
+    workspace:
+      host: https://dbc-eeb3ccef-c1ef.cloud.databricks.com/
+      root_path: /Workspace/${bundle.target}/.bundle/${bundle.name}
+    git:
+      branch: dev
+    run_as:
+      # Recommended: Use service principal for shared environments
+      # service_principal_name: ${var.dev_service_principal}
+      user_name: ${workspace.current_user.userName}
+
+    #### Permissions ####
+    permissions:
+    # All users can view development resources
+    - level: CAN_VIEW
+      group_name: users
+
+    # Developers can run and manage their work
+    - level: CAN_MANAGE_RUN
+      group_name: ${var.developers_group}
+
+    # Service principal or deployment user gets full management
+    - level: CAN_MANAGE
+      service_principal_name: ${var.dev_service_principal}
+
+    # From template `contrib\templates\data-engineering\template\{{.project_name}}\databricks.yml.tmpl`
+    # Kept for reference only, will come back when creating template:
+    # permissions:
+    #   - {{if is_service_principal}}service_principal{{else}}user{{end}}_name: {{user_name}}
+    #     level: CAN_MANAGE
+    # run_as:
+    #   {{if is_service_principal}}service_principal{{else}}user{{end}}_name: {{user_name}}
+
+    #### Variables ####
+    variables:
+      catalog_name: "dev_<domain>"
+      default_schema_name: "bronze"
+      pipeline_min_workers: 1
+      pipeline_max_workers: 2
+      photon_enabled: true
+      continuous_mode: false
+      failure_notification_emails:
+        - ${workspace.current_user.emails[0].value}
+      max_retries: 1  # Limited retries in dev
+      retry_interval_millis: 180_000  # 3 minutes
+      job_cluster_min_workers: 1
+      job_cluster_max_workers: 3
+
+    #### Resource Overrides ####
+    resources:
+      jobs:
+        sample_ingestion:
+          # 1 hour timeout for dev environment
+          timeout_seconds: 3600
+          # Active schedule for daily testing
+          schedule:
+            quartz_cron_expression: 0 0 2 * * ?  # At 02:00 AM daily
+            timezone_id: UTC
+            pause_status: UNPAUSED
+
+        sample_pipeline_trigger:
+          schedule:
+            quartz_cron_expression: 0 30 2 * * ?  # At 02:30 AM daily (after ingestion)
+            timezone_id: UTC
+            pause_status: UNPAUSED
+
+  # -------------------
+  # Staging Environment
+  # -------------------
+  stage:
+    mode: production
+    presets:
+      name_prefix: "[stage] "
+      tags:
+        environment: stage
+    workspace:
+      host: https://dbc-eeb3ccef-c1ef.cloud.databricks.com/
+      root_path: /Workspace/${bundle.target}/.bundle/${bundle.name}
+    git:
+      branch: stage
+    run_as:
+      # Recommended: Use service principal for controlled deployments
+      # service_principal_name: ${var.stage_service_principal}
+      user_name: ${workspace.current_user.userName}
+
+    #### Permissions ####
+    permissions:
+    # Limited visibility to developers
+    - level: CAN_VIEW
+      group_name: ${var.developers_group}
+
+    # QA team can run for testing
+    - level: CAN_RUN
+      group_name: ${var.qa_team_group}
+
+    # Only deployment service principal can manage
+    - level: CAN_MANAGE
+      service_principal_name: ${var.stage_service_principal}
+
+    #### Variables ####
+    variables:
+      catalog_name: "stage_<domain>"
+      default_schema_name: "bronze"
+      pipeline_min_workers: 2
+      pipeline_max_workers: 4
+      photon_enabled: true
+      continuous_mode: false
+      failure_notification_emails:
+        - ${workspace.current_user.emails[0].value}
+      max_retries: 2  # Production-like retry behavior
+      retry_interval_millis: 300_000  # 5 minutes
+      job_cluster_min_workers: 2
+      job_cluster_max_workers: 5
+
+    #### Resource Overrides ####
+    resources:
+      jobs:
+        sample_ingestion:
+          # Longer timeout for production-like workloads
+          timeout_seconds: 7200  # 2 hours
+          # Production-like schedule - multiple runs per day for testing
+          schedule:
+            quartz_cron_expression: 0 0 4,16 * * ?  # At 04:00 AM and 04:00 PM
+            timezone_id: UTC
+            pause_status: UNPAUSED
+
+        sample_pipeline_trigger:
+          # Higher concurrency for testing load
+          max_concurrent_runs: 2
+          schedule:
+            quartz_cron_expression: 0 30 4,16 * * ?  # 30 min after ingestion
+            timezone_id: UTC
+            pause_status: UNPAUSED
+
+  # ----------------------
+  # Production Environment
+  # ----------------------
+  prod:
+    mode: production
+    presets:
+      name_prefix: "[prod] "
+      tags:
+        environment: prod
+    workspace:
+      # NOTE: you might want to have separate workspace for production
+      host: https://dbc-eeb3ccef-c1ef.cloud.databricks.com/
+      root_path: /Workspace/${bundle.target}/.bundle/${bundle.name}
+    git:
+      branch: prod
+    run_as:
+      # CRITICAL: Use service principal for production deployments
+      # service_principal_name: ${var.prod_service_principal}
+      user_name: ${workspace.current_user.userName}
+
+    #### Permissions ####
+    permissions:
+    # Read-only access for monitoring and analytics
+    - level: CAN_VIEW
+      group_name: ${var.analytics_team_group}
+
+    # Operations team can run jobs for incident response
+    - level: CAN_RUN
+      group_name: ${var.operations_group}
+
+    # Only service principal can manage resources
+    - level: CAN_MANAGE
+      service_principal_name: ${var.prod_service_principal}
+
+    #### Variables ####
+    variables:
+      catalog_name: "prod_<domain>"
+      default_schema_name: "bronze"
+      pipeline_min_workers: 2
+      pipeline_max_workers: 8
+      photon_enabled: true
+      # continuous_mode: true  # To be uncommented for template
+      failure_notification_emails:
+        - ${workspace.current_user.emails[0].value}
+      max_retries: 3  # Maximum retries for production reliability
+      retry_interval_millis: 600_000  # 10 minutes between retries
+      job_cluster_min_workers: 2
+      job_cluster_max_workers: 8
+
+    #### Resource Overrides ####
+    resources:
+      jobs:
+        sample_ingestion:
+          # Extended timeout for production data volumes
+          timeout_seconds: 14400  # 4 hours
+          # Production schedule - daily at off-peak hours
+          schedule:
+            quartz_cron_expression: 0 0 1 * * ?  # At 01:00 AM daily
+            timezone_id: UTC
+            pause_status: UNPAUSED
+          # Production-grade email notifications
+          email_notifications:
+            on_failure: ${var.failure_notification_emails}
+            on_start: []
+            on_success: []
+
+        sample_pipeline_trigger:
+          # Production - one at a time for consistency
+          max_concurrent_runs: 1
+          schedule:
+            quartz_cron_expression: 0 0 6 * * ?  # At 06:00 AM (after ingestion completes)
+            timezone_id: UTC
+            pause_status: UNPAUSED
+
+      pipelines:
+        sample_pipeline:
+          # Production schema
+          schema: "bronze"
+          # Production clusters would be defined here when not using serverless
+          # clusters:
+          #   - label: default
+          #     autoscale:
+          #       min_workers: 3
+          #       max_workers: 10
+          #     node_type_id: i3.xlarge

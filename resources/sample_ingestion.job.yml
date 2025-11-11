@@ -1,0 +1,72 @@
+resources:
+  jobs:  # https://docs.databricks.com/aws/en/dev-tools/bundles/resources#job
+    sample_ingestion:
+      name: Sample Ingestion Job
+      max_concurrent_runs: 1
+      timeout_seconds: 0  # No timeout
+
+      email_notifications:
+        no_alert_for_skipped_runs: true
+        on_failure: ${var.failure_notification_emails}
+
+      # OPTION 1: Serverless compute
+      environments:
+        - environment_key: default
+          # https://docs.databricks.com/api/workspace/jobs/create#environments-spec
+          spec:
+            environment_version: "2"
+
+      # OPTION 2: Custom cluster
+      # Uncomment the section below and comment out the 'environments' section above
+      # This provides better control over cluster specs, libraries, and configuration
+      # job_clusters:
+      #   - job_cluster_key: job_cluster
+      #     <<: *autoscale_cluster  # Reference to cluster_configs.yml
+
+      tasks:  # https://docs.databricks.com/aws/en/dev-tools/bundles/job-task-types#other-task-settings
+        - task_key: ingest_to_raw
+          description: Ingest sample data to raw layer
+
+          # For serverless: use environment_key
+          environment_key: default
+
+          # For custom cluster: uncomment and use job_cluster_key instead
+          # job_cluster_key: job_cluster
+
+          max_retries: ${var.max_retries}
+          min_retry_interval_millis: ${var.retry_interval_millis}
+
+          spark_python_task:
+            python_file: ${workspace.file_path}/src/jobs/ingest_to_raw.py
+            parameters:
+              - --catalog_name
+              - ${var.catalog_name}
+              - --environment
+              - ${bundle.target}
+              - --user_name
+              - ${workspace.current_user.short_name}
+
+        # Second task: Transform bronze data to silver layer
+        - task_key: transform_to_silver
+          description: Transform raw data to silver layer
+          depends_on:
+            - task_key: ingest_to_raw
+
+          # For serverless: use environment_key
+          environment_key: default
+
+          # For custom cluster: uncomment and use job_cluster_key instead
+          # job_cluster_key: job_cluster
+
+          max_retries: ${var.max_retries}
+          min_retry_interval_millis: ${var.retry_interval_millis}
+
+          spark_python_task:
+            python_file: ${workspace.file_path}/src/jobs/transform_to_silver.py
+            parameters:
+              - --catalog_name
+              - ${var.catalog_name}
+              - --environment
+              - ${bundle.target}
+              - --user_name
+              - ${workspace.current_user.short_name}

@@ -1,0 +1,22 @@
+resources:
+  jobs:  # https://docs.databricks.com/aws/en/dev-tools/bundles/resources#job
+    sample_pipeline_trigger:
+      name: Sample Pipeline Trigger
+      max_concurrent_runs: 1
+      timeout_seconds: 0  # No timeout
+
+      email_notifications:
+        no_alert_for_skipped_runs: true
+        on_failure: ${var.failure_notification_emails}
+
+      schedule:
+        quartz_cron_expression: 0 0 * * * ?  # hourly
+        timezone_id: UTC
+        pause_status: PAUSED  # Default to paused; targets override as needed
+
+      tasks:  # https://docs.databricks.com/aws/en/dev-tools/bundles/job-task-types#other-task-settings
+        - task_key: trigger_pipeline
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.sample_pipeline.id}
+            # full_refresh: false  # Set to true for full refresh runs
+

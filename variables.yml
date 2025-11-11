@@ -1,0 +1,92 @@
+variables:
+  # ================================================
+  # Unity Catalog and Schema Configuration
+  # ================================================
+  catalog_name:
+    description: Default Unity Catalog to deploy resources into
+    # In newer Databricks CLI versions, you don't need to wrap it in backticks for hyphens
+    default: "users_<domain>"
+
+  default_schema_name:
+    description: Default schema to deploy resources into
+    default: "bronze_${workspace.current_user.short_name}"
+
+  # ================================================
+  # Pipeline Configuration
+  # ================================================
+  pipeline_min_workers:
+    description: Minimum workers for pipeline autoscale
+    default: 1
+
+  pipeline_max_workers:
+    description: Maximum workers for pipeline autoscale
+    default: 4
+
+  photon_enabled:
+    description: Enable Photon acceleration for pipelines
+    default: true
+
+  continuous_mode:
+    description: Run pipelines in continuous mode
+    default: false
+
+  # ================================================
+  # Job Cluster Configuration
+  # ================================================
+  job_cluster_min_workers:
+    description: Minimum workers for job cluster autoscale
+    default: 1
+
+  job_cluster_max_workers:
+    description: Maximum workers for job cluster autoscale
+    default: 4
+
+  failure_notification_emails:
+    description: Email addresses for failure alerts
+    default: []
+
+  max_retries:
+    description: Maximum number of retries for failed jobs
+    default: 2
+
+  retry_interval_millis:
+    description: Milliseconds to wait between job retries
+    default: 300_000
+
+  # ================================================
+  # Permission and Access Control Configuration
+  # ================================================
+
+  # Service Principals - for automated deployments and run_as identity
+  dev_service_principal:
+    description: Service principal application ID for dev environment deployment
+    default: ""  # Set via environment variable or CLI parameter
+
+  stage_service_principal:
+    description: Service principal application ID for stage environment deployment
+    default: ""  # Set via environment variable or CLI parameter
+
+  prod_service_principal:
+    description: Service principal application ID for production environment deployment
+    default: ""  # Set via environment variable or CLI parameter
+
+  # Group Names - customize these for your organization's group structure
+  users_group:
+    description: Group name for users with view access to dev resources
+    default: "users"
+
+  developers_group:
+    description: Group name for developers with access to dev resources
+    default: "developers"
+
+  qa_team_group:
+    description: Group name for QA team with access to stage environment
+    default: "qa_team"
+
+  operations_group:
+    description: Group name for operations team with production run access
+    default: "operations_team"
+
+  analytics_team_group:
+    description: Group name for analytics team with view access to production
+    default: "analytics_team"
