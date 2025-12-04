@@ -60,15 +60,15 @@ variables:
   # Service Principals - for automated deployments and run_as identity
   dev_service_principal:
     description: Service principal application ID for dev environment deployment
-    default: ""  # Note: Set via environment variable here or CLI parameter
+    default: ""  # Note: Set variable here or via environment variable / CLI parameter
 
   stage_service_principal:
     description: Service principal application ID for stage environment deployment
-    default: ""  # Note: Set via environment variable here or CLI parameter
+    default: ""  # Note: Set variable here or via environment variable / CLI parameter
 
   prod_service_principal:
     description: Service principal application ID for production environment deployment
-    default: ""  # Note: Set via environment variable here or CLI parameter
+    default: ""  # Note: Set variable here or via environment variable / CLI parameter
 
   default_service_principal:
     description: Service principal application ID to be substituted with env-specific service principal

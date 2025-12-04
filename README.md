@@ -1,7 +1,9 @@
 # TODO MY NOTES:
-10.11: reviewing permissions setup
-- [ ] TEST dev/stage/prod permissions deployment
-- [ ] stopped reviewing "Resource-Specific Permission Templates"
+- [x] TEST dev/stage/prod permissions deployment
+- [x] Configuring schema creation using DABs with permissions
+- [x] Fix to make sure create UC per user, not per schema
+- [x] Remove `permissions.yml` from repo
+- [x] Review the final setup of permissions - generated files etc.
 - [ ] Fix `cluster_configs.yml` as I can't use anchoring feature in different files -> think to move to core bundle and override clusters
 
 05.11: switched a bit to Job tasks configuration - (FINISHED - TEST) wanna generate `depends_on` task.
@@ -11,6 +13,14 @@
 03.11: STOPPED configuring clusters in `cluster_configs.yml` -> all looks great; also analyzed sample manually created LDP in `example_manual_pipeline.yaml`; continue:
   - [ ] Look into `permissions:` key - search it in bundle-samples
 
+# Useful commands
+
+```
+databricks bundle deploy -t prod --var="dev_service_principal=6b3a2d15-6f48-4d19-a56b-194a5dcdc234,stage_service_principal=c6c5d56a-2a4b-4a89-b44d-acb7d3f50631,prod_service_principal=139b87a5-53c4-4884-90eb-1dd37f8a2e4e" --force
+```
+
+# Hand-picked Docs
+* Job settings: https://docs.databricks.com/api/azure/workspace/jobs/create
 
 
 # MY PHILOSOPHY AS A CREATOR / HIGH-LEVEL PLAN FOR THIS REPOSITORY
@@ -22,20 +32,16 @@ The idea is right now to build a single comprehensive DABs setup for single use-
 
 Then, at some point, we will:
 1. Turn this use-case into as reusable template that can be configured and used as a "Custom Template" via databricks bundles CLI.
-2. Add new use cases for different environments management. Each use case within separate folder. There will be separate templates for each case. Use case ideas:
-2.1. Unity catalog-based separation - all environments reside
-in different Unity Catalogs (user/dev/prod/stage) within the same metastore. The most common; the current first use-case.
-2.2. Schema-based separation - all environments reside
-in different schemas (user/dev/prod/stage) within the same UC.
-2.3. Etc.
-1. Add plugs layer - the complexity of specific template use-case setup. I'm looking at it as a building blocks, so that for example, some teams don't want to have such complex permissions setup. During the template configuration, when they are prompted in the CLI, we can ask them whether they want a block for overall permissions setup or completely omit it. As a result, I will populate and plug in those blocks into the template.
+2. Note: at some point I was considering to add other "use cases" for different environments management (UC-based separation, schema-based separation etc.). Each use case could be in separate folder with its template. But I decided that it's better to not complicate/overengineer setup and keep single suggested use-case.
+3. Add plugins layer - the complexity of template might vary. I'm looking at it as a building blocks, so that for example, some teams don't want to have such complex permissions setup. During the template configuration, when they are prompted in the CLI, we can ask them whether they want a block for overall permissions setup or completely omit it. As a result, I will populate and plug in those blocks into the final template.
 
 ## TODOs from philosophy
 
 - [ ] Include prerequisites to that Unity Catalogs have to created (specified in `catalog_name` variable); service principals created
 - [ ] I don't really like the current folder structure that it contains variables and cluster_configs in separate files and it's all in the root repository folder. I want to move every related Databricks bundles stuff to one folder, maybe have some nested structure there, and have only @databricks.yml file at repository root.
 
-- [ ] separate this repo into different templates for different patterns: env-based catalogs, project-based catalogs
+- [ ] Turn this repo into template.
+- [ ] Add CI/CD configuration.
 - [ ] When Creating template:
   - [ ] Allow user to select cluster - serverless / custom - prefer to use custom; maybe even just leave serverless commented out or completely remove.
 
@@ -155,32 +161,39 @@ prod:
 
 ## 🔒 Permissions and Access Control
 
-This template includes a comprehensive permissions configuration system for managing access to your Databricks resources across environments.
+This template includes comprehensive permissions configuration for managing secure, role-based access to your Databricks resources across environments.
 
-### 🚀 Get Started Now
+### 🚀 Quick Start
 
-Choose your path:
-- **Just testing?** → Deploy immediately with `databricks bundle deploy -t user` (no setup needed!)
-- **Team collaboration?** → Follow the [5-minute setup guide](./GET_STARTED_WITH_PERMISSIONS.md)
-- **Production ready?** → Full [comprehensive guide](./PERMISSIONS_GUIDE.md)
+**Option 1: Just Testing** (No Setup Required)
+```bash
+databricks bundle deploy -t user  # Automatic full access in development mode
+```
 
-### 📖 Complete Documentation
+**Option 2: Team Collaboration** (5-Minute Setup)
+1. Create required groups in Databricks workspace (see [docs/SETUP_GROUPS.md](./docs/SETUP_GROUPS.md))
+2. Deploy: `databricks bundle deploy -t dev`
 
-| Document | Purpose | Time to Read |
-|----------|---------|--------------|
-| [**Get Started**](./GET_STARTED_WITH_PERMISSIONS.md) | Choose your path & quick setup | 5 min |
-| [**Quick Reference**](./PERMISSIONS_QUICK_REFERENCE.md) | Fast lookup & common patterns | 2 min |
-| [**Full Guide**](./PERMISSIONS_GUIDE.md) | Complete setup instructions | 15 min |
-| [**Architecture**](./docs/PERMISSIONS_ARCHITECTURE.md) | System design with diagrams | 10 min |
-| [**Summary**](./PERMISSIONS_SUMMARY.md) | What was added to template | 5 min |
+**Option 3: Production Ready** (Full Setup)
+1. Create service principals
+2. Configure in `variables.yml`
+3. Enable in `databricks.yml`
 
-### 🎯 Quick Facts
+### 📖 Documentation
 
-- **Three permission levels**: Bundle → Target → Resource (merge together)
-- **Four permission types**: `CAN_VIEW`, `CAN_RUN`, `CAN_MANAGE_RUN`, `CAN_MANAGE`
-- **Zero config required**: Works immediately in `user` target (development mode)
-- **Production ready**: Service principal patterns included
-- **Fully documented**: 2000+ lines of examples and guides
+| Document | Purpose |
+|----------|---------|
+| **[docs/SETUP_GROUPS.md](./docs/SETUP_GROUPS.md)** | How to create required groups before deployment |
+| **[docs/PERMISSIONS_SETUP.md](./docs/PERMISSIONS_SETUP.md)** | Complete setup guide with examples |
+| **[docs/PERMISSIONS_REFERENCE.md](./docs/PERMISSIONS_REFERENCE.md)** | Comprehensive reference and advanced patterns |
+
+### 🎯 Key Features
+
+- **Two permission systems**: Resource permissions (jobs/pipelines) + Unity Catalog grants (schemas)
+- **Zero config in dev**: Works immediately in `user` target (development mode)
+- **Environment-specific**: Different access levels for dev/stage/prod
+- **Service principal ready**: Automated, auditable deployments
+- **Group-based**: Scalable access management
 
 ## 🔧 Customization
 
@@ -338,8 +351,8 @@ databricks bundle destroy -t user
 3. **Resource files** (`resources/`): Add/modify jobs and pipelines
 4. **Variables** (`variables.yml`): Add your configuration variables
 5. **Workspace hosts** (`databricks.yml`): Update placeholder URLs
-6. **Service principals** (`databricks.yml`): Update for stage/prod
-7. **Permissions** (`permissions.yml`, `databricks.yml`): Configure access control for your organization
+6. **Service principals** (`databricks.yml`): Update for stage/prod (optional)
+7. **Permissions** (`databricks.yml`): Configure access control for your organization (optional)
 
 ## 📚 Additional Resources
 
