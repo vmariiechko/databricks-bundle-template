@@ -6,8 +6,11 @@ resources:
       timeout_seconds: 0  # No timeout
 
       email_notifications:
-        no_alert_for_skipped_runs: true
         on_failure: ${var.failure_notification_emails}
+
+      notification_settings:
+        no_alert_for_skipped_runs: true
+        no_alert_for_canceled_runs: true
 
       # OPTION 1: Serverless compute
       environments:
