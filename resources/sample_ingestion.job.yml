@@ -22,9 +22,24 @@ resources:
       # OPTION 2: Custom cluster
       # Uncomment the section below and comment out the 'environments' section above
       # This provides better control over cluster specs, libraries, and configuration
+      # Template source: templates/cluster_configs.yml (autoscale_cluster)
       # job_clusters:
       #   - job_cluster_key: job_cluster
-      #     <<: *autoscale_cluster  # Reference to cluster_configs.yml
+      #     new_cluster:
+      #       spark_version: 17.3.x-scala2.13
+      #       node_type_id: Standard_DS3_v2  # AWS: i3.xlarge; Azure: Standard_DS3_v2; GCP: n1-highmem-4
+      #       autoscale:
+      #         min_workers: ${var.job_cluster_min_workers}
+      #         max_workers: ${var.job_cluster_max_workers}
+      #       autotermination_minutes: 10
+      #       custom_tags:
+      #         bundle: ${bundle.name}
+      #         environment: ${bundle.target}
+      #       spark_conf:
+      #         "spark.databricks.delta.autoCompact.enabled": "auto"
+      #         "spark.databricks.delta.optimizeWrite.enabled": "true"
+      #       spark_env_vars:
+      #         ENVIRONMENT: ${bundle.target}
 
       tasks:  # https://docs.databricks.com/aws/en/dev-tools/bundles/job-task-types#other-task-settings
         - task_key: ingest_to_raw

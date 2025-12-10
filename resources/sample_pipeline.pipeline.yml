@@ -30,8 +30,17 @@ resources:
 
       # OPTION 2: Custom cluster for DLT
       # Uncomment the section below and set serverless: false
+      # Template source: templates/cluster_configs.yml (pipeline_cluster_autoscale)
       # clusters:
-      #   - <<: *pipeline_cluster_autoscale  # Reference to cluster_configs.yml
+      #   - label: default
+      #     node_type_id: Standard_DS3_v2  # AWS: i3.xlarge; Azure: Standard_DS3_v2; GCP: n1-highmem-4
+      #     autoscale:
+      #       mode: ENHANCED
+      #       min_workers: ${var.pipeline_min_workers}
+      #       max_workers: ${var.pipeline_max_workers}
+      #     custom_tags:
+      #       bundle: ${bundle.name}
+      #       environment: ${bundle.target}
 
       # Source code - referencing *.py files in Databricks Notebook format
       libraries:

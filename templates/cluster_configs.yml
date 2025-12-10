@@ -1,0 +1,163 @@
+# ==========================================
+# CLUSTER CONFIGURATION TEMPLATES
+# ==========================================
+# This file contains reusable cluster configuration templates that you can copy
+# and paste into your resource files (jobs, pipelines, etc.)
+#
+# IMPORTANT: YAML anchors don't work across files, so these are provided as
+# copy-paste templates, not as referenceable anchors.
+#
+# Usage:
+# 1. Find the cluster configuration that fits your needs below
+# 2. Copy the entire configuration (e.g. single list item under job_clusters key below)
+# 3. Paste it into your resource file where cluster configuration is needed
+# 4. Adjust parameters as needed (workers, node types, spark configs, etc.)
+#
+# Docs:
+# - Cluster configuration: https://docs.databricks.com/aws/en/dev-tools/bundles/resources#cluster
+
+# ==========================================
+# JOB CLUSTER CONFIGURATIONS
+# ==========================================
+# These are used in job clusters definitions under the 'job_clusters' key
+
+job_clusters:
+  # Small cluster for development/testing
+  # Use case: Light workloads, development, testing
+  # Cost: Low (1 worker)
+  - job_cluster_key: job_cluster_small
+    new_cluster:
+      num_workers: 1
+      spark_version: 17.3.x-scala2.13
+      node_type_id: Standard_DS3_v2  # AWS: i3.xlarge; Azure: Standard_DS3_v2; GCP: n1-highmem-4
+      autotermination_minutes: 10
+      custom_tags:
+        bundle: ${bundle.name}
+        environment: ${bundle.target}
+      spark_conf:
+        "spark.databricks.delta.autoCompact.enabled": "auto"
+      spark_env_vars:
+        ENVIRONMENT: ${bundle.target}
+
+  # Medium cluster for regular workloads
+  # Use case: Standard production workloads, moderate data volumes
+  # Cost: Medium (2 workers)
+  - job_cluster_key: job_cluster_medium
+    new_cluster:
+      num_workers: 2
+      spark_version: 17.3.x-scala2.13
+      node_type_id: Standard_DS3_v2
+      autotermination_minutes: 10
+      custom_tags:
+        bundle: ${bundle.name}
+        environment: ${bundle.target}
+      spark_conf:
+        "spark.databricks.delta.autoCompact.enabled": "auto"
+        "spark.databricks.delta.optimizeWrite.enabled": "true"
+      spark_env_vars:
+        ENVIRONMENT: ${bundle.target}
+
+  # Autoscaling cluster for variable workloads
+  # Use case: Variable workloads, cost optimization, general production use
+  # Cost: Variable (scales based on workload)
+  - job_cluster_key: job_cluster_autoscale
+    new_cluster:
+      spark_version: 17.3.x-scala2.13
+      node_type_id: Standard_DS3_v2
+      autoscale:
+        min_workers: ${var.job_cluster_min_workers}
+        max_workers: ${var.job_cluster_max_workers}
+      autotermination_minutes: 10
+      custom_tags:
+        bundle: ${bundle.name}
+        environment: ${bundle.target}
+      spark_conf:
+        "spark.databricks.delta.autoCompact.enabled": "auto"
+        "spark.databricks.delta.optimizeWrite.enabled": "true"
+      spark_env_vars:
+        ENVIRONMENT: ${bundle.target}
+
+  # Photon-enabled cluster for high-performance workloads
+  # Use case: High-performance workloads, large data volumes, complex queries
+  # Cost: Higher (premium for Photon engine)
+  - job_cluster_key: job_cluster_photon
+    new_cluster:
+      spark_version: 17.3.x-scala2.13
+      node_type_id: Standard_DS3_v2
+      runtime_engine: PHOTON
+      autoscale:
+        min_workers: ${var.job_cluster_min_workers}
+        max_workers: ${var.job_cluster_max_workers}
+      autotermination_minutes: 10
+      custom_tags:
+        bundle: ${bundle.name}
+        environment: ${bundle.target}
+      spark_conf:
+        "spark.databricks.delta.autoCompact.enabled": "auto"
+        "spark.databricks.delta.optimizeWrite.enabled": "true"
+      spark_env_vars:
+        ENVIRONMENT: ${bundle.target}
+
+# ==========================================
+# LAKEFLOW DECLARATIVE PIPELINES (LDP) CLUSTERS
+# ==========================================
+# These are used in pipeline definitions under the 'clusters' key
+# Note: LDP have slightly different cluster syntax than jobs
+
+clusters:
+  # Small pipeline cluster for development
+  # Use case: LDP development, testing, small datasets
+  # Cost: Low (1 worker)
+  - label: default
+    num_workers: 1
+    node_type_id: Standard_DS3_v2
+    custom_tags:
+      bundle: ${bundle.name}
+      environment: ${bundle.target}
+
+  # Autoscaling pipeline cluster for production
+  # Use case: Production LDP pipelines with variable data volumes
+  # Cost: Variable (scales based on workload)
+  - label: default
+    node_type_id: Standard_DS3_v2
+    autoscale:
+      mode: ENHANCED
+      min_workers: ${var.pipeline_min_workers}
+      max_workers: ${var.pipeline_max_workers}
+    custom_tags:
+      bundle: ${bundle.name}
+      environment: ${bundle.target}
+
+# ==========================================
+# COMMON CUSTOMIZATIONS
+# ==========================================
+
+# Node Types (select based on your cloud provider and workload):
+# Docs: https://www.databricks.com/product/instance-types
+# AWS:
+#   - i3.xlarge (general purpose)
+#   - i3.2xlarge (compute optimized)
+#   - r5d.xlarge (memory optimized)
+#
+# Azure:
+#   - Standard_DS3_v2 (general purpose)
+#   - Standard_DS4_v2 (more compute)
+#   - Standard_E8_v3 (memory optimized)
+#
+# GCP:
+#   - n1-standard-4 (general purpose)
+#   - n1-standard-8 (more compute)
+#   - n2-highmem-4 (more memory)
+
+# Common Spark Configurations:
+# spark_conf:
+#   "spark.databricks.delta.autoCompact.enabled": "auto"  # Auto-compact small files
+#   "spark.databricks.delta.optimizeWrite.enabled": "true"  # Optimize file sizes during writes
+#   # Adaptive Query Execution; https://docs.databricks.com/aws/en/optimizations/aqe
+#   "spark.sql.adaptive.enabled": "true"
+#   "spark.sql.adaptive.coalescePartitions.enabled": "true"
+#   "spark.databricks.io.cache.enabled": "true"  # Enable Delta cache
+
+# `runtime_engine` options:
+#   - STANDARD (default)
+#   - PHOTON (high-performance, additional cost)

@@ -4,7 +4,7 @@
 - [x] Fix to make sure create UC per user, not per schema
 - [x] Remove `permissions.yml` from repo
 - [x] Review the final setup of permissions - generated files etc.
-- [ ] Fix `cluster_configs.yml` as I can't use anchoring feature in different files -> think to move to core bundle and override clusters
+- [x] Fix `cluster_configs.yml` as I can't use anchoring feature in different files -> SOLVED: moved to templates folder, added inline configs to resource files
 
 05.11: switched a bit to Job tasks configuration - (FINISHED - TEST) wanna generate `depends_on` task.
  - [ ] Explore task options; consider `retry_on_timeout`: https://docs.databricks.com/aws/en/dev-tools/bundles/job-task-types#other-task-settings
@@ -42,8 +42,14 @@ Then, at some point, we will:
 
 - [ ] Turn this repo into template.
 - [ ] Add CI/CD configuration.
+- [ ] Instruct user / fix to replace UC placeholders `_<domain>`
 - [ ] When Creating template:
-  - [ ] Allow user to select cluster - serverless / custom - prefer to use custom; maybe even just leave serverless commented out or completely remove.
+  - [ ] **Compute Type Selection**: Add CLI prompt asking "Select compute type: (1) Serverless, (2) Custom clusters, (3) Both (default: custom)". Based on selection:
+    - Serverless: Keep `environments` section, remove `job_clusters`/`clusters` sections
+    - Custom: Remove `environments` section, uncomment `job_clusters`/`clusters` sections
+    - Both: Keep both options, with custom clusters uncommented as default
+  - [ ] Cluster configurations are now in `templates/cluster_configs.yml` - users copy/paste as needed
+  - [ ] Consider whether to prompt for node_type_id based on cloud provider (AWS/Azure/GCP)
 
 
 

@@ -12,7 +12,6 @@ include:
   - resources/*.yml
   - resources/*/*.yml
   - variables.yml
-  - cluster_configs.yml
 
 targets:
   # ------------------------
