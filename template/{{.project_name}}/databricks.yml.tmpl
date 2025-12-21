@@ -1,5 +1,17 @@
+# This is a Databricks asset bundle definition for {{.project_name}}.
+# See https://docs.databricks.com/dev-tools/bundles/index.html for documentation.
+#
+# Generated with: databricks bundle init
+# Compute type: {{.compute_type}}
+# Environment setup: {{.environment_setup}}
+{{- if eq .include_permissions "yes" }}
+# Permissions: Enabled (4-group RBAC)
+{{- else }}
+# Permissions: Disabled (configure manually if needed)
+{{- end }}
+
 bundle:
-  name: realworld_example
+  name: {{.project_name}}
 
 # Experimental features configuration
 experimental:
@@ -10,7 +22,6 @@ experimental:
 
 include:
   - resources/*.yml
-  - resources/*/*.yml
   - variables.yml
 
 targets:
@@ -21,7 +32,7 @@ targets:
     mode: development
     default: true
     workspace:
-      host: https://dbc-eeb3ccef-c1ef.cloud.databricks.com/
+      host: {{workspace_host}}
       root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
     presets:
       name_prefix: "[user ${workspace.current_user.short_name}] "
@@ -32,9 +43,8 @@ targets:
 
     #### Variables ####
     variables:
-      catalog_name: "user_${workspace.current_user.short_name}_<domain>"
+      catalog_name: "user_${workspace.current_user.short_name}_{{.uc_catalog_suffix}}"
       default_schema_name: "bronze"
-      default_service_principal: ${var.dev_service_principal}
       pipeline_min_workers: 1
       pipeline_max_workers: 1
       photon_enabled: false
@@ -43,6 +53,8 @@ targets:
       job_cluster_min_workers: 1
       job_cluster_max_workers: 1
       max_retries: 0  # No retries in dev mode - fail fast
+
+{{- if eq .include_permissions "yes" }}
 
     #### Resource Overrides ####
     resources:
@@ -73,20 +85,23 @@ targets:
             - principal: ${var.developers_group}
               privileges:
                 - ALL_PRIVILEGES
+{{- end }}
 
       jobs:
-        sample_ingestion:
+        {{.project_name}}_ingestion:
           # Override schedule - don't run automatically in user env
           schedule:
             quartz_cron_expression: 0 0 2 * * ?  # Same time but paused
             timezone_id: UTC
             pause_status: PAUSED
 
-        sample_pipeline_trigger:
+        {{.project_name}}_pipeline_trigger:
           schedule:
             quartz_cron_expression: 0 0 * * * ?
             timezone_id: UTC
             pause_status: PAUSED
+
+{{- if eq .include_dev_environment "yes" }}
 
   # -----------------------
   # Development Environment
@@ -99,14 +114,14 @@ targets:
       tags:
         environment: dev
     workspace:
-      host: https://dbc-eeb3ccef-c1ef.cloud.databricks.com/
+      host: {{workspace_host}}
       root_path: /Workspace/${bundle.target}/.bundle/${bundle.name}
     git:
       branch: dev
     run_as:
-      # TODO: Uncomment to use service principal for template
-      # service_principal_name: ${var.dev_service_principal}
-      user_name: ${workspace.current_user.userName}
+      service_principal_name: ${var.dev_service_principal}
+
+{{- if eq .include_permissions "yes" }}
 
     #### Permissions ####
     permissions:
@@ -117,20 +132,12 @@ targets:
     # Service principal or deployment user gets full management
     - level: CAN_MANAGE
       service_principal_name: ${var.dev_service_principal}
-
-    # From template `contrib\templates\data-engineering\template\{{.project_name}}\databricks.yml.tmpl`
-    # Kept for reference only, will come back when creating template:
-    # permissions:
-    #   - {{if is_service_principal}}service_principal{{else}}user{{end}}_name: {{user_name}}
-    #     level: CAN_MANAGE
-    # run_as:
-    #   {{if is_service_principal}}service_principal{{else}}user{{end}}_name: {{user_name}}
+{{- end }}
 
     #### Variables ####
     variables:
-      catalog_name: "dev_<domain>"
+      catalog_name: "dev_{{.uc_catalog_suffix}}"
       default_schema_name: "bronze"
-      default_service_principal: ${var.dev_service_principal}
       pipeline_min_workers: 1
       pipeline_max_workers: 2
       photon_enabled: true
@@ -142,14 +149,19 @@ targets:
       job_cluster_min_workers: 1
       job_cluster_max_workers: 3
 
+{{- if eq .include_permissions "yes" }}
+
     #### Resource Overrides ####
     resources:
       schemas:
-        # Bronze: Full access for developers in dev
+        # Bronze: Full access for developers and deployment SP
         bronze_schema:
           name: bronze
           catalog_name: ${var.catalog_name}
           grants:
+            - principal: ${var.dev_service_principal}
+              privileges:
+                - ALL_PRIVILEGES
             - principal: ${var.developers_group}
               privileges:
                 - ALL_PRIVILEGES
@@ -159,6 +171,9 @@ targets:
           name: silver
           catalog_name: ${var.catalog_name}
           grants:
+            - principal: ${var.dev_service_principal}
+              privileges:
+                - ALL_PRIVILEGES
             - principal: ${var.developers_group}
               privileges:
                 - ALL_PRIVILEGES
@@ -172,6 +187,9 @@ targets:
           name: gold
           catalog_name: ${var.catalog_name}
           grants:
+            - principal: ${var.dev_service_principal}
+              privileges:
+                - ALL_PRIVILEGES
             - principal: ${var.developers_group}
               privileges:
                 - ALL_PRIVILEGES
@@ -179,9 +197,10 @@ targets:
               privileges:
                 - USE_SCHEMA
                 - SELECT
+{{- end }}
 
       jobs:
-        sample_ingestion:
+        {{.project_name}}_ingestion:
           # 1 hour timeout for dev environment
           timeout_seconds: 3600
           # Active schedule for daily testing
@@ -190,11 +209,12 @@ targets:
             timezone_id: UTC
             pause_status: UNPAUSED
 
-        sample_pipeline_trigger:
+        {{.project_name}}_pipeline_trigger:
           schedule:
             quartz_cron_expression: 0 30 2 * * ?  # At 02:30 AM daily (after ingestion)
             timezone_id: UTC
             pause_status: UNPAUSED
+{{- end }}
 
   # -------------------
   # Staging Environment
@@ -206,14 +226,15 @@ targets:
       tags:
         environment: stage
     workspace:
-      host: https://dbc-eeb3ccef-c1ef.cloud.databricks.com/
+      # MULTI-WORKSPACE: If using a separate workspace for stage, replace the host below
+      host: {{workspace_host}}
       root_path: /Workspace/${bundle.target}/.bundle/${bundle.name}
     git:
       branch: stage
     run_as:
-      # TODO: Uncomment to use service principal for template
-      # service_principal_name: ${var.stage_service_principal}
-      user_name: ${workspace.current_user.userName}
+      service_principal_name: ${var.stage_service_principal}
+
+{{- if eq .include_permissions "yes" }}
 
     #### Permissions ####
     permissions:
@@ -228,12 +249,12 @@ targets:
     # Only deployment service principal can manage
     - level: CAN_MANAGE
       service_principal_name: ${var.stage_service_principal}
+{{- end }}
 
     #### Variables ####
     variables:
-      catalog_name: "stage_<domain>"
+      catalog_name: "stage_{{.uc_catalog_suffix}}"
       default_schema_name: "bronze"
-      default_service_principal: ${var.stage_service_principal}
       pipeline_min_workers: 2
       pipeline_max_workers: 4
       photon_enabled: true
@@ -245,14 +266,19 @@ targets:
       job_cluster_min_workers: 2
       job_cluster_max_workers: 5
 
+{{- if eq .include_permissions "yes" }}
+
     #### Resource Overrides ####
     resources:
       schemas:
-        # Bronze: Developers and QA read-only in stage
+        # Bronze: SP full access, Developers and QA read-only
         bronze_schema:
           name: bronze
           catalog_name: ${var.catalog_name}
           grants:
+            - principal: ${var.stage_service_principal}
+              privileges:
+                - ALL_PRIVILEGES
             - principal: ${var.developers_group}
               privileges:
                 - USE_SCHEMA
@@ -262,11 +288,14 @@ targets:
                 - USE_SCHEMA
                 - SELECT
 
-        # Silver: Developers, QA, and Analytics read-only
+        # Silver: SP full access, Developers, QA, and Analytics read-only
         silver_schema:
           name: silver
           catalog_name: ${var.catalog_name}
           grants:
+            - principal: ${var.stage_service_principal}
+              privileges:
+                - ALL_PRIVILEGES
             - principal: ${var.developers_group}
               privileges:
                 - USE_SCHEMA
@@ -280,11 +309,14 @@ targets:
                 - USE_SCHEMA
                 - SELECT
 
-        # Gold: Wider read access for testing
+        # Gold: SP full access, wider read access for testing
         gold_schema:
           name: gold
           catalog_name: ${var.catalog_name}
           grants:
+            - principal: ${var.stage_service_principal}
+              privileges:
+                - ALL_PRIVILEGES
             - principal: ${var.developers_group}
               privileges:
                 - USE_SCHEMA
@@ -297,9 +329,10 @@ targets:
               privileges:
                 - USE_SCHEMA
                 - SELECT
+{{- end }}
 
       jobs:
-        sample_ingestion:
+        {{.project_name}}_ingestion:
           # Longer timeout for production-like workloads
           timeout_seconds: 7200  # 2 hours
           # Production-like schedule - multiple runs per day for testing
@@ -308,13 +341,15 @@ targets:
             timezone_id: UTC
             pause_status: UNPAUSED
 
-        sample_pipeline_trigger:
+        {{.project_name}}_pipeline_trigger:
           # Higher concurrency for testing load
           max_concurrent_runs: 2
           schedule:
             quartz_cron_expression: 0 30 4,16 * * ?  # 30 min after ingestion
             timezone_id: UTC
             pause_status: UNPAUSED
+
+{{- if eq .environment_setup "full" }}
 
   # ----------------------
   # Production Environment
@@ -326,15 +361,15 @@ targets:
       tags:
         environment: prod
     workspace:
-      # NOTE: you might want to have separate workspace for production
-      host: https://dbc-eeb3ccef-c1ef.cloud.databricks.com/
+      # MULTI-WORKSPACE: If using a separate workspace for production, replace the host below:
+      host: {{workspace_host}}
       root_path: /Workspace/${bundle.target}/.bundle/${bundle.name}
     git:
       branch: prod
     run_as:
-      # TODO: Uncomment to use service principal for template
-      # service_principal_name: ${var.prod_service_principal}
-      user_name: ${workspace.current_user.userName}
+      service_principal_name: ${var.prod_service_principal}
+
+{{- if eq .include_permissions "yes" }}
 
     #### Permissions ####
     permissions:
@@ -349,16 +384,16 @@ targets:
     # Only service principal can manage resources
     - level: CAN_MANAGE
       service_principal_name: ${var.prod_service_principal}
+{{- end }}
 
     #### Variables ####
     variables:
-      catalog_name: "prod_<domain>"
+      catalog_name: "prod_{{.uc_catalog_suffix}}"
       default_schema_name: "bronze"
-      default_service_principal: ${var.prod_service_principal}
       pipeline_min_workers: 2
       pipeline_max_workers: 8
       photon_enabled: true
-      # continuous_mode: true  # To be uncommented for template
+      # continuous_mode: true  # Uncomment for continuous pipelines
       failure_notification_emails:
         - ${workspace.current_user.emails[0].value}
       max_retries: 3  # Maximum retries for production reliability
@@ -366,24 +401,32 @@ targets:
       job_cluster_min_workers: 2
       job_cluster_max_workers: 8
 
+{{- if eq .include_permissions "yes" }}
+
     #### Resource Overrides ####
     resources:
       schemas:
-        # Bronze: Read-only for operations (incident investigation)
+        # Bronze: SP full access, Operations read-only (incident investigation)
         bronze_schema:
           name: bronze
           catalog_name: ${var.catalog_name}
           grants:
+            - principal: ${var.prod_service_principal}
+              privileges:
+                - ALL_PRIVILEGES
             - principal: ${var.operations_group}
               privileges:
                 - USE_SCHEMA
                 - SELECT
 
-        # Silver: Read-only for analytics and operations
+        # Silver: SP full access, Analytics and Operations read-only
         silver_schema:
           name: silver
           catalog_name: ${var.catalog_name}
           grants:
+            - principal: ${var.prod_service_principal}
+              privileges:
+                - ALL_PRIVILEGES
             - principal: ${var.analytics_team_group}
               privileges:
                 - USE_SCHEMA
@@ -393,11 +436,14 @@ targets:
                 - USE_SCHEMA
                 - SELECT
 
-        # Gold: Read access for analytics and operations (production-ready data)
+        # Gold: SP full access, Analytics and Operations read-only
         gold_schema:
           name: gold
           catalog_name: ${var.catalog_name}
           grants:
+            - principal: ${var.prod_service_principal}
+              privileges:
+                - ALL_PRIVILEGES
             - principal: ${var.analytics_team_group}
               privileges:
                 - USE_SCHEMA
@@ -406,9 +452,10 @@ targets:
               privileges:
                 - USE_SCHEMA
                 - SELECT
+{{- end }}
 
       jobs:
-        sample_ingestion:
+        {{.project_name}}_ingestion:
           # Extended timeout for production data volumes
           timeout_seconds: 14400  # 4 hours
           # Production schedule - daily at off-peak hours
@@ -422,7 +469,7 @@ targets:
             on_start: []
             on_success: []
 
-        sample_pipeline_trigger:
+        {{.project_name}}_pipeline_trigger:
           # Production - one at a time for consistency
           max_concurrent_runs: 1
           schedule:
@@ -431,13 +478,16 @@ targets:
             pause_status: UNPAUSED
 
       pipelines:
-        sample_pipeline:
+        {{.project_name}}_pipeline:
           # Production schema
           schema: "bronze"
+{{- if or (eq .compute_type "classic") (eq .compute_type "both") }}
           # Production clusters would be defined here when not using serverless
           # clusters:
           #   - label: default
           #     autoscale:
           #       min_workers: 3
           #       max_workers: 10
-          #     node_type_id: i3.xlarge
+          #     node_type_id: {{template "node_type_id" .}}
+{{- end }}
+{{- end }}

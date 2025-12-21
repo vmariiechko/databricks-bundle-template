@@ -22,10 +22,7 @@ def main():
 
     spark = SparkSession.builder.appName("SilverTransformation").getOrCreate()
 
-    # Determine schema names based on environment
-    catalog_name = (
-        args.catalog_name if args.environment != "user" else f"user_{args.user_name}_<domain>"
-    )
+    catalog_name = args.catalog_name
     bronze_schema = "bronze"
     silver_schema = "silver"
 
@@ -59,7 +56,7 @@ def main():
     df_silver.write.mode("overwrite").saveAsTable(silver_table_fqn)
 
     print(f"Wrote to {silver_table_fqn}")
-    print("✓ Silver transformation completed")
+    print(" Silver transformation completed")
 
 
 if __name__ == "__main__":

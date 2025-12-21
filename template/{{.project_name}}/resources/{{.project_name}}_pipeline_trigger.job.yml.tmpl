@@ -1,7 +1,7 @@
 resources:
   jobs:  # https://docs.databricks.com/aws/en/dev-tools/bundles/resources#job
-    sample_pipeline_trigger:
-      name: Sample Pipeline Trigger
+    {{.project_name}}_pipeline_trigger:
+      name: {{.project_name}} Pipeline Trigger
       max_concurrent_runs: 1
       timeout_seconds: 0  # No timeout
 
@@ -20,6 +20,5 @@ resources:
       tasks:  # https://docs.databricks.com/aws/en/dev-tools/bundles/job-task-types#other-task-settings
         - task_key: trigger_pipeline
           pipeline_task:
-            pipeline_id: ${resources.pipelines.sample_pipeline.id}
+            pipeline_id: ${resources.pipelines.{{.project_name}}_pipeline.id}
             # full_refresh: false  # Set to true for full refresh runs
-

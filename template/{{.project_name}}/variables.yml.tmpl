@@ -4,7 +4,7 @@ variables:
   # ================================================
   catalog_name:
     description: Unity Catalog name (override per target in databricks.yml)
-    default: "users_<domain>"
+    default: "user_{{.uc_catalog_suffix}}"
 
   default_schema_name:
     description: Default schema for resources
@@ -57,24 +57,43 @@ variables:
   # ================================================
   # Set service principals using one of methods:
   # * Set values directly here for `default:` key
-  # * CLI: databricks bundle deploy -t dev --var="dev_service_principal=<app-id>,stage_service_principal=<app-id>,prod_service_principal=<app-id>"
+  # * CLI: databricks bundle deploy -t dev --var="dev_service_principal=<app-id>,..."
   # * Env variable: BUNDLE_VAR_dev_service_principal=<app-id>
+{{- if eq .configure_sp_now "no" }}
+  #
+  # NOTE: Search for "SP_PLACEHOLDER" to find and replace these values
+  # with your actual service principal application IDs.
+{{- end }}
 
+{{- if eq .include_dev_environment "yes" }}
   dev_service_principal:
     description: Service principal app ID for dev environment
-    default: ""
+  {{- if and (eq .configure_sp_now "yes") (ne .dev_service_principal "") }}
+    default: "{{.dev_service_principal}}"
+  {{- else }}
+    default: "SP_PLACEHOLDER_DEV"  # Replace with your dev SP app ID
+  {{- end }}
+{{- end }}
 
   stage_service_principal:
     description: Service principal app ID for stage environment
-    default: ""
+  {{- if and (eq .configure_sp_now "yes") (ne .stage_service_principal "") }}
+    default: "{{.stage_service_principal}}"
+  {{- else }}
+    default: "SP_PLACEHOLDER_STAGE"  # Replace with your stage SP app ID
+  {{- end }}
 
+{{- if eq .environment_setup "full" }}
   prod_service_principal:
     description: Service principal app ID for prod environment
-    default: ""
+  {{- if and (eq .configure_sp_now "yes") (ne .prod_service_principal "") }}
+    default: "{{.prod_service_principal}}"
+  {{- else }}
+    default: "SP_PLACEHOLDER_PROD"  # Replace with your prod SP app ID
+  {{- end }}
+{{- end }}
 
-  default_service_principal:
-    description: Placeholder, substituted per target in databricks.yml - do not provide default value here
-    default: ""
+{{- if eq .include_permissions "yes" }}
 
   # ================================================
   # User Groups (create before deployment)
@@ -90,10 +109,13 @@ variables:
     description: QA team group name (stage access)
     default: "qa_team"
 
+{{- if eq .environment_setup "full" }}
   operations_group:
     description: Operations team group name (prod access)
     default: "operations_team"
+{{- end }}
 
   analytics_team_group:
     description: Analytics team group name (read access)
     default: "analytics_team"
+{{- end }}

@@ -5,6 +5,10 @@
 # IMPORTANT: Schema resources are created if they don't exist and managed by
 # the bundle. The owner is always the deployment user/service principal.
 #
+# Grants are configured per-target in databricks.yml to ensure:
+# - User target: No SP references (works without SP configuration)
+# - CI/CD targets: SP grants added via target overrides
+#
 # Documentation: https://docs.databricks.com/aws/en/dev-tools/bundles/resources#schema-unity-catalog
 # ============================================================================
 
@@ -14,14 +18,6 @@ resources:
       name: bronze
       catalog_name: ${var.catalog_name}
       comment: "Bronze layer: Raw ingested data with minimal transformations"
-
-      # Base grants - same across all environments
-      # Environment-specific grants are defined in databricks.yml target overrides
-      grants:
-        - principal: ${var.default_service_principal}
-          privileges:
-            - ALL_PRIVILEGES
-
       properties:
         environment: ${bundle.target}
         managed_by: databricks_bundle
@@ -31,12 +27,6 @@ resources:
       name: silver
       catalog_name: ${var.catalog_name}
       comment: "Silver layer: Validated and enriched business data"
-
-      grants:
-        - principal: ${var.default_service_principal}
-          privileges:
-            - ALL_PRIVILEGES
-
       properties:
         environment: ${bundle.target}
         managed_by: databricks_bundle
@@ -46,12 +36,6 @@ resources:
       name: gold
       catalog_name: ${var.catalog_name}
       comment: "Gold layer: Aggregated analytics and reporting data"
-
-      grants:
-        - principal: ${var.default_service_principal}
-          privileges:
-            - ALL_PRIVILEGES
-
       properties:
         environment: ${bundle.target}
         managed_by: databricks_bundle

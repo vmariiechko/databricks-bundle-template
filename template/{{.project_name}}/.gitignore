@@ -79,9 +79,3 @@ Thumbs.db
 tmp/
 temp/
 *.tmp
-
-# ===========================================
-# Template Testing
-# ===========================================
-# Test output from template initialization
-test-output/

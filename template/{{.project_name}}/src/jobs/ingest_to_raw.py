@@ -27,15 +27,13 @@ def main():
     print("\nSample data:")
     df.show(5)
 
-    catalog_name = (
-        args.catalog_name if args.environment != "user" else f"user_{args.user_name}_<domain>"
-    )
+    catalog_name = args.catalog_name
     schema_name = "bronze"
     table_fqn = f"`{catalog_name}`.`{schema_name}`.`sales_customers_raw`"
     df.write.mode("overwrite").saveAsTable(table_fqn)
 
     print(f"\nWrote {df.count()} sample records to {table_fqn}.")
-    print("\n✓ Job completed successfully!")
+    print("\n Job completed successfully!")
 
 
 if __name__ == "__main__":

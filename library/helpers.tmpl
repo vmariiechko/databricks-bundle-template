@@ -1,0 +1,132 @@
+{{/*
+  Custom Template Helpers for Databricks Multi-Environment Bundle Template
+
+  These helpers are available in all .tmpl files within the template/ directory.
+  Usage: {{template "helper_name" .}}
+*/}}
+
+{{/* ============================================================================
+     NODE TYPE SELECTION
+     Returns the appropriate node_type_id based on cloud provider
+     ============================================================================ */}}
+
+{{- define "node_type_id" -}}
+     {{- if eq .cloud_provider "azure" -}}
+          Standard_DS3_v2
+     {{- else if eq .cloud_provider "aws" -}}
+          i3.xlarge
+     {{- else if eq .cloud_provider "gcp" -}}
+          n1-standard-4
+     {{- else -}}
+          Standard_DS3_v2
+     {{- end -}}
+{{- end -}}
+
+{{/* ============================================================================
+     SPARK VERSION
+     Returns the current recommended Spark version
+     ============================================================================ */}}
+
+{{- define "spark_version" -}}
+     17.3.x-scala2.13
+{{- end -}}
+
+{{/* ============================================================================
+     SERVICE PRINCIPAL HELPERS
+     Returns SP value or placeholder based on configuration
+     ============================================================================ */}}
+
+{{- define "dev_sp_value" -}}
+     {{- if and (eq .configure_sp_now "yes") (ne .dev_service_principal "") -}}
+          {{.dev_service_principal}}
+     {{- else -}}
+          SP_PLACEHOLDER_DEV
+     {{- end -}}
+{{- end -}}
+
+{{- define "stage_sp_value" -}}
+     {{- if and (eq .configure_sp_now "yes") (ne .stage_service_principal "") -}}
+          {{.stage_service_principal}}
+     {{- else -}}
+          SP_PLACEHOLDER_STAGE
+     {{- end -}}
+{{- end -}}
+
+{{- define "prod_sp_value" -}}
+     {{- if and (eq .configure_sp_now "yes") (ne .prod_service_principal "") -}}
+          {{.prod_service_principal}}
+     {{- else -}}
+          SP_PLACEHOLDER_PROD
+     {{- end -}}
+{{- end -}}
+
+{{/* ============================================================================
+     COMPUTE TYPE HELPERS
+     Boolean checks for compute type selection
+     ============================================================================ */}}
+
+{{- define "is_serverless" -}}
+     {{- if eq .compute_type "serverless" -}}
+          true
+     {{- else -}}
+          false
+     {{- end -}}
+{{- end -}}
+
+{{- define "is_classic" -}}
+     {{- if eq .compute_type "classic" -}}
+          true
+     {{- else -}}
+          false
+     {{- end -}}
+{{- end -}}
+
+{{- define "include_serverless" -}}
+     {{- if or (eq .compute_type "serverless") (eq .compute_type "both") -}}
+          true
+     {{- else -}}
+          false
+     {{- end -}}
+{{- end -}}
+
+{{- define "include_classic" -}}
+     {{- if or (eq .compute_type "classic") (eq .compute_type "both") -}}
+          true
+     {{- else -}}
+          false
+     {{- end -}}
+{{- end -}}
+
+{{/* ============================================================================
+     ENVIRONMENT HELPERS
+     Boolean checks for environment setup
+     ============================================================================ */}}
+
+{{- define "is_full_env" -}}
+     {{- if eq .environment_setup "full" -}}
+          true
+     {{- else -}}
+          false
+     {{- end -}}
+{{- end -}}
+
+{{- define "is_minimal_env" -}}
+     {{- if eq .environment_setup "minimal" -}}
+          true
+     {{- else -}}
+          false
+     {{- end -}}
+{{- end -}}
+
+{{/* ============================================================================
+     PERMISSIONS HELPERS
+     Boolean check for permissions inclusion
+     ============================================================================ */}}
+
+{{- define "include_permissions" -}}
+     {{- if eq .include_permissions "yes" -}}
+          true
+     {{- else -}}
+          false
+     {{- end -}}
+{{- end -}}

@@ -27,7 +27,9 @@ Before deploying this bundle with permissions enabled, you must create the requi
 # Create groups
 databricks groups create --display-name developers
 databricks groups create --display-name qa_team
+{{- if eq .environment_setup "full" }}
 databricks groups create --display-name operations_team
+{{- end }}
 databricks groups create --display-name analytics_team
 ```
 
@@ -41,13 +43,23 @@ Manage groups as infrastructure-as-code using the [Databricks Terraform provider
 
 ## Required Groups by Environment
 
+{{- if eq .environment_setup "full" }}
+Your bundle is configured with **full environment setup** (user{{- if eq .include_dev_environment "yes" }}, dev{{- end }}, stage, prod), requiring {{- if eq .include_dev_environment "yes" }} 4 {{- else }} 4 {{- end }} groups.
+{{- else }}
+Your bundle is configured with **minimal environment setup** (user, stage), requiring 3 groups.
+{{- end }}
+
 ### 1. developers (Required for all environments)
 - **Purpose**: Data engineers and developers working on data pipelines
 - **Access**:
   - **user**: Full access (ALL_PRIVILEGES) to all schemas
+{{- if eq .include_dev_environment "yes" }}
   - **dev**: Full access (ALL_PRIVILEGES) to all schemas
+{{- end }}
   - **stage**: Read-only (USE_SCHEMA, SELECT) to all schemas
+{{- if eq .environment_setup "full" }}
   - **prod**: Not granted direct access (automation via service principal)
+{{- end }}
 
 **Who to add**: Data engineers, ETL developers, data platform engineers
 
@@ -61,6 +73,8 @@ Manage groups as infrastructure-as-code using the [Databricks Terraform provider
 
 ---
 
+{{- if eq .environment_setup "full" }}
+
 ### 3. operations_team (Required for prod)
 - **Purpose**: Operations/SRE team for incident investigation and monitoring
 - **Access**:
@@ -69,12 +83,20 @@ Manage groups as infrastructure-as-code using the [Databricks Terraform provider
 
 ---
 
-### 4. analytics_team (Required for dev/stage/prod)
+### 4. analytics_team (Required for {{- if eq .include_dev_environment "yes" }}dev/{{- end }}stage/prod)
+{{- else }}
+
+### 3. analytics_team (Required for stage)
+{{- end }}
 - **Purpose**: Analytics and BI teams consuming curated data
 - **Access**:
+{{- if eq .include_dev_environment "yes" }}
   - **dev**: Read-only (USE_SCHEMA, SELECT) to silver and gold schemas
+{{- end }}
   - **stage**: Read-only (USE_SCHEMA, SELECT) to silver and gold schemas
+{{- if eq .environment_setup "full" }}
   - **prod**: Read-only (USE_SCHEMA, SELECT) to silver and gold schemas
+{{- end }}
 - **Who to add**: Data analysts, BI developers, business users, data scientists
 
 ---
@@ -130,9 +152,11 @@ variables:
   qa_team_group:
     default: "your_custom_qa_group_name"
 
+{{- if eq .environment_setup "full" }}
   operations_group:
     default: "your_custom_ops_group_name"
 
+{{- end }}
   analytics_team_group:
     default: "your_custom_analytics_group_name"
 ```

@@ -1,0 +1,176 @@
+{{- if eq .include_permissions "yes" -}}
+# Permissions Setup Guide
+
+Quick guide to configure permissions in your Databricks Asset Bundle for secure, role-based access across environments.
+
+---
+
+## Quick Start
+
+### Step 1: Create Required Groups
+
+Create these groups in your Databricks workspace:
+**Settings > Identity and access > Groups > Add group**
+
+| Group | Purpose |
+|-------|---------|
+| `developers` | Data engineers and developers |
+| `qa_team` | QA engineers (stage access) |
+{{- if eq .environment_setup "full" }}
+| `operations_team` | Operations/SRE team (prod access) |
+{{- end }}
+| `analytics_team` | Analytics and BI users |
+
+```bash
+# Or use CLI
+databricks groups create --display-name developers
+databricks groups create --display-name qa_team
+{{- if eq .environment_setup "full" }}
+databricks groups create --display-name operations_team
+{{- end }}
+databricks groups create --display-name analytics_team
+```
+
+### Step 2: Configure Service Principals
+
+{{- if eq .configure_sp_now "yes" }}
+Service principals are already configured in `variables.yml`.
+{{- else }}
+Search for `SP_PLACEHOLDER` in `variables.yml` and replace with your SP IDs:
+{{- if and (eq .environment_setup "full") (eq .include_dev_environment "yes") }}
+- `SP_PLACEHOLDER_DEV` → Your dev environment SP
+{{- end }}
+- `SP_PLACEHOLDER_STAGE` → Your stage environment SP
+{{- if eq .environment_setup "full" }}
+- `SP_PLACEHOLDER_PROD` → Your prod environment SP
+{{- end }}
+{{- end }}
+
+### Step 3: Deploy
+
+```bash
+databricks bundle deploy -t user
+```
+
+---
+
+## Access Control Matrix
+
+### Who Has Access to What?
+
+{{- if eq .environment_setup "full" }}
+{{- if eq .include_dev_environment "yes" }}
+| Role/Group | User | Dev | Stage | Prod |
+|------------|------|-----|-------|------|
+| **Developers** | Full | CAN_MANAGE | CAN_VIEW | - |
+| **QA Team** | - | - | CAN_RUN | - |
+| **Operations** | - | - | - | CAN_RUN |
+| **Analytics** | - | READ | READ | READ |
+| **Service Principal** | - | CAN_MANAGE | CAN_MANAGE | CAN_MANAGE |
+{{- else }}
+| Role/Group | User | Stage | Prod |
+|------------|------|-------|------|
+| **Developers** | Full | CAN_VIEW | - |
+| **QA Team** | - | CAN_RUN | - |
+| **Operations** | - | - | CAN_RUN |
+| **Analytics** | - | READ | READ |
+| **Service Principal** | - | CAN_MANAGE | CAN_MANAGE |
+{{- end }}
+{{- else }}
+| Role/Group | User | Stage |
+|------------|------|-------|
+| **Developers** | Full | CAN_VIEW |
+| **QA Team** | - | CAN_RUN |
+| **Analytics** | - | READ |
+| **Service Principal** | - | CAN_MANAGE |
+{{- end }}
+
+---
+
+## Permission Levels
+
+### For Jobs, Pipelines, and Resources
+
+| Level | View | Run | Cancel | Edit/Delete |
+|-------|------|-----|--------|-------------|
+| `CAN_VIEW` | ✓ | ✗ | ✗ | ✗ |
+| `CAN_RUN` | ✓ | ✓ | ✗ | ✗ |
+| `CAN_MANAGE_RUN` | ✓ | ✓ | ✓ | ✗ |
+| `CAN_MANAGE` | ✓ | ✓ | ✓ | ✓ |
+
+### For Unity Catalog Schemas
+
+| Privilege | Description |
+|-----------|-------------|
+| `USE_SCHEMA` | Access schema (required for any operation) |
+| `SELECT` | Query tables in schema |
+| `MODIFY` | Insert/update/delete data |
+| `ALL_PRIVILEGES` | Full control |
+
+---
+
+## Customizing Group Names
+
+If your organization uses different group names, update `variables.yml`:
+
+```yaml
+variables:
+  developers_group:
+    default: "your_custom_dev_group"
+  qa_team_group:
+    default: "your_custom_qa_group"
+{{- if eq .environment_setup "full" }}
+  operations_group:
+    default: "your_custom_ops_group"
+{{- end }}
+  analytics_team_group:
+    default: "your_custom_analytics_group"
+```
+
+---
+
+## Best Practices
+
+- Use groups for all permissions (never individual users)
+- Use service principals for CI/CD deployments
+- Grant least privilege (start with `CAN_VIEW`, add more as needed)
+- Test permission changes in user environment first
+
+{{- else -}}
+# Permissions Setup
+
+Permissions were not included in this bundle configuration.
+
+To add permissions later:
+
+1. Add group variables to `variables.yml`:
+```yaml
+variables:
+  developers_group:
+    default: "developers"
+```
+
+2. Add permissions blocks to targets in `databricks.yml`:
+```yaml
+targets:
+  dev:
+    permissions:
+      - level: CAN_MANAGE
+        group_name: ${var.developers_group}
+```
+
+3. Add grants to schema resources in `resources/schemas.yml`:
+```yaml
+resources:
+  schemas:
+    bronze_schema:
+      grants:
+        - principal: ${var.developers_group}
+          privileges:
+            - ALL_PRIVILEGES
+```
+
+See Databricks documentation for more details:
+- [Bundle Permissions](https://docs.databricks.com/dev-tools/bundles/permissions)
+- [Unity Catalog Privileges](https://docs.databricks.com/data-governance/unity-catalog/manage-privileges/)
+{{- end }}

@@ -1,7 +1,7 @@
 resources:
   pipelines:  # https://docs.databricks.com/aws/en/dev-tools/bundles/resources#pipeline
-    sample_pipeline:
-      name: Sample ETL Pipeline
+    {{.project_name}}_pipeline:
+      name: {{.project_name}} ETL Pipeline
       edition: ADVANCED
       channel: CURRENT
 
@@ -17,7 +17,7 @@ resources:
         schema: ${var.default_schema_name}
         name: pipeline_event_log
 
-      # DLT configuration passed to notebooks
+      # LDP configuration passed to notebooks
       configuration:
         "spark.databricks.delta.autoCompact.enabled": "true"
         "spark.databricks.delta.optimizeWrite.enabled": "true"
@@ -25,15 +25,33 @@ resources:
         "pipelineEnvironment": ${bundle.target}
         "userName": ${workspace.current_user.short_name}
 
-      # OPTION 1: Serverless compute
+{{- if or (eq .compute_type "serverless") (eq .compute_type "both") }}
+      # Serverless compute
       serverless: true
+{{- end }}
 
-      # OPTION 2: Custom cluster for DLT
-      # Uncomment the section below and set serverless: false
-      # Template source: templates/cluster_configs.yml (pipeline_cluster_autoscale)
+{{- if eq .compute_type "classic" }}
+      # Classic cluster compute for LDP
+      serverless: false
+      clusters:
+        - label: default
+          node_type_id: {{template "node_type_id" .}}
+          autoscale:
+            mode: ENHANCED
+            min_workers: ${var.pipeline_min_workers}
+            max_workers: ${var.pipeline_max_workers}
+          custom_tags:
+            bundle: ${bundle.name}
+            environment: ${bundle.target}
+{{- end }}
+
+{{- if eq .compute_type "both" }}
+
+      # Classic cluster compute for LDP (alternative)
+      # To use classic compute: set `serverless: false` and uncomment `clusters`
       # clusters:
       #   - label: default
-      #     node_type_id: Standard_DS3_v2  # AWS: i3.xlarge; Azure: Standard_DS3_v2; GCP: n1-highmem-4
+      #     node_type_id: {{template "node_type_id" .}}
       #     autoscale:
       #       mode: ENHANCED
       #       min_workers: ${var.pipeline_min_workers}
@@ -41,6 +59,7 @@ resources:
       #     custom_tags:
       #       bundle: ${bundle.name}
       #       environment: ${bundle.target}
+{{- end }}
 
       # Python dependencies for the pipeline
       # Add any PyPI packages your pipeline code needs
@@ -53,7 +72,6 @@ resources:
       # Source code - referencing *.py files in Databricks Notebook format
       libraries:
         - notebook:
-            path: ${workspace.file_path}/src/pipelines/bronze
+            path: ../src/pipelines/bronze.py
         - notebook:
-            path: ${workspace.file_path}/src/pipelines/silver
-
+            path: ../src/pipelines/silver.py

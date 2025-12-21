@@ -21,8 +21,7 @@ USER_NAME = spark.conf.get("userName", "user")
 
 
 def get_fqn(table_name, schema_name):
-    catalog_name = CATALOG_NAME if ENVIRONMENT != "user" else f"user_{USER_NAME}_<domain>"
-    return f"`{catalog_name}`.`{schema_name}`.`{table_name}`"
+    return f"`{CATALOG_NAME}`.`{schema_name}`.`{table_name}`"
 
 
 # COMMAND ----------

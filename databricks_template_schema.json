@@ -1,0 +1,173 @@
+{
+  "welcome_message": "\nWelcome to the Databricks Multi-Environment Bundle Template!\n\nThis template creates a production-ready Databricks Asset Bundle with:\n- Multi-environment deployment (user/dev/stage/prod)\n- Configurable compute (serverless or classic)\n- Optional RBAC permissions\n- Sample ETL jobs and pipelines\n- Unity Catalog schema management\n\nLet's configure your project...\n",
+
+  "properties": {
+    "project_name": {
+      "type": "string",
+      "description": "\nProject name (used for bundle name, folder, and resource prefixes)\nMust start with a letter; only letters, numbers, and underscores allowed.\nproject_name",
+      "order": 1,
+      "pattern": "^[A-Za-z][A-Za-z0-9_]*$",
+      "pattern_match_failure_message": "Project name must start with a letter and contain only letters, numbers, and underscores."
+    },
+
+    "environment_setup": {
+      "type": "string",
+      "default": "full",
+      "description": "\n========================================\n\nHow many deployment environments do you need?\n- full: user (local dev), stage (pre-prod), prod\n- minimal: user (local dev), stage (shared testing)\nenvironment_setup",
+      "order": 2,
+      "enum": [
+        "full",
+        "minimal"
+      ]
+    },
+
+    "include_dev_environment": {
+      "type": "string",
+      "default": "no",
+      "description": "\n========================================\n\nInclude a shared development environment (dev)?\n- yes: Add 'dev' target between user and stage (for nightly builds, shared testing)\n- no: Skip dev, developers test in their own 'user' environment before stage\n\nMost teams don't need this - developers use 'user' for personal testing,\nthen deploy to 'stage' for integration testing.\ninclude_dev_environment",
+      "order": 3,
+      "enum": [
+        "yes",
+        "no"
+      ],
+      "skip_prompt_if": {
+        "properties": {
+          "environment_setup": {
+            "const": "minimal"
+          }
+        }
+      }
+    },
+
+    "compute_type": {
+      "type": "string",
+      "default": "classic",
+      "description": "\n========================================\n\nWhat compute type should jobs and pipelines use?\n- classic: Resource-specific clusters (spin up when job runs, more control)\n- serverless: Databricks-managed compute (no cluster config, faster start)\n- both: Include both options (classic active, serverless commented)\n\nNote: Classic is recommended as default since not all workspaces support serverless.\ncompute_type",
+      "order": 3,
+      "enum": [
+        "classic",
+        "serverless",
+        "both"
+      ]
+    },
+
+    "cloud_provider": {
+      "type": "string",
+      "default": "azure",
+      "description": "\n========================================\n\nWhich cloud provider is your Databricks workspace on?\nThis determines the default node types for clusters.\ncloud_provider",
+      "order": 4,
+      "enum": [
+        "azure",
+        "aws",
+        "gcp"
+      ],
+      "skip_prompt_if": {
+        "properties": {
+          "compute_type": {
+            "const": "serverless"
+          }
+        }
+      }
+    },
+
+    "uc_catalog_suffix": {
+      "type": "string",
+      "default": "my_domain",
+      "description": "\n========================================\n\nUnity Catalog suffix for catalog names.\nCatalogs will be named: user_<your-username>_<suffix>, dev_<suffix>, stage_<suffix>, prod_<suffix>\n\nExamples: 'sales', 'marketing', 'analytics', 'my_project'\nMust be lowercase, start with a letter, only letters/numbers/underscores.\nuc_catalog_suffix",
+      "order": 5,
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "pattern_match_failure_message": "Catalog suffix must be lowercase, start with a letter, and contain only letters, numbers, and underscores."
+    },
+
+    "include_permissions": {
+      "type": "string",
+      "default": "yes",
+      "description": "\n========================================\n\nInclude comprehensive permissions/RBAC configuration?\n- yes: Full permission setup with 4 groups (developers, qa_team, operations_team, analytics_team)\n- no: No permissions blocks (you'll configure access manually)\ninclude_permissions",
+      "order": 6,
+      "enum": [
+        "yes",
+        "no"
+      ]
+    },
+
+    "configure_sp_now": {
+      "type": "string",
+      "default": "no",
+      "description": "\n========================================\n\nConfigure service principal IDs now?\n- yes: Enter SP application IDs for each environment\n- no: Leave placeholders (search for 'SP_PLACEHOLDER' later to replace)\n\nService principals are required for CI/CD deployments to dev/stage/prod.\nYou can use the same SP ID for multiple environments if needed.\nconfigure_sp_now",
+      "order": 7,
+      "enum": [
+        "yes",
+        "no"
+      ]
+    },
+
+    "dev_service_principal": {
+      "type": "string",
+      "default": "",
+      "description": "\n========================================\n\nService Principal Application ID for the DEV environment.\nLeave empty to use placeholder.\ndev_service_principal",
+      "order": 8,
+      "skip_prompt_if": {
+        "anyOf": [
+          {
+            "properties": {
+              "configure_sp_now": {
+                "const": "no"
+              }
+            }
+          },
+          {
+            "properties": {
+              "include_dev_environment": {
+                "const": "no"
+              }
+            }
+          }
+        ]
+      }
+    },
+
+    "stage_service_principal": {
+      "type": "string",
+      "default": "",
+      "description": "\n========================================\n\nService Principal Application ID for the STAGE environment.\nLeave empty to use placeholder.\nstage_service_principal",
+      "order": 9,
+      "skip_prompt_if": {
+        "properties": {
+          "configure_sp_now": {
+            "const": "no"
+          }
+        }
+      }
+    },
+
+    "prod_service_principal": {
+      "type": "string",
+      "default": "",
+      "description": "\n========================================\n\nService Principal Application ID for the PROD environment.\nLeave empty to use placeholder.\nprod_service_principal",
+      "order": 10,
+      "skip_prompt_if": {
+        "anyOf": [
+          {
+            "properties": {
+              "configure_sp_now": {
+                "const": "no"
+              }
+            }
+          },
+          {
+            "properties": {
+              "environment_setup": {
+                "const": "minimal"
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+
+  "success_message": "\n========================================\n\n\nYour project '{{.project_name}}' has been created successfully!\n\nNext steps:\n1. cd {{.project_name}}\n2. Review and update the configuration files\n3. Run: databricks bundle validate -t user\n4. Run: databricks bundle deploy -t user\n\nFor detailed setup instructions, see README.md and docs/PERMISSIONS_SETUP.md\n",
+
+  "min_databricks_cli_version": "v0.274.0",
+  "version": 1
+}

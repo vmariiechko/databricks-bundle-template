@@ -1,7 +1,7 @@
 resources:
   jobs:  # https://docs.databricks.com/aws/en/dev-tools/bundles/resources#job
-    sample_ingestion:
-      name: Sample Ingestion Job
+    {{.project_name}}_ingestion:
+      name: {{.project_name}} Ingestion Job
       max_concurrent_runs: 1
       timeout_seconds: 0  # No timeout
 
@@ -20,26 +20,34 @@ resources:
             op: GREATER_THAN
             value: 3600  # Alert if job takes > 1 hour
 
-      # OPTION 1: Serverless compute
+{{- if or (eq .compute_type "serverless") (eq .compute_type "both") }}
+
+      # Serverless compute
       environments:
         - environment_key: default
           # https://docs.databricks.com/api/workspace/jobs/create#environments-spec
           spec:
             environment_version: "2"
-            # Sample dependencies for serverless - add your packages here
+            # Add your packages here
             dependencies:
               - requests==2.32.3
               - databricks-sql-connector==4.0.0
+{{- end }}
 
-      # OPTION 2: Custom cluster
-      # Uncomment the section below and comment out the 'environments' section above
-      # This provides better control over cluster specs, libraries, and configuration
-      # Template source: templates/cluster_configs.yml (autoscale_cluster)
+{{- if or (eq .compute_type "classic") (eq .compute_type "both") }}
+
+      # Classic cluster compute
+{{- if eq .compute_type "both" }}
+      # NOTE: To use classic compute, uncomment job_clusters and update task references
       # job_clusters:
+{{- else }}
+      job_clusters:
+{{- end }}
+{{- if eq .compute_type "both" }}
       #   - job_cluster_key: job_cluster
       #     new_cluster:
-      #       spark_version: 17.3.x-scala2.13
-      #       node_type_id: Standard_DS3_v2  # AWS: i3.xlarge; Azure: Standard_DS3_v2; GCP: n1-highmem-4
+      #       spark_version: {{template "spark_version" .}}
+      #       node_type_id: {{template "node_type_id" .}}
       #       autoscale:
       #         min_workers: ${var.job_cluster_min_workers}
       #         max_workers: ${var.job_cluster_max_workers}
@@ -52,28 +60,60 @@ resources:
       #         "spark.databricks.delta.optimizeWrite.enabled": "true"
       #       spark_env_vars:
       #         ENVIRONMENT: ${bundle.target}
-      #     # Sample libraries for custom cluster - add at task level instead (see below)
+{{- else }}
+        - job_cluster_key: job_cluster
+          new_cluster:
+            spark_version: {{template "spark_version" .}}
+            node_type_id: {{template "node_type_id" .}}
+            autoscale:
+              min_workers: ${var.job_cluster_min_workers}
+              max_workers: ${var.job_cluster_max_workers}
+            autotermination_minutes: 10
+            custom_tags:
+              bundle: ${bundle.name}
+              environment: ${bundle.target}
+            spark_conf:
+              "spark.databricks.delta.autoCompact.enabled": "auto"
+              "spark.databricks.delta.optimizeWrite.enabled": "true"
+            spark_env_vars:
+              ENVIRONMENT: ${bundle.target}
+{{- end }}
+{{- end }}
 
       tasks:  # https://docs.databricks.com/aws/en/dev-tools/bundles/job-task-types#other-task-settings
         - task_key: ingest_to_raw
           description: Ingest sample data to raw layer
 
-          # For serverless: use environment_key
+{{- if or (eq .compute_type "serverless") (eq .compute_type "both") }}
+          # Serverless compute
           environment_key: default
+{{- end }}
 
-          # For custom cluster: uncomment job_cluster_key and libraries, comment out environment_key
+{{- if eq .compute_type "classic" }}
+          # Classic cluster compute
+          job_cluster_key: job_cluster
+          libraries:
+            - pypi:
+                package: requests==2.32.3
+            - pypi:
+                package: databricks-sql-connector==4.0.0
+{{- end }}
+
+{{- if eq .compute_type "both" }}
+          # For classic compute: uncomment job_cluster_key and libraries, comment out environment_key
           # job_cluster_key: job_cluster
           # libraries:
           #   - pypi:
           #       package: requests==2.32.3
           #   - pypi:
           #       package: databricks-sql-connector==4.0.0
+{{- end }}
 
           max_retries: ${var.max_retries}
           min_retry_interval_millis: ${var.retry_interval_millis}
 
           spark_python_task:
-            python_file: ${workspace.file_path}/src/jobs/ingest_to_raw.py
+            python_file: ../src/jobs/ingest_to_raw.py
             parameters:
               - --catalog_name
               - ${var.catalog_name}
@@ -88,20 +128,32 @@ resources:
           depends_on:
             - task_key: ingest_to_raw
 
-          # For serverless: use environment_key
+{{- if or (eq .compute_type "serverless") (eq .compute_type "both") }}
+          # Serverless compute
           environment_key: default
+{{- end }}
 
-          # For custom cluster: uncomment job_cluster_key and libraries, comment out environment_key
+{{- if eq .compute_type "classic" }}
+          # Classic cluster compute
+          job_cluster_key: job_cluster
+          libraries:
+            - pypi:
+                package: requests==2.32.3
+{{- end }}
+
+{{- if eq .compute_type "both" }}
+          # For classic compute: uncomment job_cluster_key and libraries, comment out environment_key
           # job_cluster_key: job_cluster
           # libraries:
           #   - pypi:
           #       package: requests==2.32.3
+{{- end }}
 
           max_retries: ${var.max_retries}
           min_retry_interval_millis: ${var.retry_interval_millis}
 
           spark_python_task:
-            python_file: ${workspace.file_path}/src/jobs/transform_to_silver.py
+            python_file: ../src/jobs/transform_to_silver.py
             parameters:
               - --catalog_name
               - ${var.catalog_name}

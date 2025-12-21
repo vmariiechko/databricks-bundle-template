@@ -1,0 +1,214 @@
+# {{.project_name}}
+
+A Databricks Asset Bundle for multi-environment deployment with {{- if eq .environment_setup "full" }} user,{{- if eq .include_dev_environment "yes" }} dev,{{- end }} stage, and prod{{- else }} user and stage{{- end }} environments.
+
+## Getting Started
+
+**New to this project?** Follow the [QUICKSTART.md](QUICKSTART.md) for step-by-step deployment instructions.
+
+### Prerequisites
+
+Before deploying, ensure you have:
+
+1. **Databricks CLI** v0.274.0+ installed
+   ```bash
+   pip install databricks-cli
+   databricks --version
+   ```
+
+2. **Unity Catalog** with these catalogs created:
+{{- if eq .environment_setup "full" }}
+   - `user_<your-username>_{{.uc_catalog_suffix}}` (for local development)
+{{- if eq .include_dev_environment "yes" }}
+   - `dev_{{.uc_catalog_suffix}}` (shared dev)
+{{- end }}
+   - `stage_{{.uc_catalog_suffix}}` (pre-production)
+   - `prod_{{.uc_catalog_suffix}}` (production)
+{{- else }}
+   - `user_<your-username>_{{.uc_catalog_suffix}}` (for local development)
+   - `stage_{{.uc_catalog_suffix}}` (shared/production)
+{{- end }}
+
+{{- if eq .include_permissions "yes" }}
+
+3. **User groups** created in your workspace:
+   - `developers` - data engineers, data scientists etc.
+   - `qa_team` - QA engineers
+{{- if eq .environment_setup "full" }}
+   - `operations_team` - operations/SRE
+{{- end }}
+   - `analytics_team` - analytics users
+
+   See [docs/SETUP_GROUPS.md](docs/SETUP_GROUPS.md) for setup instructions.
+{{- end }}
+
+### Quick Deploy
+
+```bash
+# Validate configuration
+databricks bundle validate -t user
+
+# Deploy to your personal environment
+databricks bundle deploy -t user
+
+# Run the sample job
+databricks bundle run {{.project_name}}_ingestion -t user
+```
+
+## Project Structure
+
+```
+{{.project_name}}/
+├── databricks.yml              # Bundle configuration
+├── variables.yml               # Shared variables (catalogs, SPs, groups)
+├── resources/
+│   ├── {{.project_name}}_ingestion.job.yml       # ETL ingestion job
+│   ├── {{.project_name}}_pipeline.pipeline.yml   # LDP pipeline
+│   ├── {{.project_name}}_pipeline_trigger.job.yml
+│   └── schemas.yml             # Unity Catalog schemas
+├── src/
+│   ├── jobs/                   # Job Python scripts
+│   └── pipelines/              # LDP notebook code
+├── templates/                  # Cluster config examples
+└── docs/                       # Setup guides
+```
+
+## Environments
+
+| Target | Purpose | Catalog |
+|--------|---------|---------|
+| `user` | Personal development | `user_<username>_{{.uc_catalog_suffix}}` |
+{{- if eq .environment_setup "full" }}
+{{- if eq .include_dev_environment "yes" }}
+| `dev` | Shared development | `dev_{{.uc_catalog_suffix}}` |
+{{- end }}
+| `stage` | Pre-production testing | `stage_{{.uc_catalog_suffix}}` |
+| `prod` | Production | `prod_{{.uc_catalog_suffix}}` |
+{{- else }}
+| `stage` | Shared/Production | `stage_{{.uc_catalog_suffix}}` |
+{{- end }}
+
+### Deployment Commands
+
+```bash
+databricks bundle validate -t <target>   # Validate
+databricks bundle deploy -t <target>     # Deploy
+databricks bundle run <job> -t <target>  # Run job
+databricks bundle destroy -t <target>    # Cleanup
+```
+
+## Configuration
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `databricks.yml` | Targets, permissions, resource includes |
+| `variables.yml` | Catalogs, service principals, group names |
+| `resources/*.yml` | Job and pipeline definitions |
+
+### Compute
+
+{{- if eq .compute_type "serverless" }}
+This bundle uses **serverless compute**. No cluster configuration needed.
+{{- else if eq .compute_type "classic" }}
+This bundle uses **classic clusters**. Cluster configurations are in resource files.
+See `templates/cluster_configs.yml` for configuration examples.
+{{- else }}
+This bundle uses **serverless compute** by default. Classic cluster configurations are available as comments in resource files. See `templates/cluster_configs.yml` for examples.
+{{- end }}
+
+{{- if eq .environment_setup "full" }}
+
+### Multi-Workspace Setup
+
+By default, all environments deploy to the same workspace using Unity Catalog for isolation.
+
+**For a separate production workspace**, update `databricks.yml`:
+
+```yaml
+targets:
+  prod:
+    workspace:
+      host: https://your-prod-workspace.azuredatabricks.net
+```
+{{- end }}
+
+### Service Principals
+
+Service principals are **only required for CI/CD deployments** ({{- if eq .include_dev_environment "yes" }}dev, {{- end }}stage{{- if eq .environment_setup "full" }}, prod{{- end }} targets).
+
+The `user` target runs as your personal identity and works immediately without SP configuration.
+
+{{- if and (eq .configure_sp_now "yes") (or (ne .stage_service_principal "") (ne .prod_service_principal "")) }}
+
+Service principals are pre-configured in `variables.yml`.
+{{- else }}
+
+**To configure SPs for CI/CD:**
+
+1. Create service principals in your Databricks workspace
+2. Search for `SP_PLACEHOLDER` in `variables.yml`
+3. Replace with your service principal application IDs
+{{- end }}
+
+## Customization
+
+### Replace Sample Code
+
+The `src/` directory contains sample code demonstrating the medallion architecture pattern. Replace with your business logic:
+
+- `src/jobs/ingest_to_raw.py` - Data ingestion
+- `src/jobs/transform_to_silver.py` - Transformations
+- `src/pipelines/bronze.py` - LDP bronze layer
+- `src/pipelines/silver.py` - LDP silver layer
+
+### Add New Resources
+
+Create new job files in `resources/`:
+
+```yaml
+# resources/my_job.job.yml
+resources:
+  jobs:
+    my_job:
+      name: "${bundle.target} My Job"
+      tasks:
+        - task_key: main
+{{- if or (eq .compute_type "serverless") (eq .compute_type "both") }}
+          environment_key: default
+{{- else }}
+          job_cluster_key: job_cluster
+{{- end }}
+          spark_python_task:
+            python_file: ../src/jobs/my_script.py
+```
+
+## Troubleshooting
+
+### "Catalog not found"
+
+Create the missing Unity Catalog:
+```sql
+CREATE CATALOG IF NOT EXISTS user_<username>_{{.uc_catalog_suffix}};
+```
+
+{{- if eq .include_permissions "yes" }}
+
+### "Group not found"
+
+Create groups in Databricks workspace: **Settings > Identity and access > Groups**
+{{- end }}
+
+### Service Principal Errors (CI/CD targets only)
+
+If deploying to {{- if eq .include_dev_environment "yes" }} dev,{{- end }} stage{{- if eq .environment_setup "full" }}, or prod{{- end }}:
+1. Ensure `SP_PLACEHOLDER` values in `variables.yml` are replaced
+2. Verify the SP exists in your workspace
+3. The `user` target does not require SP configuration
+
+## Resources
+
+- [Unity Catalog](https://docs.databricks.com/data-governance/unity-catalog/)
+- [Databricks Asset Bundles](https://docs.databricks.com/dev-tools/bundles/)
+- [Lakeflow Declarative Pipelines](https://docs.databricks.com/aws/en/ldp/)

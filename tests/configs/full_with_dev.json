@@ -1,0 +1,10 @@
+{
+  "project_name": "test_full_with_dev",
+  "environment_setup": "full",
+  "include_dev_environment": "yes",
+  "compute_type": "classic",
+  "cloud_provider": "azure",
+  "uc_catalog_suffix": "test_domain",
+  "include_permissions": "yes",
+  "configure_sp_now": "no"
+}

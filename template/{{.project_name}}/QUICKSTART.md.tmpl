@@ -1,0 +1,108 @@
+# Quick Start Guide for {{.project_name}}
+
+## 1. Prerequisites Check
+
+```bash
+# Verify Databricks CLI is installed
+databricks --version
+
+# Authenticate to your workspace
+databricks auth login
+```
+
+## 2. Validate Configuration
+
+```bash
+databricks bundle validate -t user
+```
+
+If validation fails, check:
+- Unity Catalog `user_<your-username>_{{.uc_catalog_suffix}}` exists
+{{- if eq .include_permissions "yes" }}
+- Required groups are created (see docs/SETUP_GROUPS.md)
+{{- end }}
+
+## 3. Deploy to User Environment
+
+```bash
+databricks bundle deploy -t user
+```
+
+## 4. Run Sample Workloads
+
+```bash
+# Run the ingestion job
+databricks bundle run {{.project_name}}_ingestion -t user
+
+# Trigger the pipeline
+databricks bundle run {{.project_name}}_pipeline_trigger -t user
+```
+
+## 5. Verify in Workspace
+
+Check your Databricks workspace:
+- **Jobs**: Look for `[user <yourname>] {{.project_name}} Ingestion Job`
+- **Pipelines**: Look for `[user <yourname>] {{.project_name}} ETL Pipeline`
+
+## 6. Cleanup (Optional)
+
+```bash
+databricks bundle destroy -t user
+```
+
+## Next Steps
+
+### Configure Service Principals (for CI/CD)
+
+Before deploying to {{- if eq .include_dev_environment "yes" }} dev,{{- end }} stage{{- if eq .environment_setup "full" }}, or prod{{- end }}:
+
+1. Create service principals in your Databricks workspace
+2. Search for `SP_PLACEHOLDER` in `variables.yml`
+3. Replace with your service principal application IDs
+
+### Deploy to Higher Environments
+
+{{- if eq .environment_setup "full" }}
+{{- if eq .include_dev_environment "yes" }}
+```bash
+databricks bundle deploy -t dev
+databricks bundle deploy -t stage
+databricks bundle deploy -t prod
+```
+{{- else }}
+```bash
+databricks bundle deploy -t stage
+databricks bundle deploy -t prod
+```
+{{- end }}
+
+> **Multi-Workspace Setup**: If using a separate prod workspace, update `workspace.host` in `databricks.yml`. See README.md for details.
+{{- else }}
+```bash
+databricks bundle deploy -t stage
+```
+{{- end }}
+
+## Troubleshooting
+
+### "Catalog not found" Error
+
+Create the Unity Catalog:
+```sql
+CREATE CATALOG IF NOT EXISTS user_<username>_{{.uc_catalog_suffix}};
+```
+
+{{- if eq .include_permissions "yes" }}
+
+### "Group not found" Error
+
+Create required groups in workspace Settings > Identity and access > Groups.
+{{- end }}
+
+### Service Principal Errors
+
+> **Note**: The `user` target does not require service principals.
+
+For {{- if eq .include_dev_environment "yes" }} dev,{{- end }} stage{{- if eq .environment_setup "full" }}, prod{{- end }} targets:
+- Search for `SP_PLACEHOLDER` in `variables.yml` and replace with your SP IDs
+- Ensure the SP exists in your workspace before deploying
