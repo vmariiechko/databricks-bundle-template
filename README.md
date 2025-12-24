@@ -21,6 +21,26 @@ databricks bundle init /path/to/databricks-bundles-realworld
 
 The CLI will guide you through configuration options. Your generated project includes complete documentation for deployment and customization.
 
+**Windows users:** Use PowerShell or Command Prompt for interactive prompts. Git Bash is not supported for interactive mode.
+
+### Quick Start with Config File
+
+For a quick, non-interactive setup or if you prefer to skip the prompts:
+
+```bash
+# From remote (create config.json with your values first):
+databricks bundle init https://github.com/vmariiechko/databricks-bundles-realworld \
+  --config-file config.json
+```
+
+```bash
+# From local clone:
+cp tests/configs/full_with_sp.json my-config.json   # Copy and edit with your values
+databricks bundle init . --config-file my-config.json
+```
+
+See [example configs](./tests/configs/) for options and refer to [Template Options](#template-options) for available values.
+
 ## What You Get
 
 - **Multi-environment deployment** (user/stage/prod, optional dev)

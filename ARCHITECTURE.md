@@ -166,23 +166,31 @@ rm -rf test-generated
 | # | Parameter | Type | Default | Required | Condition | Description |
 |---|-----------|------|---------|----------|-----------|-------------|
 | 1 | `project_name` | string | - | Yes | - | Bundle name, folder name, resource prefix |
-| 2 | `environment_setup` | enum | `full` | Yes | - | `full` = user+stage+prod; `minimal` = user+stage |
-| 3 | `include_dev_environment` | enum | `no` | Yes | environment_setup = full | Add optional dev target |
-| 4 | `compute_type` | enum | `classic` | Yes | - | `serverless`, `classic`, or `both` |
-| 5 | `cloud_provider` | enum | `azure` | Yes | compute_type != serverless | For node_type_id selection |
+| 2 | `environment_setup` | string | `full` | Yes | - | `full` = user+stage+prod; `minimal` = user+stage |
+| 3 | `include_dev_environment` | string | `no` | Yes | environment_setup = full | Add optional dev target |
+| 4 | `compute_type` | string | `classic` | Yes | - | `serverless`, `classic`, or `both` |
+| 5 | `cloud_provider` | string | `azure` | Yes | compute_type != serverless | For node_type_id selection |
 | 6 | `uc_catalog_suffix` | string | `my_domain` | Yes | - | Appended to env prefix (e.g., `stage_sales`) |
-| 7 | `include_permissions` | enum | `yes` | Yes | - | Include RBAC (3-4 groups based on env) |
-| 8 | `configure_sp_now` | enum | `no` | Yes | - | Configure SPs during init or later |
+| 7 | `include_permissions` | string | `yes` | Yes | - | Include RBAC (3-4 groups based on env) |
+| 8 | `configure_sp_now` | string | `no` | Yes | - | Configure SPs during init or later |
 | 9 | `dev_service_principal` | string | `""` | No | configure_sp_now = yes AND include_dev = yes | Dev environment SP app ID |
 | 10 | `stage_service_principal` | string | `""` | No | configure_sp_now = yes | Stage environment SP app ID |
 | 11 | `prod_service_principal` | string | `""` | No | configure_sp_now = yes AND environment_setup = full | Prod environment SP app ID |
 
 ### Validation Patterns
 
+All choice-based parameters use pattern validation instead of enum (avoids terminal rendering issues with dynamic option pickers).
+
 | Parameter | Pattern | Error Message |
 |-----------|---------|---------------|
 | `project_name` | `^[A-Za-z][A-Za-z0-9_]*$` | "Project name must start with a letter and contain only letters, numbers, and underscores" |
+| `environment_setup` | `^(full\|minimal)$` | "Please enter 'full' or 'minimal'" |
+| `include_dev_environment` | `^(yes\|no)$` | "Please enter 'yes' or 'no'" |
+| `compute_type` | `^(classic\|serverless\|both)$` | "Please enter 'classic', 'serverless', or 'both'" |
+| `cloud_provider` | `^(azure\|aws\|gcp)$` | "Please enter 'azure', 'aws', or 'gcp'" |
 | `uc_catalog_suffix` | `^[a-z][a-z0-9_]*$` | "Catalog suffix must be lowercase, start with a letter, and contain only letters, numbers, and underscores" |
+| `include_permissions` | `^(yes\|no)$` | "Please enter 'yes' or 'no'" |
+| `configure_sp_now` | `^(yes\|no)$` | "Please enter 'yes' or 'no'" |
 
 ---
 
