@@ -12,6 +12,7 @@
 
 bundle:
   name: {{.project_name}}
+  databricks_cli_version: '>= {{template "cli_version" .}}'
 
 # Experimental features configuration
 experimental:
@@ -230,7 +231,7 @@ targets:
       host: {{workspace_host}}
       root_path: /Workspace/${bundle.target}/.bundle/${bundle.name}
     git:
-      branch: stage
+      branch: {{.default_branch}}
     run_as:
       service_principal_name: ${var.stage_service_principal}
 
@@ -365,7 +366,7 @@ targets:
       host: {{workspace_host}}
       root_path: /Workspace/${bundle.target}/.bundle/${bundle.name}
     git:
-      branch: prod
+      branch: {{.release_branch}}
     run_as:
       service_principal_name: ${var.prod_service_principal}
 

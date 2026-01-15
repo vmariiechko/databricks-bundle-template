@@ -8,10 +8,10 @@ This directory contains the automated test suite for the Databricks Multi-Enviro
 python -m venv venv
 
 # Install test dependencies
-pip install -r requirements-dev.txt
+pip install -r requirements_dev.txt
 
 # Run all tests
-pytest tests/ -v
+pytest tests/ -V
 ```
 
 ## Test Structure
@@ -148,8 +148,8 @@ For GitHub Actions:
 ```yaml
 - name: Run Template Tests
   run: |
-    pip install -r requirements-dev.txt
-    pytest tests/ -v --tb=short
+    pip install -r requirements_dev.txt
+    pytest tests/ -V --tb=short
 ```
 
 ## Troubleshooting

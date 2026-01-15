@@ -10,7 +10,7 @@ A Databricks Asset Bundle for multi-environment deployment with {{- if eq .envir
 
 Before deploying, ensure you have:
 
-1. **Databricks CLI** v0.274.0+ installed
+1. **Databricks CLI** v{{template `cli_version` .}} installed
    ```bash
    pip install databricks-cli
    databricks --version
@@ -69,7 +69,19 @@ databricks bundle run {{.project_name}}_ingestion -t user
 ├── src/
 │   ├── jobs/                   # Job Python scripts
 │   └── pipelines/              # LDP notebook code
+├── tests/                      # Unit tests (run by CI pipeline)
 ├── templates/                  # Cluster config examples
+{{- if eq .include_cicd "yes" }}
+{{- if eq .cicd_platform "azure_devops" }}
+├── .azure/devops_pipelines/    # Azure DevOps CI/CD pipelines
+{{- end }}
+{{- if eq .cicd_platform "github_actions" }}
+├── .github/workflows/          # GitHub Actions workflows
+{{- end }}
+{{- if eq .cicd_platform "gitlab" }}
+├── .gitlab-ci.yml              # GitLab CI/CD configuration
+{{- end }}
+{{- end }}
 └── docs/                       # Setup guides
 ```
 
@@ -150,6 +162,12 @@ Service principals are pre-configured in `variables.yml`.
 1. Create service principals in your Databricks workspace
 2. Search for `SP_PLACEHOLDER` in `variables.yml`
 3. Replace with your service principal application IDs
+4. Grant Unity Catalog permissions (`USE CATALOG`, `CREATE SCHEMA`)
+{{- end }}
+
+{{- if eq .include_cicd "yes" }}
+
+> **Important**: Service principals need Unity Catalog permissions before CI/CD can deploy. See [docs/CI_CD_SETUP.md](docs/CI_CD_SETUP.md#unity-catalog-prerequisites) for detailed setup instructions.
 {{- end }}
 
 ## Customization
@@ -197,7 +215,7 @@ CREATE CATALOG IF NOT EXISTS user_<username>_{{.uc_catalog_suffix}};
 
 ### "Group not found"
 
-Create groups in Databricks workspace: **Settings > Identity and access > Groups**
+Create groups in Databricks workspace: **Settings → Identity and access → Groups**
 {{- end }}
 
 ### Service Principal Errors (CI/CD targets only)
@@ -207,8 +225,50 @@ If deploying to {{- if eq .include_dev_environment "yes" }} dev,{{- end }} stage
 2. Verify the SP exists in your workspace
 3. The `user` target does not require SP configuration
 
+{{- if eq .include_cicd "yes" }}
+
+## CI/CD
+
+This project includes pre-configured CI/CD pipelines for **{{.cicd_platform }}**.
+
+| Pipeline Stage | Trigger | Action |
+|---------------|---------|--------|
+| Bundle CI | Pull Request to `{{.default_branch}}` | Runs unit tests and validates bundle |
+| Staging CD | Merge to `{{.default_branch}}` | Deploys to staging |
+{{- if eq .environment_setup "full" }}
+| Production CD | Merge to `{{.release_branch}}` | Deploys to production |
+{{- end }}
+
+**Setup required:** See [docs/CI_CD_SETUP.md](docs/CI_CD_SETUP.md) for configuration instructions.
+
+{{- end }}
+
+## Testing
+
+### Unit Tests
+
+Run unit tests locally:
+
+```bash
+# Install development dependencies
+pip install -r requirements_dev.txt
+
+# Run tests
+pytest tests/ -V
+```
+
+Unit tests are located in the `tests/` directory{{- if eq .include_cicd "yes" }} and run automatically in the CI pipeline{{- end }}.
+
+### Integration Tests
+
+For data quality validation, use SDP/LDP expectations in your pipeline code.
+See the pipeline notebooks in `src/pipelines/` for examples.
+
 ## Resources
 
 - [Unity Catalog](https://docs.databricks.com/data-governance/unity-catalog/)
 - [Databricks Asset Bundles](https://docs.databricks.com/dev-tools/bundles/)
 - [Lakeflow Declarative Pipelines](https://docs.databricks.com/aws/en/ldp/)
+{{- if eq .include_cicd "yes" }}
+- [CI/CD on Databricks](https://docs.databricks.com/dev-tools/ci-cd/)
+{{- end }}

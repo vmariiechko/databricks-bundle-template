@@ -1,5 +1,5 @@
 {
-  "welcome_message": "\nWelcome to the Databricks Multi-Environment Bundle Template!\n\nThis template creates a production-ready Databricks Asset Bundle with:\n- Multi-environment deployment (user/dev/stage/prod)\n- Configurable compute (serverless or classic)\n- Optional RBAC permissions\n- Sample ETL jobs and pipelines\n- Unity Catalog schema management\n\nLet's configure your project...\n",
+  "welcome_message": "\nWelcome to the Databricks Multi-Environment Bundle Template!\n\nThis template creates a production-ready Databricks Asset Bundle with:\n- Multi-environment deployment (user/dev/stage/prod)\n- Configurable compute (serverless or classic)\n- Optional RBAC permissions\n- Sample ETL jobs and pipelines\n- Unity Catalog schema management\n- CI/CD pipeline templates (Azure DevOps, GitHub Actions, GitLab)\n\nLet's configure your project...\n",
 
   "properties": {
     "project_name": {
@@ -149,10 +149,74 @@
           }
         ]
       }
+    },
+
+    "include_cicd": {
+      "type": "string",
+      "default": "yes",
+      "description": "\n========================================\n\nInclude CI/CD pipeline templates?\nType 'yes' or 'no':\n- yes: Generate CI/CD workflows for automated bundle validation and deployment\n- no: Skip CI/CD (you'll set up pipelines manually)\ninclude_cicd",
+      "order": 12,
+      "pattern": "^(yes|no)$",
+      "pattern_match_failure_message": "Please enter 'yes' or 'no'."
+    },
+
+    "cicd_platform": {
+      "type": "string",
+      "default": "azure_devops",
+      "description": "\n========================================\n\nWhich CI/CD platform do you use?\nType 'azure_devops', 'github_actions', or 'gitlab':\n- azure_devops: Azure DevOps Pipelines (YAML)\n- github_actions: GitHub Actions workflows\n- gitlab: GitLab CI/CD pipelines\ncicd_platform",
+      "order": 13,
+      "pattern": "^(azure_devops|github_actions|gitlab)$",
+      "pattern_match_failure_message": "Please enter 'azure_devops', 'github_actions', or 'gitlab'.",
+      "skip_prompt_if": {
+        "properties": {
+          "include_cicd": {
+            "const": "no"
+          }
+        }
+      }
+    },
+
+    "default_branch": {
+      "type": "string",
+      "default": "main",
+      "description": "\n========================================\n\nName of your default branch.\nStaging deployments trigger when PRs are merged into this branch.\ndefault_branch",
+      "order": 14,
+      "skip_prompt_if": {
+        "properties": {
+          "include_cicd": {
+            "const": "no"
+          }
+        }
+      }
+    },
+
+    "release_branch": {
+      "type": "string",
+      "default": "release",
+      "description": "\n========================================\n\nName of your release/production branch.\nProduction deployments trigger when PRs are merged into this branch.\nrelease_branch",
+      "order": 15,
+      "skip_prompt_if": {
+        "anyOf": [
+          {
+            "properties": {
+              "include_cicd": {
+                "const": "no"
+              }
+            }
+          },
+          {
+            "properties": {
+              "environment_setup": {
+                "const": "minimal"
+              }
+            }
+          }
+        ]
+      }
     }
   },
 
-  "success_message": "\n========================================\n\n\nYour project '{{.project_name}}' has been created successfully!\n\nNext steps:\n1. cd {{.project_name}}\n2. Review and update the configuration files\n3. Run: databricks bundle validate -t user\n4. Run: databricks bundle deploy -t user\n\nFor detailed setup instructions, see README.md and docs/PERMISSIONS_SETUP.md\n",
+  "success_message": "\n========================================\n\n\nYour project '{{.project_name}}' has been created successfully!\n\nNext steps:\n1. cd {{.project_name}}\n2. Review and update the configuration files\n3. Run: databricks bundle validate -t user\n4. Run: databricks bundle deploy -t user\n\nFor detailed setup instructions, see:\n- README.md - Project overview and quickstart\n- docs/PERMISSIONS_SETUP.md - RBAC configuration\n- docs/CI_CD_SETUP.md - CI/CD pipeline configuration\n",
 
   "min_databricks_cli_version": "v0.274.0",
   "version": 1

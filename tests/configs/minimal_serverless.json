@@ -2,7 +2,9 @@
   "project_name": "test_minimal_serverless",
   "environment_setup": "minimal",
   "compute_type": "serverless",
+  "cloud_provider": "azure",
   "uc_catalog_suffix": "test_domain",
   "include_permissions": "no",
-  "configure_sp_now": "no"
+  "configure_sp_now": "no",
+  "include_cicd": "no"
 }

@@ -137,6 +137,38 @@ class GeneratedProject:
     def has_sp_configured(self) -> bool:
         return self.config.get("configure_sp_now") == "yes"
 
+    @property
+    def has_cicd(self) -> bool:
+        return self.config.get("include_cicd") == "yes"
+
+    @property
+    def cicd_platform(self) -> str:
+        return self.config.get("cicd_platform", "")
+
+    @property
+    def is_azure_devops(self) -> bool:
+        return self.cicd_platform == "azure_devops"
+
+    @property
+    def is_github_actions(self) -> bool:
+        return self.cicd_platform == "github_actions"
+
+    @property
+    def is_gitlab(self) -> bool:
+        return self.cicd_platform == "gitlab"
+
+    @property
+    def default_branch(self) -> str:
+        return self.config.get("default_branch", "main")
+
+    @property
+    def release_branch(self) -> str:
+        return self.config.get("release_branch", "release")
+
+    @property
+    def cloud_provider(self) -> str:
+        return self.config.get("cloud_provider", "azure")
+
 
 def generate_project(config_path: Path, output_dir: Path) -> GeneratedProject:
     """Generate a project from the template using a config file."""

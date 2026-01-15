@@ -130,3 +130,12 @@
           false
      {{- end -}}
 {{- end -}}
+
+{{/* ============================================================================
+     CLI VERSION
+     Returns the minimum/recommended Databricks CLI version for bundles and CI/CD
+     ============================================================================ */}}
+
+{{- define "cli_version" -}}
+     0.274.0
+{{- end -}}

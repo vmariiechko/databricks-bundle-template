@@ -81,10 +81,10 @@ databricks-bundles-realworld/
 
 ```bash
 # Install dependencies
-pip install -r requirements-dev.txt
+pip install -r requirements_dev.txt
 
 # Run automated tests
-pytest tests/ -v
+pytest tests/ -V
 ```
 
 ```bash

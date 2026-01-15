@@ -1,0 +1,423 @@
+{{- if eq .include_cicd "yes" -}}
+# CI/CD Setup Guide for {{.project_name}}
+
+This project includes pre-configured CI/CD pipelines for **{{.cicd_platform }}**.
+
+## Prerequisites
+
+### Repository Structure
+
+The CI/CD pipeline expects the bundle project to be at the **root** of the repository:
+
+```
+{{.project_name}}/
+├── databricks.yml           # ← Must be at repo root
+{{- if eq .cicd_platform "azure_devops" }}
+├── .azure/
+│   └── devops_pipelines/
+{{- end }}
+{{- if eq .cicd_platform "github_actions" }}
+├── .github/
+│   └── workflows/
+{{- end }}
+{{- if eq .cicd_platform "gitlab" }}
+├── .gitlab/
+│   └── pipelines/
+{{- end }}
+├── resources/
+├── src/
+├── tests/
+└── ...
+```
+
+{{- if eq .cicd_platform "azure_devops" -}}
+**Important**: If your bundle project is in a subdirectory, update the `workingDirectory` variable in the pipeline YAML file. For example, if your project is in `projects/{{.project_name}}/`, change:
+```yaml
+variables:
+  - name: workingDirectory
+    value: projects/{{.project_name}}
+```
+{{- end }}
+{{- if eq .cicd_platform "github_actions" -}}
+**Important**: If your bundle project is in a subdirectory, update the `working-directory` variable in the pipeline YAML file. For example, if your project is in `projects/{{.project_name}}/`, change:
+```yaml
+defaults:
+  run:
+    working-directory: projects/{{.project_name}}
+```
+{{- end }}
+{{- if eq .cicd_platform "gitlab" -}}
+**Important**: If your bundle project is in a subdirectory, update the path to the project in the pipeline Dockerfile / YAML file. For example, if your project is in `projects/{{.project_name}}/`, change:
+```dockerfile
+...
+COPY projects/{{.project_name}}/requirements_dev.txt .
+...
+```
+```yaml
+...
+  script:
+    - cd projects/{{.project_name}}
+    ...
+```
+{{- end }}
+### Required Tools
+
+- **Databricks CLI** (installed automatically by the pipeline)
+- **Python 3.11+** (for running unit tests)
+
+---
+
+## Unity Catalog Prerequisites
+
+Before CI/CD can deploy resources, Unity Catalog catalogs must exist and service principals must have appropriate permissions.
+
+### Understanding Service Principal Roles
+
+This template uses a **single service principal per environment** that serves as both:
+- **Deployer**: Runs `databricks bundle deploy` in CI/CD
+- **Runtime**: Runs jobs and pipelines (configured via `run_as` in `databricks.yml`)
+
+The same SP credentials you configure in CI/CD are referenced in `variables.yml` as `stage_service_principal` and `prod_service_principal`.
+
+### Step 1: Create Catalogs
+
+Create the following catalogs in your Databricks metastore (requires metastore admin or catalog creator role):
+
+```sql
+-- Staging catalog
+CREATE CATALOG IF NOT EXISTS stage_{{.uc_catalog_suffix}};
+
+{{- if eq .environment_setup "full" }}
+-- Production catalog
+CREATE CATALOG IF NOT EXISTS prod_{{.uc_catalog_suffix}};
+{{- end }}
+```
+
+> **Note**: The `user_*` catalog is for local development and doesn't require CI/CD access.
+
+### Step 2: Add Service Principal to Workspace
+
+Before granting Unity Catalog permissions, ensure the service principal is added to your Databricks workspace:
+
+1. Go to your workspace → Settings → Identity and access
+2. Click Service principals → Add service principal
+3. Add your relevant stage/prod SPs
+
+### Step 3: Grant Catalog Permissions
+
+The service principal only needs **catalog-level** permissions. Schema-level grants are handled automatically by the bundle deployment (defined in `databricks.yml`).
+
+> **Don't have a service principal yet?** See [Creating Service Principal Credentials](#creating-service-principal-credentials) below for step-by-step instructions, then return here to grant catalog permissions.
+
+{{- if eq .cloud_provider "azure" }}
+**Identify your Service Principal**: In Azure Portal → Microsoft Entra ID → Manage dropdown → App registrations → your SP, copy the **Application (client) ID**. This ID is used in both the CI/CD variable group and SQL grants below.
+{{- else }}
+**Identify your Service Principal**: In Databricks Account Console → User management → Service principals → your SP, copy the **Client ID** from the OAuth secrets section.
+{{- end }}
+
+```sql
+-- ============================================
+-- STAGING Environment Permissions
+-- ============================================
+-- Replace <STAGING_SP_ID> with your staging service principal's application/client ID
+
+GRANT USE CATALOG ON CATALOG stage_{{.uc_catalog_suffix}} TO `<STAGING_SP_ID>`;
+GRANT CREATE SCHEMA ON CATALOG stage_{{.uc_catalog_suffix}} TO `<STAGING_SP_ID>`;
+
+{{- if eq .environment_setup "full" }}
+
+-- ============================================
+-- PRODUCTION Environment Permissions
+-- ============================================
+-- Replace <PROD_SP_ID> with your production service principal's application/client ID
+
+GRANT USE CATALOG ON CATALOG prod_{{.uc_catalog_suffix}} TO `<PROD_SP_ID>`;
+GRANT CREATE SCHEMA ON CATALOG prod_{{.uc_catalog_suffix}} TO `<PROD_SP_ID>`;
+{{- end }}
+```
+
+> **Schema permissions are automatic**: When the bundle deploys and creates schemas, the SP becomes the schema owner. Additional grants defined in `databricks.yml` (for groups like `developers`, `qa_team`, etc.) are applied automatically during deployment.
+
+#### **Why these permissions?**
+
+| Permission | Purpose |
+|-----------|---------|
+| `USE CATALOG` | Access the catalog hierarchy |
+| `CREATE SCHEMA` | Create bronze, silver, gold schemas during first deployment |
+
+> Note that you might want to grant other `CREATE <SECURABLE>` privileges e.g. to create Volume via DABs.
+
+**What you DON'T need to grant manually:**
+- Schema-level privileges (SP owns schemas it creates)
+- Table-level privileges (inherited from schema ownership)
+
+---
+
+## Git Branching Strategy
+
+This project uses a **Release Flow** strategy (similar to GitHub Flow but with a dedicated release branch). It is simpler than Gitflow and well-suited for Databricks bundles.
+
+{{- if eq .environment_setup "full" }}
+![Git Branching Strategy](images/git-flow-full.png)
+{{- else }}
+![Git Branching Strategy](images/git-flow-minimal.png)
+{{- end }}
+
+### Branch Purposes
+
+| Branch | Environment | Purpose | CI/CD Trigger |
+|--------|-------------|---------|---------------|
+| `feature/*` | **User** | Development work | None (Developers run `bundle validate` locally) |
+| `{{.default_branch}}` | **Staging** | Integration & Pre-prod | **PR**: Validates bundle<br>**Merge**: Deploys to Staging |
+{{- if eq .environment_setup "full" }}
+| `{{.release_branch}}` | **Production** | Production Releases | **Merge**: Deploys to Production |
+{{- end }}
+
+{{- if eq .include_dev_environment "yes" }}
+> **Note**: The optional `dev` environment is designed for manual testing or scheduled nightly builds and is not currently part of the automated CI/CD deployment pipeline.
+{{- end }}
+
+### Workflow Steps
+
+1. Create feature branch from `{{.default_branch}}`
+2. Develop and test locally using `databricks bundle validate -t user`
+3. Open Pull Request to `{{.default_branch}}`
+   - CI pipeline runs unit tests
+   - CI pipeline validates bundle for staging{{- if eq .environment_setup "full" }} and production{{- end }}
+4. Merge to `{{.default_branch}}` after approval
+   - CD pipeline deploys to staging environment
+{{- if eq .environment_setup "full" }}
+5. Open Pull Request from `{{.default_branch}}` to `{{.release_branch}}`
+   - Review changes for production readiness
+   - No CI validation runs (already validated on `{{.default_branch}}`)
+6. Merge to `{{.release_branch}}`
+   - CD pipeline deploys to production environment
+{{- end }}
+
+---
+
+## Pipeline Overview
+
+| Pipeline Stage | Trigger | Action |
+|---------------|---------|--------|
+| Bundle CI | Pull Request to `{{.default_branch}}` | Runs unit tests and validates bundle configuration |
+| Staging CD | Merge to `{{.default_branch}}` | Deploys bundle to staging environment |
+{{- if eq .environment_setup "full" }}
+| Production CD | Merge to `{{.release_branch}}` | Deploys bundle to production environment |
+{{- end }}
+
+---
+
+{{- if eq .cicd_platform "azure_devops" }}
+
+## Azure DevOps (ADO) Setup
+
+### Step 1: Create Variable Group
+
+1. Go to your Azure DevOps project
+2. Navigate to **Pipelines** → **Library**
+3. Click **+ Variable group**
+4. Name it: `vg_{{.project_name}}`
+5. Add the variables listed below
+
+{{- if eq .cloud_provider "azure" }}
+
+#### Variables for Azure Databricks (Service Principal Authentication)
+
+| Variable Name | Value Source (Azure Portal) | Secret? |
+|--------------|---------------------------|---------|
+| `STAGING_AZURE_SP_TENANT_ID` | Microsoft Entra ID → App registrations → [your SP] → **Directory (tenant) ID** | No |
+| `STAGING_AZURE_SP_APPLICATION_ID` | Microsoft Entra ID → App registrations → [your SP] → **Application (client) ID** | No |
+| `STAGING_AZURE_SP_CLIENT_SECRET` | Microsoft Entra ID → App registrations → [your SP] → Certificates & secrets → [your secret] → **Value** | **Yes** |
+{{- if eq .environment_setup "full" }}
+| `PROD_AZURE_SP_TENANT_ID` | Same as above, for production SP | No |
+| `PROD_AZURE_SP_APPLICATION_ID` | Same as above, for production SP | No |
+| `PROD_AZURE_SP_CLIENT_SECRET` | Same as above, for production SP | **Yes** |
+{{- end }}
+
+#### Creating Service Principal Credentials
+
+1. **Go to Azure Portal → Microsoft Entra ID → App registrations**
+2. Select or create your service principal for each environment
+3. Copy credentials:
+   - **Directory (tenant) ID** → `*_AZURE_SP_TENANT_ID`
+   - **Application (client) ID** → `*_AZURE_SP_APPLICATION_ID`
+4. Create client secret:
+   - Go to **Certificates & secrets** → **New client secret**
+   - Copy the **Value** (shown only once!) → `*_AZURE_SP_CLIENT_SECRET`
+5. Grant Databricks access:
+   - Add the service principal to your Databricks workspace
+   - Grant Unity Catalog permissions (see above)
+
+{{- else }}
+
+#### Variables for AWS/GCP Databricks (OAuth M2M Authentication)
+
+| Variable Name | Value Source (Databricks) | Secret? |
+|--------------|--------------------------|---------|
+| `STAGING_DATABRICKS_HOST` | Your Databricks workspace URL (e.g., `https://xxx.cloud.databricks.com`) | No |
+| `STAGING_DATABRICKS_CLIENT_ID` | Account Console → User management → Service principals → [your SP] → OAuth secrets → **Client ID** | No |
+| `STAGING_DATABRICKS_CLIENT_SECRET` | Account Console → User management → Service principals → [your SP] → OAuth secrets → **Secret** | **Yes** |
+{{- if eq .environment_setup "full" }}
+| `PROD_DATABRICKS_HOST` | Same as above, for production workspace | No |
+| `PROD_DATABRICKS_CLIENT_ID` | Same as above, for production SP | No |
+| `PROD_DATABRICKS_CLIENT_SECRET` | Same as above, for production SP | **Yes** |
+{{- end }}
+
+#### Creating OAuth M2M Credentials
+
+1. Go to Databricks Account Console (accounts.cloud.databricks.com)
+2. Navigate to **User management → Service principals**
+3. Create or select a service principal for each environment
+4. Generate OAuth secret:
+   - Go to **OAuth secrets** tab → **Generate secret**
+   - Copy Client ID → `*_DATABRICKS_CLIENT_ID`
+   - Copy Secret (shown only once!) → `*_DATABRICKS_CLIENT_SECRET`
+5. Add to workspace:
+   - Go to **Workspaces → [your workspace] → Settings → Identity and access**
+   - Add the service principal
+6. Grant Unity Catalog permissions (see above)
+
+{{- end }}
+
+### Step 2: Create the Pipeline
+
+1. On ADO, go to **Pipelines** → **New pipeline**
+2. Select your repository source (Azure Repos, GitHub, etc.)
+3. Select your repository
+4. Choose **Existing Azure Pipelines YAML file**
+5. Select Branch: `{{.default_branch}}`
+6. Select the path: `/.azure/devops_pipelines/{{.project_name}}_bundle_cicd.yml`
+7. Click **Continue** and then **Run**
+8. On the first run you'll need to click "View" and then "Permit" to authorize access to the variable group.
+
+### Step 3: Configure Branch Policies (Recommended)
+
+For better code quality, set up branch policies:
+
+1. Go to **Repos → Branches**
+2. Click the **...** menu next to `{{.default_branch}}`
+3. Select **Branch policies**
+4. Consider enabling:
+   - **Require a minimum number of reviewers**: 1 or more
+   - **Check for linked work items**: Optional
+   - **Check for comment resolution**: Required
+   - **Limit merge types**: restrict to desired merge type (suggested "Squash merge")
+   - **Build validation**: Add the pipeline created in Step 2
+
+{{- if eq .environment_setup "full" }}
+
+**For the release branch**:
+1. Repeat the above for `{{.release_branch}}`
+2. Consider stricter policies for production (e.g., 2+ reviewers)
+{{- end }}
+
+{{- end }}
+
+{{- if eq .cicd_platform "github_actions" }}
+
+## GitHub Actions Setup
+
+> **Note:** GitHub Actions templates are coming soon. This documentation will be updated when available.
+
+{{- end }}
+
+{{- if eq .cicd_platform "gitlab" }}
+
+## GitLab CI/CD Setup
+
+> **Note:** GitLab CI templates are coming soon. This documentation will be updated when available.
+
+{{- end }}
+
+---
+
+## Unit Tests
+
+The CI pipeline automatically runs unit tests before bundle validation. Tests are discovered in the `tests/` directory.
+
+### Running Tests Locally
+
+```bash
+# Install development dependencies
+pip install -r requirements_dev.txt
+
+# Run tests
+pytest tests/ -V
+```
+
+### Test Structure
+
+```
+tests/
+├── __init__.py
+├── test_placeholder.py    # Example test (replace with your tests)
+└── ...                    # Add your test files here
+```
+
+---
+
+## Troubleshooting
+
+### Pipeline fails with "Variable group not found"
+
+- Ensure the variable group is named exactly: `vg_{{.project_name}}`
+- Check that the variable group is linked to the pipeline (first run: click "Permit")
+
+### Pipeline fails with "databricks.yml not found"
+
+- Ensure `databricks.yml` is at the repository root
+- If in a subdirectory, update `workingDirectory` in the pipeline YAML (see Prerequisites)
+
+### Pipeline fails with authentication errors
+
+{{- if eq .cloud_provider "azure" }}
+- Verify all three SP credentials are set: `ARM_TENANT_ID`, `ARM_CLIENT_ID`, `ARM_CLIENT_SECRET`
+- Ensure the service principal has been added to the Databricks workspace
+- Check that the SP has appropriate Unity Catalog permissions
+{{- else }}
+- Verify that `DATABRICKS_HOST` is correct (include `https://`)
+- Verify OAuth credentials: `DATABRICKS_CLIENT_ID` and `DATABRICKS_CLIENT_SECRET`
+- Ensure the service principal has been added to the Databricks workspace
+- Check that the SP has appropriate Unity Catalog permissions
+{{- end }}
+
+### Bundle validation fails with "Catalog not found"
+
+- Create the required catalog: `stage_{{.uc_catalog_suffix}}`{{- if eq .environment_setup "full" }} or `prod_{{.uc_catalog_suffix}}`{{- end }}
+- Grant the service principal `USE CATALOG` permission
+
+### Bundle deployment fails with permission errors
+
+- Ensure the service principal has `CREATE SCHEMA` on the catalog
+- After schemas are created, grant `ALL PRIVILEGES` on each schema
+
+### Tests fail
+
+- Run `pytest tests/ -V` locally to see detailed output
+- Check that all test dependencies are in `requirements_dev.txt`
+
+---
+
+## Related Documentation
+
+- [Databricks Asset Bundles](https://docs.databricks.com/dev-tools/bundles/index.html)
+- [Databricks CLI Reference](https://docs.databricks.com/dev-tools/cli/databricks-cli.html)
+- [OAuth M2M Authentication](https://docs.databricks.com/dev-tools/auth/oauth-m2m.html)
+- [Unity Catalog Privileges](https://docs.databricks.com/data-governance/unity-catalog/manage-privileges.html)
+{{- if eq .cicd_platform "azure_devops" }}
+- [Azure Pipelines Documentation](https://learn.microsoft.com/en-us/azure/devops/pipelines/)
+{{- end }}
+{{- if eq .cicd_platform "github_actions" }}
+- [GitHub Actions Documentation](https://docs.github.com/en/actions)
+{{- end }}
+{{- if eq .cicd_platform "gitlab" }}
+- [GitLab CI/CD Documentation](https://docs.gitlab.com/ee/ci/)
+{{- end }}
+{{- else -}}
+# CI/CD Setup Guide
+
+CI/CD pipelines were not included in this project.
+
+To set up CI/CD manually, see the [Databricks CI/CD documentation](https://docs.databricks.com/dev-tools/ci-cd/).
+{{- end }}

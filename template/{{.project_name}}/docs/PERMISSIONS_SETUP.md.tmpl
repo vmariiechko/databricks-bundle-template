@@ -10,7 +10,7 @@ Quick guide to configure permissions in your Databricks Asset Bundle for secure,
 ### Step 1: Create Required Groups
 
 Create these groups in your Databricks workspace:
-**Settings > Identity and access > Groups > Add group**
+Settings → Identity and access → Groups → Add group
 
 | Group | Purpose |
 |-------|---------|
@@ -33,10 +33,16 @@ databricks groups create --display-name analytics_team
 
 ### Step 2: Configure Service Principals
 
+Each environment uses a **single service principal** that serves dual purposes:
+1. **Deployer**: Used by CI/CD to run `databricks bundle deploy`
+2. **Runtime**: Used to run jobs and pipelines (via `run_as` in `databricks.yml`)
+
+This simplifies management while maintaining security isolation between environments.
+
 {{- if eq .configure_sp_now "yes" }}
 Service principals are already configured in `variables.yml`.
 {{- else }}
-Search for `SP_PLACEHOLDER` in `variables.yml` and replace with your SP IDs:
+Search for `SP_PLACEHOLDER` in `variables.yml` and replace with your SP application IDs:
 {{- if and (eq .environment_setup "full") (eq .include_dev_environment "yes") }}
 - `SP_PLACEHOLDER_DEV` → Your dev environment SP
 {{- end }}
@@ -45,6 +51,8 @@ Search for `SP_PLACEHOLDER` in `variables.yml` and replace with your SP IDs:
 - `SP_PLACEHOLDER_PROD` → Your prod environment SP
 {{- end }}
 {{- end }}
+
+> **Note**: The same SP IDs are used in your CI/CD variable group. See [CI_CD_SETUP.md](CI_CD_SETUP.md) for details.
 
 ### Step 3: Deploy
 

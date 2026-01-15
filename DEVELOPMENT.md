@@ -32,10 +32,10 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the complete technical design, includ
 
 ```bash
 # Install dependencies
-pip install -r requirements-dev.txt
+pip install -r requirements_dev.txt
 
 # Run all tests
-pytest tests/ -v
+pytest tests/ -V
 ```
 
 Tests validate:
@@ -296,7 +296,7 @@ Options:
 | `template/{{.project_name}}/` | Generated project structure |
 | `tests/` | Pytest test suite (316 tests) |
 | `tests/configs/` | JSON config files for testing |
-| `requirements-dev.txt` | Test dependencies |
+| `requirements_dev.txt` | Test dependencies |
 
 ---
 
@@ -328,5 +328,5 @@ When testing template changes, validate these combinations:
 1. Make changes to template files in `template/{{.project_name}}/`
 2. Update prompts in `databricks_template_schema.json` if needed
 3. Add helpers to `library/helpers.tmpl` if needed
-4. Run tests: `pytest tests/ -v`
+4. Run tests: `pytest tests/ -V`
 5. Update documentation

@@ -1,11 +1,14 @@
 {
-  "project_name": "test_full_no_dev",
+  "project_name": "test_full_cicd_aws",
   "environment_setup": "full",
   "include_dev_environment": "no",
   "compute_type": "classic",
-  "cloud_provider": "azure",
+  "cloud_provider": "aws",
   "uc_catalog_suffix": "test_domain",
   "include_permissions": "yes",
   "configure_sp_now": "no",
-  "include_cicd": "no"
+  "include_cicd": "yes",
+  "cicd_platform": "azure_devops",
+  "default_branch": "main",
+  "release_branch": "release"
 }

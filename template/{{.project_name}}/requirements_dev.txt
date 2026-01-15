@@ -1,0 +1,9 @@
+# Development dependencies
+#
+# Install with: pip install -r requirements_dev.txt
+#
+# These packages are used for local development and CI/CD testing.
+# They are NOT deployed to Databricks clusters.
+
+pytest>=9.0.0
+pytest-cov>=6.0.0
