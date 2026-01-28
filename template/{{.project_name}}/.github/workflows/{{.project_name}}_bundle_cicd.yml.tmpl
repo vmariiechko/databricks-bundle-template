@@ -1,0 +1,249 @@
+{{- if and (eq .include_cicd "yes") (eq .cicd_platform "github_actions") -}}
+# GitHub Actions Workflow for {{.project_name}}
+#
+# This workflow validates and deploys Databricks Asset Bundles:
+# - bundle-ci: Validates bundle configuration on Pull Requests to {{.default_branch}}
+# - staging-cd: Deploys to staging when PRs are merged into {{.default_branch}}
+{{- if eq .environment_setup "full" }}
+# - prod-cd: Deploys to production when PRs are merged into {{.release_branch}}
+{{- end }}
+#
+# Prerequisites:
+# 1. Configure repository secrets (see docs/CI_CD_SETUP.md)
+# 2. Ensure Unity Catalog prerequisites are met
+
+name: Bundle CI/CD for {{.project_name}}
+
+on:
+  push:
+    branches:
+      - {{.default_branch}}
+{{- if eq .environment_setup "full" }}
+      - {{.release_branch}}
+{{- end }}
+    paths-ignore:
+      - 'README.md'
+      - 'docs/**'
+      - '.gitignore'
+  pull_request:
+    branches:
+      - {{.default_branch}}
+    paths-ignore:
+      - 'README.md'
+      - 'docs/**'
+      - '.gitignore'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+defaults:
+  run:
+    working-directory: .
+
+env:
+{{- if eq .cloud_provider "azure" }}
+  # Azure Databricks uses ARM service principal authentication
+  STAGING_ARM_TENANT_ID: {{`${{ secrets.STAGING_AZURE_SP_TENANT_ID }}`}}
+  STAGING_ARM_CLIENT_ID: {{`${{ secrets.STAGING_AZURE_SP_APPLICATION_ID }}`}}
+  STAGING_ARM_CLIENT_SECRET: {{`${{ secrets.STAGING_AZURE_SP_CLIENT_SECRET }}`}}
+{{- if eq .environment_setup "full" }}
+  PROD_ARM_TENANT_ID: {{`${{ secrets.PROD_AZURE_SP_TENANT_ID }}`}}
+  PROD_ARM_CLIENT_ID: {{`${{ secrets.PROD_AZURE_SP_APPLICATION_ID }}`}}
+  PROD_ARM_CLIENT_SECRET: {{`${{ secrets.PROD_AZURE_SP_CLIENT_SECRET }}`}}
+{{- end }}
+{{- else }}
+  # AWS/GCP Databricks uses OAuth M2M authentication
+  STAGING_DATABRICKS_HOST: {{`${{ secrets.STAGING_DATABRICKS_HOST }}`}}
+  STAGING_DATABRICKS_CLIENT_ID: {{`${{ secrets.STAGING_DATABRICKS_CLIENT_ID }}`}}
+  STAGING_DATABRICKS_CLIENT_SECRET: {{`${{ secrets.STAGING_DATABRICKS_CLIENT_SECRET }}`}}
+{{- if eq .environment_setup "full" }}
+  PROD_DATABRICKS_HOST: {{`${{ secrets.PROD_DATABRICKS_HOST }}`}}
+  PROD_DATABRICKS_CLIENT_ID: {{`${{ secrets.PROD_DATABRICKS_CLIENT_ID }}`}}
+  PROD_DATABRICKS_CLIENT_SECRET: {{`${{ secrets.PROD_DATABRICKS_CLIENT_SECRET }}`}}
+{{- end }}
+{{- end }}
+
+jobs:
+  # =============================================================================
+  # Job: bundle-ci - Validate bundle on Pull Requests
+  # =============================================================================
+  bundle-ci:
+    name: 'Validate and Test'
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: {{.project_name}}_ci_{{`${{ github.ref }}`}}
+      cancel-in-progress: true
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: {{`${{ github.event.pull_request.head.sha || github.sha }}`}}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          if [ -f "requirements_dev.txt" ]; then
+            echo "Installing development dependencies..."
+            python -m pip install --upgrade pip
+            pip install -r requirements_dev.txt
+          else
+            echo "No requirements_dev.txt found, skipping dependency installation"
+          fi
+
+      - name: Run unit tests
+        run: |
+          if [ -d "tests" ] && [ -n "$(find tests -name 'test_*.py' -o -name '*_test.py' 2>/dev/null)" ]; then
+            echo "Running unit tests..."
+            python -m pytest tests/ -v --junitxml=test-results.xml
+          else
+            echo "No test files found, skipping unit tests"
+          fi
+
+      - name: Publish test results
+        uses: dorny/test-reporter@v1
+        if: success() || failure()
+        with:
+          name: Unit Tests - {{.project_name}}
+          path: test-results.xml
+          reporter: java-junit
+          fail-on-error: false   # Prevent "double failing" noise when pytest fails the job
+          token: {{`${{ github.token }}`}}
+
+      - name: Install Databricks CLI
+        uses: databricks/setup-cli@v{{template "cli_version" .}}
+
+      - name: Validate bundle for staging
+        env:
+{{- if eq .cloud_provider "azure" }}
+          ARM_TENANT_ID: {{`${{ env.STAGING_ARM_TENANT_ID }}`}}
+          ARM_CLIENT_ID: {{`${{ env.STAGING_ARM_CLIENT_ID }}`}}
+          ARM_CLIENT_SECRET: {{`${{ env.STAGING_ARM_CLIENT_SECRET }}`}}
+{{- else }}
+          DATABRICKS_HOST: {{`${{ env.STAGING_DATABRICKS_HOST }}`}}
+          DATABRICKS_CLIENT_ID: {{`${{ env.STAGING_DATABRICKS_CLIENT_ID }}`}}
+          DATABRICKS_CLIENT_SECRET: {{`${{ env.STAGING_DATABRICKS_CLIENT_SECRET }}`}}
+{{- end }}
+        run: |
+          databricks bundle validate -t stage
+
+{{- if eq .environment_setup "full" }}
+
+      - name: Validate bundle for production
+        env:
+{{- if eq .cloud_provider "azure" }}
+          ARM_TENANT_ID: {{`${{ env.PROD_ARM_TENANT_ID }}`}}
+          ARM_CLIENT_ID: {{`${{ env.PROD_ARM_CLIENT_ID }}`}}
+          ARM_CLIENT_SECRET: {{`${{ env.PROD_ARM_CLIENT_SECRET }}`}}
+{{- else }}
+          DATABRICKS_HOST: {{`${{ env.PROD_DATABRICKS_HOST }}`}}
+          DATABRICKS_CLIENT_ID: {{`${{ env.PROD_DATABRICKS_CLIENT_ID }}`}}
+          DATABRICKS_CLIENT_SECRET: {{`${{ env.PROD_DATABRICKS_CLIENT_SECRET }}`}}
+{{- end }}
+        run: |
+          databricks bundle validate -t prod
+{{- end }}
+
+  # =============================================================================
+  # Job: staging-cd - Deploy to staging on merge to {{.default_branch}}
+  # =============================================================================
+  staging-cd:
+    name: 'Deploy to Staging'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/{{.default_branch}}'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: {{.project_name}}_staging_deploy
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Databricks CLI
+        uses: databricks/setup-cli@v{{template "cli_version" .}}
+
+      - name: Validate bundle for staging
+        env:
+{{- if eq .cloud_provider "azure" }}
+          ARM_TENANT_ID: {{`${{ env.STAGING_ARM_TENANT_ID }}`}}
+          ARM_CLIENT_ID: {{`${{ env.STAGING_ARM_CLIENT_ID }}`}}
+          ARM_CLIENT_SECRET: {{`${{ env.STAGING_ARM_CLIENT_SECRET }}`}}
+{{- else }}
+          DATABRICKS_HOST: {{`${{ env.STAGING_DATABRICKS_HOST }}`}}
+          DATABRICKS_CLIENT_ID: {{`${{ env.STAGING_DATABRICKS_CLIENT_ID }}`}}
+          DATABRICKS_CLIENT_SECRET: {{`${{ env.STAGING_DATABRICKS_CLIENT_SECRET }}`}}
+{{- end }}
+        run: |
+          databricks bundle validate -t stage
+
+      - name: Deploy bundle to staging
+        env:
+{{- if eq .cloud_provider "azure" }}
+          ARM_TENANT_ID: {{`${{ env.STAGING_ARM_TENANT_ID }}`}}
+          ARM_CLIENT_ID: {{`${{ env.STAGING_ARM_CLIENT_ID }}`}}
+          ARM_CLIENT_SECRET: {{`${{ env.STAGING_ARM_CLIENT_SECRET }}`}}
+{{- else }}
+          DATABRICKS_HOST: {{`${{ env.STAGING_DATABRICKS_HOST }}`}}
+          DATABRICKS_CLIENT_ID: {{`${{ env.STAGING_DATABRICKS_CLIENT_ID }}`}}
+          DATABRICKS_CLIENT_SECRET: {{`${{ env.STAGING_DATABRICKS_CLIENT_SECRET }}`}}
+{{- end }}
+        run: |
+          databricks bundle deploy -t stage
+
+{{- if eq .environment_setup "full" }}
+
+  # =============================================================================
+  # Job: prod-cd - Deploy to production on merge to {{.release_branch}}
+  # =============================================================================
+  prod-cd:
+    name: 'Deploy to Production'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/{{.release_branch}}'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: {{.project_name}}_prod_deploy
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Databricks CLI
+        uses: databricks/setup-cli@v{{template "cli_version" .}}
+
+      - name: Validate bundle for production
+        env:
+{{- if eq .cloud_provider "azure" }}
+          ARM_TENANT_ID: {{`${{ env.PROD_ARM_TENANT_ID }}`}}
+          ARM_CLIENT_ID: {{`${{ env.PROD_ARM_CLIENT_ID }}`}}
+          ARM_CLIENT_SECRET: {{`${{ env.PROD_ARM_CLIENT_SECRET }}`}}
+{{- else }}
+          DATABRICKS_HOST: {{`${{ env.PROD_DATABRICKS_HOST }}`}}
+          DATABRICKS_CLIENT_ID: {{`${{ env.PROD_DATABRICKS_CLIENT_ID }}`}}
+          DATABRICKS_CLIENT_SECRET: {{`${{ env.PROD_DATABRICKS_CLIENT_SECRET }}`}}
+{{- end }}
+        run: |
+          databricks bundle validate -t prod
+
+      - name: Deploy bundle to production
+        env:
+{{- if eq .cloud_provider "azure" }}
+          ARM_TENANT_ID: {{`${{ env.PROD_ARM_TENANT_ID }}`}}
+          ARM_CLIENT_ID: {{`${{ env.PROD_ARM_CLIENT_ID }}`}}
+          ARM_CLIENT_SECRET: {{`${{ env.PROD_ARM_CLIENT_SECRET }}`}}
+{{- else }}
+          DATABRICKS_HOST: {{`${{ env.PROD_DATABRICKS_HOST }}`}}
+          DATABRICKS_CLIENT_ID: {{`${{ env.PROD_DATABRICKS_CLIENT_ID }}`}}
+          DATABRICKS_CLIENT_SECRET: {{`${{ env.PROD_DATABRICKS_CLIENT_SECRET }}`}}
+{{- end }}
+        run: |
+          databricks bundle deploy -t prod
+{{- end }}
+{{- end }}

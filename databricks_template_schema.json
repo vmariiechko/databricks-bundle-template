@@ -47,17 +47,10 @@
     "cloud_provider": {
       "type": "string",
       "default": "azure",
-      "description": "\n========================================\n\nWhich cloud provider is your Databricks workspace on?\nType 'azure', 'aws', or 'gcp':\nThis determines the default node types for clusters.\ncloud_provider",
+      "description": "\n========================================\n\nWhich cloud provider is your Databricks workspace on?\nType 'azure', 'aws', or 'gcp':\nThis determines cluster node types and CI/CD authentication method.\ncloud_provider",
       "order": 5,
       "pattern": "^(azure|aws|gcp)$",
-      "pattern_match_failure_message": "Please enter 'azure', 'aws', or 'gcp'.",
-      "skip_prompt_if": {
-        "properties": {
-          "compute_type": {
-            "const": "serverless"
-          }
-        }
-      }
+      "pattern_match_failure_message": "Please enter 'azure', 'aws', or 'gcp'."
     },
 
     "uc_catalog_suffix": {

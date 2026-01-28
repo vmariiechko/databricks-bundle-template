@@ -267,17 +267,17 @@ class TestCICDDocumentation:
             assert "Value Source" in content, "Value source column not found in variable table"
             assert "Secret?" in content, "Secret column not found in variable table"
 
-    def test_cicd_setup_doc_has_working_directory_guidance(
+    def test_cicd_setup_doc_has_repo_root_requirement(
         self, generated_project: GeneratedProject
     ):
-        """CI_CD_SETUP.md should have workingDirectory guidance for subdirectory scenarios."""
+        """CI_CD_SETUP.md should have repository root requirement guidance."""
         if generated_project.has_cicd:
             content = generated_project.get_file_content("docs/CI_CD_SETUP.md")
-            assert "workingDirectory" in content, (
-                "workingDirectory guidance not found in CI_CD_SETUP.md"
+            assert "repository root" in content.lower(), (
+                "Repository root requirement not found in CI_CD_SETUP.md"
             )
-            assert "subdirectory" in content.lower(), (
-                "Subdirectory guidance not found in CI_CD_SETUP.md"
+            assert "must be at" in content.lower() or "must be at the repository root" in content.lower(), (
+                "Repo root guidance not found in CI_CD_SETUP.md"
             )
 
     def test_cicd_setup_doc_has_git_flow_section(self, generated_project: GeneratedProject):
@@ -350,3 +350,216 @@ class TestReadmeCICDSection:
         """README.md should have a Testing section."""
         content = generated_project.get_file_content("README.md")
         assert "## Testing" in content, "Testing section not found in README.md"
+
+
+# =============================================================================
+# GitHub Actions CI/CD Tests
+# =============================================================================
+
+
+class TestGitHubActionsWorkflowGeneration:
+    """Test GitHub Actions workflow files are generated correctly."""
+
+    def test_github_workflow_generated_when_enabled(self, generated_project: GeneratedProject):
+        """GitHub Actions workflow should be generated when cicd_platform=github_actions."""
+        if generated_project.has_cicd and generated_project.is_github_actions:
+            project_name = generated_project.project_name
+            workflow_path = f".github/workflows/{project_name}_bundle_cicd.yml"
+            assert generated_project.file_exists(workflow_path), (
+                f"GitHub Actions workflow not found at {workflow_path} "
+                f"for config: {generated_project.config_name}"
+            )
+
+    def test_github_workflow_empty_when_disabled(self, generated_project: GeneratedProject):
+        """GitHub Actions workflow should be empty when cicd is disabled."""
+        if not generated_project.has_cicd:
+            project_name = generated_project.project_name
+            workflow_path = f".github/workflows/{project_name}_bundle_cicd.yml"
+            if generated_project.file_exists(workflow_path):
+                content = generated_project.get_file_content(workflow_path).strip()
+                assert content == "", (
+                    f"GitHub Actions workflow should be empty when CI/CD is disabled "
+                    f"for config: {generated_project.config_name}"
+                )
+
+    def test_github_workflow_empty_for_other_platforms(self, generated_project: GeneratedProject):
+        """GitHub Actions workflow should be empty for non-GitHub platforms."""
+        if generated_project.has_cicd and not generated_project.is_github_actions:
+            project_name = generated_project.project_name
+            workflow_path = f".github/workflows/{project_name}_bundle_cicd.yml"
+            if generated_project.file_exists(workflow_path):
+                content = generated_project.get_file_content(workflow_path).strip()
+                assert content == "", (
+                    f"GitHub Actions workflow should be empty for platform "
+                    f"{generated_project.cicd_platform} for config: {generated_project.config_name}"
+                )
+
+
+class TestGitHubActionsWorkflowContent:
+    """Test GitHub Actions workflow content is correct."""
+
+    def test_github_workflow_valid_yaml(self, generated_project: GeneratedProject):
+        """GitHub Actions workflow should be valid YAML."""
+        if generated_project.has_cicd and generated_project.is_github_actions:
+            project_name = generated_project.project_name
+            workflow_path = f".github/workflows/{project_name}_bundle_cicd.yml"
+            content = generated_project.get_file_content(workflow_path)
+
+            try:
+                parsed = yaml.safe_load(content)
+                assert parsed is not None, "Workflow YAML is empty"
+            except yaml.YAMLError as e:
+                pytest.fail(f"Invalid YAML in workflow: {e}")
+
+    def test_github_workflow_uses_setup_cli_action(self, generated_project: GeneratedProject):
+        """GitHub Actions workflow should use official databricks/setup-cli action."""
+        if generated_project.has_cicd and generated_project.is_github_actions:
+            project_name = generated_project.project_name
+            workflow_path = f".github/workflows/{project_name}_bundle_cicd.yml"
+            content = generated_project.get_file_content(workflow_path)
+
+            assert "databricks/setup-cli@" in content, (
+                "databricks/setup-cli action not found in workflow"
+            )
+
+    def test_github_workflow_cli_version_consistent(self, generated_project: GeneratedProject):
+        """GitHub Actions workflow should use consistent CLI version."""
+        if generated_project.has_cicd and generated_project.is_github_actions:
+            project_name = generated_project.project_name
+            workflow_path = f".github/workflows/{project_name}_bundle_cicd.yml"
+            content = generated_project.get_file_content(workflow_path)
+
+            import re
+
+            cli_versions = re.findall(r"databricks/setup-cli@v?([\d.]+)", content)
+            assert len(cli_versions) > 0, "No CLI version found in workflow"
+            assert len(set(cli_versions)) == 1, f"Multiple CLI versions found: {set(cli_versions)}"
+
+    def test_github_workflow_has_required_jobs(self, generated_project: GeneratedProject):
+        """GitHub Actions workflow should have bundle-ci and staging-cd jobs."""
+        if generated_project.has_cicd and generated_project.is_github_actions:
+            project_name = generated_project.project_name
+            workflow_path = f".github/workflows/{project_name}_bundle_cicd.yml"
+            content = generated_project.get_file_content(workflow_path)
+
+            assert "bundle-ci:" in content, "bundle-ci job not found in workflow"
+            assert "staging-cd:" in content, "staging-cd job not found in workflow"
+
+    def test_github_workflow_has_prod_job_for_full_mode(self, generated_project: GeneratedProject):
+        """GitHub Actions workflow should have prod-cd job for full environment setup."""
+        if (
+            generated_project.has_cicd
+            and generated_project.is_github_actions
+            and generated_project.is_full
+        ):
+            project_name = generated_project.project_name
+            workflow_path = f".github/workflows/{project_name}_bundle_cicd.yml"
+            content = generated_project.get_file_content(workflow_path)
+
+            assert "prod-cd:" in content, (
+                "prod-cd job not found in workflow for full environment setup"
+            )
+
+    def test_github_workflow_no_prod_job_for_minimal_mode(
+        self, generated_project: GeneratedProject
+    ):
+        """GitHub Actions workflow should NOT have prod-cd job for minimal environment setup."""
+        if (
+            generated_project.has_cicd
+            and generated_project.is_github_actions
+            and generated_project.is_minimal
+        ):
+            project_name = generated_project.project_name
+            workflow_path = f".github/workflows/{project_name}_bundle_cicd.yml"
+            content = generated_project.get_file_content(workflow_path)
+
+            assert "prod-cd:" not in content, (
+                "prod-cd job should not exist in workflow for minimal environment setup"
+            )
+
+    def test_github_workflow_uses_correct_branches(self, generated_project: GeneratedProject):
+        """GitHub Actions workflow should reference correct branch names."""
+        if generated_project.has_cicd and generated_project.is_github_actions:
+            project_name = generated_project.project_name
+            workflow_path = f".github/workflows/{project_name}_bundle_cicd.yml"
+            content = generated_project.get_file_content(workflow_path)
+
+            default_branch = generated_project.default_branch
+            assert default_branch in content, (
+                f"Default branch '{default_branch}' not found in workflow"
+            )
+
+            if generated_project.is_full:
+                release_branch = generated_project.release_branch
+                assert release_branch in content, (
+                    f"Release branch '{release_branch}' not found in workflow for full mode"
+                )
+
+    def test_github_workflow_uses_correct_auth_for_azure(
+        self, generated_project: GeneratedProject
+    ):
+        """GitHub Actions workflow should use ARM_* variables for Azure cloud."""
+        if (
+            generated_project.has_cicd
+            and generated_project.is_github_actions
+            and generated_project.cloud_provider == "azure"
+        ):
+            project_name = generated_project.project_name
+            workflow_path = f".github/workflows/{project_name}_bundle_cicd.yml"
+            content = generated_project.get_file_content(workflow_path)
+
+            assert "ARM_TENANT_ID" in content, "ARM_TENANT_ID not found for Azure cloud"
+            assert "ARM_CLIENT_ID" in content, "ARM_CLIENT_ID not found for Azure cloud"
+            assert "ARM_CLIENT_SECRET" in content, "ARM_CLIENT_SECRET not found for Azure cloud"
+
+    def test_github_workflow_uses_correct_auth_for_aws(self, generated_project: GeneratedProject):
+        """GitHub Actions workflow should use OAuth credentials for AWS cloud."""
+        if (
+            generated_project.has_cicd
+            and generated_project.is_github_actions
+            and generated_project.cloud_provider == "aws"
+        ):
+            project_name = generated_project.project_name
+            workflow_path = f".github/workflows/{project_name}_bundle_cicd.yml"
+            content = generated_project.get_file_content(workflow_path)
+
+            # OAuth M2M credentials for AWS/GCP
+            assert "DATABRICKS_HOST" in content, "DATABRICKS_HOST not found for AWS cloud"
+            assert "DATABRICKS_CLIENT_ID" in content, "DATABRICKS_CLIENT_ID not found for AWS"
+            assert "DATABRICKS_CLIENT_SECRET" in content, (
+                "DATABRICKS_CLIENT_SECRET not found for AWS"
+            )
+            # Should NOT have ARM_* environment variable assignments for AWS
+            assert "ARM_TENANT_ID:" not in content, (
+                "ARM_TENANT_ID should not be in workflow for AWS"
+            )
+
+    def test_github_workflow_includes_unit_tests(self, generated_project: GeneratedProject):
+        """GitHub Actions workflow should include unit test step."""
+        if generated_project.has_cicd and generated_project.is_github_actions:
+            project_name = generated_project.project_name
+            workflow_path = f".github/workflows/{project_name}_bundle_cicd.yml"
+            content = generated_project.get_file_content(workflow_path)
+
+            assert "pytest" in content.lower(), "pytest not found in workflow"
+            assert "unit tests" in content.lower(), "Unit test step not found in workflow"
+
+    def test_github_workflow_has_concurrency_controls(self, generated_project: GeneratedProject):
+        """GitHub Actions workflow should have concurrency controls."""
+        if generated_project.has_cicd and generated_project.is_github_actions:
+            project_name = generated_project.project_name
+            workflow_path = f".github/workflows/{project_name}_bundle_cicd.yml"
+            content = generated_project.get_file_content(workflow_path)
+
+            assert "concurrency:" in content, "Concurrency controls not found in workflow"
+
+    def test_github_workflow_has_test_reporter(self, generated_project: GeneratedProject):
+        """GitHub Actions workflow should use dorny/test-reporter for test results."""
+        if generated_project.has_cicd and generated_project.is_github_actions:
+            project_name = generated_project.project_name
+            workflow_path = f".github/workflows/{project_name}_bundle_cicd.yml"
+            content = generated_project.get_file_content(workflow_path)
+
+            assert "dorny/test-reporter" in content, (
+                "dorny/test-reporter not found in workflow for test results"
+            )

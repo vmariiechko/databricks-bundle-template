@@ -1,0 +1,29 @@
+# Conditionally skip files and directories based on template configuration
+# This file uses the Go template `skip` function to exclude files/directories
+# from being generated based on user selections.
+
+{{ $root_dir := printf `{{.project_name}}` }}
+
+# =============================================================================
+# Skip CI/CD platform directories based on selected platform
+# =============================================================================
+{{ if eq .include_cicd "yes" }}
+    {{ if eq .cicd_platform "github_actions" }}
+        {{ skip (printf `%s/%s` $root_dir `.azure`) }}
+        {{ skip (printf `%s/%s` $root_dir `.gitlab`) }}
+    {{ else if eq .cicd_platform "azure_devops" }}
+        {{ skip (printf `%s/%s` $root_dir `.github`) }}
+        {{ skip (printf `%s/%s` $root_dir `.gitlab`) }}
+    {{ else if eq .cicd_platform "gitlab" }}
+        {{ skip (printf `%s/%s` $root_dir `.azure`) }}
+        {{ skip (printf `%s/%s` $root_dir `.github`) }}
+    {{ end }}
+{{ else }}
+    # CI/CD not included - skip all CI/CD directories
+    {{ skip (printf `%s/%s` $root_dir `.azure`) }}
+    {{ skip (printf `%s/%s` $root_dir `.github`) }}
+    {{ skip (printf `%s/%s` $root_dir `.gitlab`) }}
+{{ end }}
+
+# Skip this layout file itself from being copied to output
+{{ skip `update_layout` }}

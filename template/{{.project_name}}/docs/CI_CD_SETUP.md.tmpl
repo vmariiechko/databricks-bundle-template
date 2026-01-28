@@ -30,36 +30,8 @@ The CI/CD pipeline expects the bundle project to be at the **root** of the repos
 └── ...
 ```
 
-{{- if eq .cicd_platform "azure_devops" -}}
-**Important**: If your bundle project is in a subdirectory, update the `workingDirectory` variable in the pipeline YAML file. For example, if your project is in `projects/{{.project_name}}/`, change:
-```yaml
-variables:
-  - name: workingDirectory
-    value: projects/{{.project_name}}
-```
-{{- end }}
-{{- if eq .cicd_platform "github_actions" -}}
-**Important**: If your bundle project is in a subdirectory, update the `working-directory` variable in the pipeline YAML file. For example, if your project is in `projects/{{.project_name}}/`, change:
-```yaml
-defaults:
-  run:
-    working-directory: projects/{{.project_name}}
-```
-{{- end }}
-{{- if eq .cicd_platform "gitlab" -}}
-**Important**: If your bundle project is in a subdirectory, update the path to the project in the pipeline Dockerfile / YAML file. For example, if your project is in `projects/{{.project_name}}/`, change:
-```dockerfile
-...
-COPY projects/{{.project_name}}/requirements_dev.txt .
-...
-```
-```yaml
-...
-  script:
-    - cd projects/{{.project_name}}
-    ...
-```
-{{- end }}
+> **Important**: This bundle project **must be at the repository root**. {{- if eq .cicd_platform "github_actions" }} GitHub Actions requires the `.github/workflows/` directory to be at the repo root.{{- end }} Ensure `databricks.yml` is in the root directory of your repository, not in a subdirectory.
+
 ### Required Tools
 
 - **Databricks CLI** (installed automatically by the pipeline)
@@ -107,14 +79,12 @@ Before granting Unity Catalog permissions, ensure the service principal is added
 
 The service principal only needs **catalog-level** permissions. Schema-level grants are handled automatically by the bundle deployment (defined in `databricks.yml`).
 
-> **Don't have a service principal yet?** See [Creating Service Principal Credentials](#creating-service-principal-credentials) below for step-by-step instructions, then return here to grant catalog permissions.
-
-{{- if eq .cloud_provider "azure" }}
+> **Don't have a service principal yet?** See {{ if eq .cloud_provider "azure" }}[Creating Service Principal Credentials](#creating-service-principal-credentials){{ else }}[Creating OAuth M2M Credentials](#creating-oauth-m2m-credentials){{ end }} below for step-by-step instructions, then return here to grant catalog permissions.
+{{ if eq .cloud_provider "azure" }}
 **Identify your Service Principal**: In Azure Portal → Microsoft Entra ID → Manage dropdown → App registrations → your SP, copy the **Application (client) ID**. This ID is used in both the CI/CD variable group and SQL grants below.
-{{- else }}
+{{ else }}
 **Identify your Service Principal**: In Databricks Account Console → User management → Service principals → your SP, copy the **Client ID** from the OAuth secrets section.
-{{- end }}
-
+{{ end }}
 ```sql
 -- ============================================
 -- STAGING Environment Permissions
@@ -318,7 +288,119 @@ For better code quality, set up branch policies:
 
 ## GitHub Actions Setup
 
-> **Note:** GitHub Actions templates are coming soon. This documentation will be updated when available.
+### Step 1: Configure Repository Secrets
+
+1. Go to your GitHub repository
+2. Navigate to **Settings** → **Secrets and variables** → **Actions**
+3. Click **New repository secret** for each secret listed below
+
+{{- if eq .cloud_provider "azure" }}
+
+#### Secrets for Azure Databricks (Service Principal Authentication)
+
+| Secret Name | Value Source (Azure Portal) |
+|-------------|---------------------------|
+| `STAGING_AZURE_SP_TENANT_ID` | Microsoft Entra ID → App registrations → [your SP] → **Directory (tenant) ID** |
+| `STAGING_AZURE_SP_APPLICATION_ID` | Microsoft Entra ID → App registrations → [your SP] → **Application (client) ID** |
+| `STAGING_AZURE_SP_CLIENT_SECRET` | Microsoft Entra ID → App registrations → [your SP] → Certificates & secrets → [your secret] → **Value** |
+{{- if eq .environment_setup "full" }}
+| `PROD_AZURE_SP_TENANT_ID` | Same as above, for production SP |
+| `PROD_AZURE_SP_APPLICATION_ID` | Same as above, for production SP |
+| `PROD_AZURE_SP_CLIENT_SECRET` | Same as above, for production SP |
+{{- end }}
+
+#### Creating Service Principal Credentials
+
+1. **Go to Azure Portal → Microsoft Entra ID → App registrations**
+2. Select or create your service principal for each environment
+3. Copy credentials:
+   - **Directory (tenant) ID** → `*_AZURE_SP_TENANT_ID`
+   - **Application (client) ID** → `*_AZURE_SP_APPLICATION_ID`
+4. Create client secret:
+   - Go to **Certificates & secrets** → **New client secret**
+   - Copy the **Value** (shown only once!) → `*_AZURE_SP_CLIENT_SECRET`
+5. Grant Databricks access:
+   - Add the service principal to your Databricks workspace
+   - Grant Unity Catalog permissions (see above)
+
+{{- else }}
+
+#### Secrets for AWS/GCP Databricks (OAuth M2M Authentication)
+
+| Secret Name | Value Source (Databricks) |
+|-------------|--------------------------|
+| `STAGING_DATABRICKS_HOST` | Your Databricks workspace URL (e.g., `https://xxx.cloud.databricks.com`) |
+| `STAGING_DATABRICKS_CLIENT_ID` | Account Console → User management → Service principals → [your SP] → OAuth secrets → **Client ID** |
+| `STAGING_DATABRICKS_CLIENT_SECRET` | Account Console → User management → Service principals → [your SP] → OAuth secrets → **Secret** |
+{{- if eq .environment_setup "full" }}
+| `PROD_DATABRICKS_HOST` | Same as above, for production workspace |
+| `PROD_DATABRICKS_CLIENT_ID` | Same as above, for production SP |
+| `PROD_DATABRICKS_CLIENT_SECRET` | Same as above, for production SP |
+{{- end }}
+
+#### Creating OAuth M2M Credentials
+
+1. Go to Databricks Account Console (accounts.cloud.databricks.com)
+2. Navigate to **User management → Service principals**
+3. Create or select a service principal for each environment
+4. Generate OAuth secret:
+   - Go to **OAuth secrets** tab → **Generate secret**
+   - Copy Client ID → `*_DATABRICKS_CLIENT_ID`
+   - Copy Secret (shown only once!) → `*_DATABRICKS_CLIENT_SECRET`
+5. Add to workspace:
+   - Go to **Workspaces → [your workspace] → Settings → Identity and access**
+   - Add the service principal
+6. Grant Unity Catalog permissions (see above)
+
+{{- end }}
+
+### Step 2: Verify Workflow File
+
+The workflow file is located at:
+```
+.github/workflows/{{.project_name}}_bundle_cicd.yml
+```
+
+This workflow is triggered on:
+- **Pull requests** to `{{.default_branch}}`: Runs unit tests and validates bundle configuration
+- **Push** to `{{.default_branch}}`: Deploys to staging environment
+{{- if eq .environment_setup "full" }}
+- **Push** to `{{.release_branch}}`: Deploys to production environment
+{{- end }}
+- **Manual dispatch**: Run workflow manually via GitHub Actions UI
+
+### Step 3: Enable GitHub Actions
+
+If GitHub Actions is not already enabled for your repository:
+
+1. Go to your repository **Settings** → **Actions** → **General**
+2. Under "Actions permissions", select **Allow all actions and reusable workflows**
+3. Under "Workflow permissions", select **Read and write permissions**
+4. Click **Save**
+
+### Step 4: Configure Branch Protection (Recommended)
+
+For better code quality, set up branch protection rules:
+
+1. Go to **Settings** → **Branches**
+2. Click **Add branch ruleset**
+3. For branch name pattern: `{{.default_branch}}`
+4. Enable the following:
+   - **Require a pull request before merging**
+      - **Require approvals**: 1 or more
+   - **Require status checks to pass before merging**
+      - Search and add: `Validate and Test` (see note below)
+   - **Require conversation resolution before merging**
+5. Click **Create** or **Save changes**
+
+> **Note**: The `Validate and Test` status check will only appear in the search after you've run the workflow at least once. Create a test PR first, then return here to add the status check requirement.
+
+{{- if eq .environment_setup "full" }}
+
+**For the release branch**:
+1. Repeat the above for `{{.release_branch}}`
+2. Consider stricter policies for production (e.g., 2+ required approvals)
+{{- end }}
 
 {{- end }}
 
@@ -367,7 +449,7 @@ tests/
 ### Pipeline fails with "databricks.yml not found"
 
 - Ensure `databricks.yml` is at the repository root
-- If in a subdirectory, update `workingDirectory` in the pipeline YAML (see Prerequisites)
+- This template requires the bundle project to be at the repo root, not in a subdirectory
 
 ### Pipeline fails with authentication errors
 

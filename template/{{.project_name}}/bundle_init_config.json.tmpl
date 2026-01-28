@@ -1,0 +1,24 @@
+{
+  "_comment": "Configuration values used to generate this project with 'databricks bundle init'",
+  "project_name": "{{.project_name}}",
+  "environment_setup": "{{.environment_setup}}",
+  "include_dev_environment": "{{.include_dev_environment}}",
+  "compute_type": "{{.compute_type}}",
+  "cloud_provider": "{{.cloud_provider}}",
+  "uc_catalog_suffix": "{{.uc_catalog_suffix}}",
+  "include_permissions": "{{.include_permissions}}",
+  "configure_sp_now": "{{.configure_sp_now}}",
+{{- if and (eq .configure_sp_now "yes") (eq .include_dev_environment "yes") }}
+  "dev_service_principal": "{{.dev_service_principal}}",
+{{- end }}
+{{- if eq .configure_sp_now "yes" }}
+  "stage_service_principal": "{{.stage_service_principal}}",
+{{- end }}
+{{- if and (eq .configure_sp_now "yes") (eq .environment_setup "full") }}
+  "prod_service_principal": "{{.prod_service_principal}}",
+{{- end }}
+  "include_cicd": "{{.include_cicd}}"{{- if eq .include_cicd "yes" }},
+  "cicd_platform": "{{.cicd_platform}}",
+  "default_branch": "{{.default_branch}}"{{- if eq .environment_setup "full" }},
+  "release_branch": "{{.release_branch}}"{{- end }}{{- end }}
+}

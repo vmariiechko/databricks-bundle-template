@@ -1,0 +1,12 @@
+{
+  "project_name": "test_minimal_github_actions",
+  "environment_setup": "minimal",
+  "compute_type": "serverless",
+  "cloud_provider": "azure",
+  "uc_catalog_suffix": "test_domain",
+  "include_permissions": "yes",
+  "configure_sp_now": "no",
+  "include_cicd": "yes",
+  "cicd_platform": "github_actions",
+  "default_branch": "main"
+}
