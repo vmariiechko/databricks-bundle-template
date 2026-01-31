@@ -1,8 +1,8 @@
 
 # Template Architecture Solution Document
 
-> **Version:** 1.2
-> **Updated:** 2025-12-21
+> **Version:** 2.0
+> **Updated:** 2026-01-31
 > **Status:** Production Ready
 
 This document captures all architectural decisions for converting the `databricks-bundles-realworld` repository into a reusable Databricks Asset Bundles custom template.
@@ -38,6 +38,8 @@ Convert this "real-world example" DABs repository into a reusable custom templat
 | Permissions | **Prompted (yes/no)** | Environment-aware groups (3 or 4) |
 | Environment Setup | **Full or Minimal** | Full: user+stage+prod (optional dev), Minimal: user+stage |
 | Groups | **Environment-aware** | 3 groups in minimal, 4 in full mode |
+| CI/CD | **Optional, 3 platforms** | Azure DevOps, GitHub Actions, GitLab |
+| CI/CD Auth | **Cloud-specific** | Azure ARM SP vs OAuth M2M for AWS/GCP |
 
 ### Template Consumption
 
@@ -158,6 +160,24 @@ rm -rf test-generated
 │      prod_service_principal  [SKIP IF configure_sp_now=no OR minimal mode]   │
 │      Default: "" (empty, uses SP_PLACEHOLDER_<ENV>)                          │
 │                                                                              │
+│  Q12: include_cicd                                                           │
+│      "Include CI/CD pipeline configuration?"                                 │
+│      Options: yes | no                                                       │
+│      Default: yes                                                            │
+│                                                                              │
+│  Q13: cicd_platform  [SKIP IF include_cicd = no]                             │
+│      "Which CI/CD platform?"                                                 │
+│      Options: azure_devops | github_actions | gitlab                         │
+│      Default: azure_devops                                                   │
+│                                                                              │
+│  Q14: default_branch  [SKIP IF include_cicd = no]                            │
+│      "What is the default branch for staging deployments?"                   │
+│      Default: main                                                           │
+│                                                                              │
+│  Q15: release_branch  [SKIP IF include_cicd = no OR minimal mode]            │
+│      "What is the release branch for production deployments?"                │
+│      Default: release                                                        │
+│                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -176,6 +196,10 @@ rm -rf test-generated
 | 9 | `dev_service_principal` | string | `""` | No | configure_sp_now = yes AND include_dev = yes | Dev environment SP app ID |
 | 10 | `stage_service_principal` | string | `""` | No | configure_sp_now = yes | Stage environment SP app ID |
 | 11 | `prod_service_principal` | string | `""` | No | configure_sp_now = yes AND environment_setup = full | Prod environment SP app ID |
+| 12 | `include_cicd` | string | `yes` | Yes | - | Include CI/CD pipeline templates |
+| 13 | `cicd_platform` | string | `azure_devops` | Yes | include_cicd = yes | CI/CD platform selection |
+| 14 | `default_branch` | string | `main` | Yes | include_cicd = yes | Branch for staging deployments |
+| 15 | `release_branch` | string | `release` | Yes | include_cicd = yes AND environment_setup = full | Branch for production deployments |
 
 ### Validation Patterns
 
@@ -191,6 +215,8 @@ All choice-based parameters use pattern validation instead of enum (avoids termi
 | `uc_catalog_suffix` | `^[a-z][a-z0-9_]*$` | "Catalog suffix must be lowercase, start with a letter, and contain only letters, numbers, and underscores" |
 | `include_permissions` | `^(yes\|no)$` | "Please enter 'yes' or 'no'" |
 | `configure_sp_now` | `^(yes\|no)$` | "Please enter 'yes' or 'no'" |
+| `include_cicd` | `^(yes\|no)$` | "Please enter 'yes' or 'no'" |
+| `cicd_platform` | `^(azure_devops\|github_actions\|gitlab)$` | "Please enter 'azure_devops', 'github_actions', or 'gitlab'" |
 
 ---
 
@@ -237,6 +263,24 @@ All choice-based parameters use pattern validation instead of enum (avoids termi
 | `configure_sp_now = yes` | Prompt for SP IDs, populate in variables.yml |
 | `configure_sp_now = no` | Leave as `SP_PLACEHOLDER_<ENV>` with comment for search-replace |
 
+### CI/CD Pipeline Generation
+
+| Condition | Effect |
+|-----------|--------|
+| `include_cicd = yes` + `cicd_platform = azure_devops` | Generate `.azure/devops_pipelines/` with pipeline YAML |
+| `include_cicd = yes` + `cicd_platform = github_actions` | Generate `.github/workflows/` with workflow YAML |
+| `include_cicd = yes` + `cicd_platform = gitlab` | Generate `.gitlab-ci.yml` at project root |
+| `include_cicd = no` | Skip all CI/CD directories; pipeline files output empty content |
+
+**Directory skipping** is handled by `template/update_layout.tmpl` using the Go template `skip` function. Non-selected CI/CD directories (`.azure/`, `.github/`) are skipped entirely. GitLab uses a root file (`.gitlab-ci.yml`) with a template guard that outputs empty content when not selected.
+
+**Authentication** is cloud-specific within pipeline templates:
+
+| Cloud Provider | CI/CD Variables |
+|----------------|----------------|
+| Azure | `ARM_TENANT_ID`, `ARM_CLIENT_ID`, `ARM_CLIENT_SECRET` (Service Principal) |
+| AWS/GCP | `DATABRICKS_HOST`, `DATABRICKS_CLIENT_ID`, `DATABRICKS_CLIENT_SECRET` (OAuth M2M) |
+
 ### File-Level Conditional Generation
 
 | File/Section | Condition |
@@ -254,6 +298,13 @@ All choice-based parameters use pattern validation instead of enum (avoids termi
 | `clusters` in pipelines | `compute_type = classic` OR `compute_type = both` |
 | All `permissions:` blocks | `include_permissions = yes` |
 | All `grants:` blocks in schemas | `include_permissions = yes` (per-target only) |
+| `.azure/` directory | `include_cicd = yes` AND `cicd_platform = azure_devops` |
+| `.github/` directory | `include_cicd = yes` AND `cicd_platform = github_actions` |
+| `.gitlab-ci.yml` content | `include_cicd = yes` AND `cicd_platform = gitlab` |
+| CI/CD prod job/stage | `environment_setup = full` |
+| `release_branch` in pipeline | `environment_setup = full` |
+| `tests/` directory | `include_cicd = yes` |
+| `requirements_dev.txt` | `include_cicd = yes` |
 
 ---
 
@@ -267,9 +318,15 @@ databricks-bundles-realworld/
 ├── library/
 │   └── helpers.tmpl                         # Custom Go template helpers
 ├── template/
+│   ├── update_layout.tmpl                   # Conditional directory/file skipping
 │   └── {{.project_name}}/                   # Dynamic folder name
 │       ├── databricks.yml.tmpl              # Main bundle config
 │       ├── variables.yml.tmpl               # Shared variables
+│       ├── .azure/devops_pipelines/         # Azure DevOps CI/CD pipeline
+│       │   └── {{.project_name}}_bundle_cicd.yml.tmpl
+│       ├── .github/workflows/               # GitHub Actions CI/CD workflow
+│       │   └── {{.project_name}}_bundle_cicd.yml.tmpl
+│       ├── .gitlab-ci.yml.tmpl              # GitLab CI/CD pipeline (root)
 │       ├── resources/
 │       │   ├── {{.project_name}}_ingestion.job.yml.tmpl
 │       │   ├── {{.project_name}}_pipeline.pipeline.yml.tmpl
@@ -282,16 +339,26 @@ databricks-bundles-realworld/
 │       │   └── pipelines/
 │       │       ├── bronze.py
 │       │       └── silver.py
+│       ├── tests/                            # Unit test placeholder (for CI)
+│       │   ├── __init__.py
+│       │   └── test_placeholder.py
 │       ├── templates/                        # Cluster config copy-paste templates
 │       │   ├── cluster_configs.yml
 │       │   └── README.md
 │       ├── docs/
+│       │   ├── CI_CD_SETUP.md.tmpl          # CI/CD setup guide
 │       │   ├── PERMISSIONS_SETUP.md.tmpl    # Conditional RBAC content
 │       │   └── SETUP_GROUPS.md.tmpl         # Conditional group setup
 │       ├── .gitignore
-│       ├── LICENSE
+│       ├── bundle_init_config.json.tmpl     # Preserves template config values
+│       ├── requirements_dev.txt             # Dev dependencies (pytest)
 │       ├── QUICKSTART.md.tmpl
 │       └── README.md.tmpl
+├── tests/                                   # Pytest test suite
+│   ├── configs/                             # 15 test configurations
+│   ├── test_generation.py                   # L1: File generation tests
+│   ├── test_content.py                      # L2: Content validation tests
+│   └── test_cicd.py                         # CI/CD pipeline tests
 ├── ARCHITECTURE.md                          # This document
 ├── DEVELOPMENT.md                           # Developer notes and roadmap
 └── README.md                                # Template repository README
@@ -305,6 +372,11 @@ When user runs: `databricks bundle init . --project-name my_etl_project`
 my_etl_project/
 ├── databricks.yml
 ├── variables.yml
+├── .azure/devops_pipelines/                 # (if azure_devops selected)
+│   └── my_etl_project_bundle_cicd.yml
+├── .github/workflows/                       # (if github_actions selected)
+│   └── my_etl_project_bundle_cicd.yml
+├── .gitlab-ci.yml                           # (if gitlab selected)
 ├── resources/
 │   ├── my_etl_project_ingestion.job.yml
 │   ├── my_etl_project_pipeline.pipeline.yml
@@ -317,14 +389,19 @@ my_etl_project/
 │   └── pipelines/
 │       ├── bronze.py
 │       └── silver.py
+├── tests/                                   # (if CI/CD included)
+│   ├── __init__.py
+│   └── test_placeholder.py
 ├── templates/
 │   ├── cluster_configs.yml
 │   └── README.md
 ├── docs/
-│   ├── PERMISSIONS_SETUP.md     # (content varies by config)
-│   └── SETUP_GROUPS.md          # (content varies by config)
+│   ├── CI_CD_SETUP.md              # (content varies by platform)
+│   ├── PERMISSIONS_SETUP.md        # (content varies by config)
+│   └── SETUP_GROUPS.md             # (content varies by config)
 ├── .gitignore
-├── LICENSE
+├── bundle_init_config.json         # Template config used during generation
+├── requirements_dev.txt            # (if CI/CD included)
 ├── QUICKSTART.md
 └── README.md
 ```
@@ -417,16 +494,7 @@ databricks bundle init https://github.com/<org>/databricks-bundles-realworld \
 - `assets/ml-pipeline/` - Add ML training pipeline
 - `assets/dbt-project/` - Add dbt integration
 
-#### 8.2 CI/CD Templates
-
-Optional CI/CD configuration generation:
-
-```
-Q: Include CI/CD configuration?
-Options: github_actions | gitlab_ci | azure_devops | none
-```
-
-#### 8.3 Advanced Permissions Profiles
+#### 8.2 Advanced Permissions Profiles
 
 Instead of yes/no, offer profiles:
 

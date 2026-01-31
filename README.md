@@ -48,6 +48,7 @@ See [example configs](./tests/configs/) for options and refer to [Template Optio
 - **Sample ETL jobs and pipelines**
 - **Optional RBAC** with environment-aware group permissions
 - **Configurable compute** (classic clusters, serverless, or both)
+- **CI/CD pipeline templates** (Azure DevOps, GitHub Actions, GitLab)
 
 ## Template Options
 
@@ -58,6 +59,10 @@ See [example configs](./tests/configs/) for options and refer to [Template Optio
 | Compute type | `classic` / `serverless` / `both` | `classic` |
 | Cloud provider | `azure` / `aws` / `gcp` | `azure` |
 | Include permissions | `yes` / `no` | `yes` |
+| Include CI/CD | `yes` / `no` | `yes` |
+| CI/CD platform | `azure_devops` / `github_actions` / `gitlab` | `azure_devops` |
+| Default branch | string | `main` |
+| Release branch | string (full mode only) | `release` |
 
 ---
 
@@ -71,7 +76,14 @@ This section is for developers modifying the template itself.
 databricks-bundles-realworld/
 ├── databricks_template_schema.json   # Prompt definitions
 ├── library/helpers.tmpl              # Go template helpers
-├── template/{{.project_name}}/       # Generated project structure
+├── template/
+│   ├── update_layout.tmpl            # Conditional directory/file skipping
+│   └── {{.project_name}}/            # Generated project structure
+│       ├── .azure/                   # Azure DevOps CI/CD pipelines
+│       ├── .github/                  # GitHub Actions workflows
+│       ├── .gitlab-ci.yml.tmpl       # GitLab CI/CD pipeline
+│       ├── docs/                     # Setup guides (CI/CD, permissions, groups)
+│       └── ...                       # Bundle config, resources, src
 ├── tests/                            # Pytest test suite
 ├── ARCHITECTURE.md                   # Technical design
 └── DEVELOPMENT.md                    # Developer notes

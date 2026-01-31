@@ -19,7 +19,7 @@ databricks bundle validate -t user
 If validation fails, check:
 - Unity Catalog `user_<your-username>_{{.uc_catalog_suffix}}` exists
 {{- if eq .include_permissions "yes" }}
-- Required groups are created (see docs/SETUP_GROUPS.md)
+- Required groups are created (see [docs/SETUP_GROUPS.md](docs/SETUP_GROUPS.md))
 {{- end }}
 
 ## 3. Deploy to User Environment
@@ -59,6 +59,12 @@ Before deploying to {{- if eq .include_dev_environment "yes" }} dev,{{- end }} s
 1. Create service principals in your Databricks workspace
 2. Search for `SP_PLACEHOLDER` in `variables.yml`
 3. Replace with your service principal application IDs
+{{- if eq .include_cicd "yes" }}
+
+### Set Up CI/CD Pipeline
+
+For automated deployment via CI/CD, see [docs/CI_CD_SETUP.md](docs/CI_CD_SETUP.md).
+{{- end }}
 
 ### Deploy to Higher Environments
 
@@ -76,7 +82,7 @@ databricks bundle deploy -t prod
 ```
 {{- end }}
 
-> **Multi-Workspace Setup**: If using a separate prod workspace, update `workspace.host` in `databricks.yml`. See README.md for details.
+> **Multi-Workspace Setup**: If using a separate prod workspace, update `workspace.host` in `databricks.yml`. See [README.md](README.md) for details.
 {{- else }}
 ```bash
 databricks bundle deploy -t stage

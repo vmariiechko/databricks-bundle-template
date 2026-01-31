@@ -10,7 +10,7 @@ A Databricks Asset Bundle for multi-environment deployment with {{- if eq .envir
 
 Before deploying, ensure you have:
 
-1. **Databricks CLI** v{{template `cli_version` .}} installed
+1. **Databricks CLI** minimum version v{{template `cli_version` .}} installed ([reference docs](https://docs.databricks.com/aws/en/dev-tools/cli/install))
    ```bash
    pip install databricks-cli
    databricks --version
@@ -149,7 +149,7 @@ targets:
 
 ### Service Principals
 
-Service principals are **only required for CI/CD deployments** ({{- if eq .include_dev_environment "yes" }}dev, {{- end }}stage{{- if eq .environment_setup "full" }}, prod{{- end }} targets).
+Service principals are **only required for CI/CD deployments** ({{ if eq .include_dev_environment "yes" }}dev, {{ end }}stage{{ if eq .environment_setup "full" }}, prod{{ end }} targets).
 
 The `user` target runs as your personal identity and works immediately without SP configuration.
 

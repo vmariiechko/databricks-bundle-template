@@ -13,7 +13,7 @@ databricks bundle init .
 # Follow the prompts to configure your project
 ```
 
-Your generated project includes complete documentation (README.md, QUICKSTART.md).
+Your generated project includes complete documentation (README.md, QUICKSTART.md, docs/).
 
 ---
 
@@ -41,6 +41,7 @@ pytest tests/ -V
 Tests validate:
 - **L1 (Generation)**: File existence, directory structure, no leftover `.tmpl` files
 - **L2 (Content)**: YAML syntax, environment targets, SP config, permissions, compute type
+- **CI/CD**: Pipeline generation, YAML validity, auth patterns, branch references, test structure
 
 ### Manual Testing
 
@@ -105,6 +106,19 @@ databricks bundle deploy -t prod \
 - [x] Streamlined documentation (deleted redundant TEMPLATE_USAGE.md)
 - [x] SP architecture fix (user target works without SP)
 - [x] Clear separation: root repo docs vs generated project docs
+
+### Phase 2: CI/CD Pipeline Templates
+- [x] Template schema prompts for CI/CD (`include_cicd`, `cicd_platform`, `default_branch`, `release_branch`)
+- [x] Azure DevOps pipeline template (`.azure/devops_pipelines/`)
+- [x] GitHub Actions workflow template (`.github/workflows/`)
+- [x] GitLab CI/CD pipeline template (`.gitlab-ci.yml`)
+- [x] CI_CD_SETUP.md documentation for all 3 platforms
+- [x] Cloud-specific authentication (Azure SP vs OAuth M2M)
+- [x] `update_layout.tmpl` for conditional directory generation
+- [x] `bundle_init_config.json` for config preservation
+- [x] Test suite expanded (1531 tests across 15 configurations)
+- [x] Unit test execution and JUnit reporting in all pipelines
+- [x] CLI version management via `cli_version` helper template
 
 ---
 
@@ -214,6 +228,11 @@ run_as:
 {{- if or (eq .compute_type "serverless") (eq .compute_type "both") }}
 ```
 
+**Note on whitespace control**:
+- `{{-` strips preceding whitespace
+- `-}}` strips following whitespace
+- Use standard `{{` and `}}` when you need to preserve whitespace (e.g., inserting variables into markdown sentences).
+
 ### 7. Documentation as Templates
 
 **Decision**: Convert static docs to `.tmpl` files when content varies by configuration
@@ -230,7 +249,7 @@ run_as:
 
 ## Future Enhancements
 
-### Phase 2: Asset Sub-Templates ("Plugins Layer")
+### Phase 3: Asset Sub-Templates ("Plugins Layer")
 
 The template can be extended with **asset sub-templates** that add resources to existing projects. This pattern is demonstrated in the Databricks `data-engineering` example template.
 
@@ -258,20 +277,6 @@ databricks bundle init /path/to/template --template-dir assets/etl-pipeline
 - Assets generate into `assets/<name>/` within the project
 - Assets can reference existing variables from `variables.yml`
 
-### Phase 3: CI/CD Templates
-
-Add optional CI/CD configuration generation:
-
-```
-Q: Include CI/CD configuration?
-Options: github_actions | gitlab_ci | azure_devops | none
-```
-
-**Files generated:**
-- `.github/workflows/deploy.yml` (GitHub Actions)
-- `.gitlab-ci.yml` (GitLab CI)
-- `azure-pipelines.yml` (Azure DevOps)
-
 ### Phase 4: Advanced Permissions Profiles
 
 Instead of yes/no, offer permission profiles:
@@ -291,11 +296,13 @@ Options:
 
 | File | Purpose |
 |------|---------|
-| `databricks_template_schema.json` | Prompt definitions (11 parameters) |
-| `library/helpers.tmpl` | Custom Go template helpers (node_type_id) |
+| `databricks_template_schema.json` | Prompt definitions |
+| `library/helpers.tmpl` | Custom Go template helpers (`node_type_id`, `cli_version`, etc.) |
+| `template/update_layout.tmpl` | Conditional directory/file skipping for CI/CD platforms |
 | `template/{{.project_name}}/` | Generated project structure |
-| `tests/` | Pytest test suite (316 tests) |
+| `tests/` | Pytest test suite |
 | `tests/configs/` | JSON config files for testing |
+| `tests/test_cicd.py` | CI/CD pipeline template tests |
 | `requirements_dev.txt` | Test dependencies |
 
 ---
@@ -303,6 +310,8 @@ Options:
 ## Testing Matrix
 
 When testing template changes, validate these combinations:
+
+### Core Configurations
 
 | # | environment_setup | include_dev | compute_type | include_permissions | Expected Targets |
 |---|-------------------|-------------|--------------|---------------------|------------------|
@@ -313,13 +322,40 @@ When testing template changes, validate these combinations:
 | 5 | minimal | (skipped) | serverless | no | user, stage |
 | 6 | minimal | (skipped) | classic | no | user, stage |
 
-**Test Config Files** (in `tests/configs/`):
+### CI/CD Configurations
+
+| # | cicd_platform | cloud_provider | environment_setup | Config File |
+|---|---------------|----------------|-------------------|-------------|
+| 7 | azure_devops | azure | full | `full_with_cicd_ado.json` |
+| 8 | azure_devops | azure | minimal | `minimal_with_cicd_ado.json` |
+| 9 | azure_devops | aws | full | `full_cicd_aws.json` |
+| 10 | github_actions | azure | full | `full_with_github_actions.json` |
+| 11 | github_actions | azure | minimal | `minimal_with_github_actions.json` |
+| 12 | github_actions | aws | full | `full_github_actions_aws.json` |
+| 13 | gitlab | azure | full | `full_with_gitlab.json` |
+| 14 | gitlab | azure | minimal | `minimal_with_gitlab.json` |
+| 15 | gitlab | aws | full | `full_gitlab_aws.json` |
+
+### Test Config Files (in `tests/configs/`)
+
+**Core:**
 - `full_with_dev.json` - Full mode with dev environment
 - `full_no_dev.json` - Full mode without dev
 - `full_serverless.json` - Full mode with serverless
 - `full_with_sp.json` - Full mode with SPs configured
 - `minimal_classic.json` - Minimal mode with classic compute
 - `minimal_serverless.json` - Minimal mode with serverless
+
+**CI/CD:**
+- `full_with_cicd_ado.json` - Full + Azure DevOps (Azure cloud)
+- `minimal_with_cicd_ado.json` - Minimal + Azure DevOps
+- `full_cicd_aws.json` - Full + Azure DevOps (AWS cloud)
+- `full_with_github_actions.json` - Full + GitHub Actions (Azure cloud)
+- `minimal_with_github_actions.json` - Minimal + GitHub Actions
+- `full_github_actions_aws.json` - Full + GitHub Actions (AWS cloud)
+- `full_with_gitlab.json` - Full + GitLab (Azure cloud)
+- `minimal_with_gitlab.json` - Minimal + GitLab
+- `full_gitlab_aws.json` - Full + GitLab (AWS cloud)
 
 ---
 
