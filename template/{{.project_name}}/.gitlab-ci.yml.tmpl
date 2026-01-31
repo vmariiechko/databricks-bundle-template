@@ -1,0 +1,142 @@
+{{- if and (eq .include_cicd "yes") (eq .cicd_platform "gitlab") -}}
+# GitLab CI/CD Pipeline for {{.project_name}}
+#
+# This pipeline validates and deploys Databricks Asset Bundles:
+# - bundle-ci: Validates bundle configuration on Merge Requests to {{.default_branch}}
+# - staging-cd: Deploys to staging when MRs are merged into {{.default_branch}}
+{{- if eq .environment_setup "full" }}
+# - prod-cd: Deploys to production when MRs are merged into {{.release_branch}}
+{{- end }}
+#
+# Prerequisites:
+# 1. Configure CI/CD Variables in GitLab (see docs/CI_CD_SETUP.md)
+# 2. Ensure Unity Catalog prerequisites are met
+
+image: python:3.11
+
+stages:
+  - test
+  - deploy
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.pip-cache"
+
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - .pip-cache/
+
+# =============================================================================
+# Job: bundle-ci - Run tests and validate bundle on Merge Requests
+# =============================================================================
+bundle-ci:
+  stage: test
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "{{.default_branch}}"
+  before_script:
+    - python --version
+    - pip install --upgrade pip
+    - curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/v{{template "cli_version" .}}/install.sh | sh
+  script:
+    # Install dependencies if requirements_dev.txt exists
+    - |
+      if [ -f "requirements_dev.txt" ]; then
+        echo "Installing development dependencies..."
+        pip install -r requirements_dev.txt
+      else
+        echo "No requirements_dev.txt found, skipping dependency installation"
+      fi
+    # Run unit tests if test files exist
+    - |
+      if [ -d "tests" ] && find tests -name "test_*.py" -o -name "*_test.py" 2>/dev/null | grep -q .; then
+        echo "Running unit tests..."
+        python -m pytest tests/ -v --junitxml=test-results.xml
+      else
+        echo "No test files found, skipping unit tests"
+      fi
+    # Validate bundle for staging
+    - databricks bundle validate -t stage
+{{- if eq .environment_setup "full" }}
+    # Validate bundle for production
+{{- if eq .cloud_provider "azure" }}
+    - export ARM_TENANT_ID=$PROD_AZURE_SP_TENANT_ID
+    - export ARM_CLIENT_ID=$PROD_AZURE_SP_APPLICATION_ID
+    - export ARM_CLIENT_SECRET=$PROD_AZURE_SP_CLIENT_SECRET
+{{- else }}
+    - export DATABRICKS_HOST=$PROD_DATABRICKS_HOST
+    - export DATABRICKS_CLIENT_ID=$PROD_DATABRICKS_CLIENT_ID
+    - export DATABRICKS_CLIENT_SECRET=$PROD_DATABRICKS_CLIENT_SECRET
+{{- end }}
+    - databricks bundle validate -t prod
+{{- end }}
+  artifacts:
+    when: always
+    reports:
+      junit: test-results.xml
+{{- if eq .cloud_provider "azure" }}
+  variables:
+    ARM_TENANT_ID: $STAGING_AZURE_SP_TENANT_ID
+    ARM_CLIENT_ID: $STAGING_AZURE_SP_APPLICATION_ID
+    ARM_CLIENT_SECRET: $STAGING_AZURE_SP_CLIENT_SECRET
+{{- else }}
+  variables:
+    DATABRICKS_HOST: $STAGING_DATABRICKS_HOST
+    DATABRICKS_CLIENT_ID: $STAGING_DATABRICKS_CLIENT_ID
+    DATABRICKS_CLIENT_SECRET: $STAGING_DATABRICKS_CLIENT_SECRET
+{{- end }}
+
+# =============================================================================
+# Job: staging-cd - Deploy to staging on merge to {{.default_branch}}
+# =============================================================================
+staging-cd:
+  stage: deploy
+  environment:
+    name: staging
+  rules:
+    - if: $CI_COMMIT_BRANCH == "{{.default_branch}}" && $CI_PIPELINE_SOURCE != "merge_request_event"
+  before_script:
+    - curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/v{{template "cli_version" .}}/install.sh | sh
+  script:
+    - databricks bundle validate -t stage
+    - databricks bundle deploy -t stage
+{{- if eq .cloud_provider "azure" }}
+  variables:
+    ARM_TENANT_ID: $STAGING_AZURE_SP_TENANT_ID
+    ARM_CLIENT_ID: $STAGING_AZURE_SP_APPLICATION_ID
+    ARM_CLIENT_SECRET: $STAGING_AZURE_SP_CLIENT_SECRET
+{{- else }}
+  variables:
+    DATABRICKS_HOST: $STAGING_DATABRICKS_HOST
+    DATABRICKS_CLIENT_ID: $STAGING_DATABRICKS_CLIENT_ID
+    DATABRICKS_CLIENT_SECRET: $STAGING_DATABRICKS_CLIENT_SECRET
+{{- end }}
+
+{{- if eq .environment_setup "full" }}
+
+# =============================================================================
+# Job: prod-cd - Deploy to production on merge to {{.release_branch}}
+# =============================================================================
+prod-cd:
+  stage: deploy
+  environment:
+    name: production
+  rules:
+    - if: $CI_COMMIT_BRANCH == "{{.release_branch}}" && $CI_PIPELINE_SOURCE != "merge_request_event"
+  before_script:
+    - curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/v{{template "cli_version" .}}/install.sh | sh
+  script:
+    - databricks bundle validate -t prod
+    - databricks bundle deploy -t prod
+{{- if eq .cloud_provider "azure" }}
+  variables:
+    ARM_TENANT_ID: $PROD_AZURE_SP_TENANT_ID
+    ARM_CLIENT_ID: $PROD_AZURE_SP_APPLICATION_ID
+    ARM_CLIENT_SECRET: $PROD_AZURE_SP_CLIENT_SECRET
+{{- else }}
+  variables:
+    DATABRICKS_HOST: $PROD_DATABRICKS_HOST
+    DATABRICKS_CLIENT_ID: $PROD_DATABRICKS_CLIENT_ID
+    DATABRICKS_CLIENT_SECRET: $PROD_DATABRICKS_CLIENT_SECRET
+{{- end }}
+{{- end }}
+{{- end }}

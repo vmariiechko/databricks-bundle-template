@@ -563,3 +563,179 @@ class TestGitHubActionsWorkflowContent:
             assert "dorny/test-reporter" in content, (
                 "dorny/test-reporter not found in workflow for test results"
             )
+
+
+# =============================================================================
+# GitLab CI/CD Tests
+# =============================================================================
+
+
+class TestGitLabPipelineGeneration:
+    """Test GitLab CI/CD pipeline files are generated correctly."""
+
+    def test_gitlab_pipeline_generated_when_enabled(self, generated_project: GeneratedProject):
+        """GitLab CI pipeline should be generated when cicd_platform=gitlab."""
+        if generated_project.has_cicd and generated_project.is_gitlab:
+            assert generated_project.file_exists(".gitlab-ci.yml"), (
+                f"GitLab CI pipeline not found at .gitlab-ci.yml "
+                f"for config: {generated_project.config_name}"
+            )
+
+    def test_gitlab_pipeline_empty_when_disabled(self, generated_project: GeneratedProject):
+        """GitLab CI pipeline should be empty when cicd is disabled."""
+        if not generated_project.has_cicd:
+            if generated_project.file_exists(".gitlab-ci.yml"):
+                content = generated_project.get_file_content(".gitlab-ci.yml").strip()
+                assert content == "", (
+                    f"GitLab CI pipeline should be empty when CI/CD is disabled "
+                    f"for config: {generated_project.config_name}"
+                )
+
+    def test_gitlab_pipeline_empty_for_other_platforms(self, generated_project: GeneratedProject):
+        """GitLab CI pipeline should be empty for non-GitLab platforms."""
+        if generated_project.has_cicd and not generated_project.is_gitlab:
+            if generated_project.file_exists(".gitlab-ci.yml"):
+                content = generated_project.get_file_content(".gitlab-ci.yml").strip()
+                assert content == "", (
+                    f"GitLab CI pipeline should be empty for platform "
+                    f"{generated_project.cicd_platform} for config: {generated_project.config_name}"
+                )
+
+
+class TestGitLabPipelineContent:
+    """Test GitLab CI/CD pipeline content is correct."""
+
+    def test_gitlab_pipeline_valid_yaml(self, generated_project: GeneratedProject):
+        """GitLab CI pipeline should be valid YAML."""
+        if generated_project.has_cicd and generated_project.is_gitlab:
+            content = generated_project.get_file_content(".gitlab-ci.yml")
+
+            try:
+                parsed = yaml.safe_load(content)
+                assert parsed is not None, "Pipeline YAML is empty"
+            except yaml.YAMLError as e:
+                pytest.fail(f"Invalid YAML in pipeline: {e}")
+
+    def test_gitlab_pipeline_cli_version_consistent(self, generated_project: GeneratedProject):
+        """GitLab CI pipeline should use consistent CLI version from helper."""
+        if generated_project.has_cicd and generated_project.is_gitlab:
+            content = generated_project.get_file_content(".gitlab-ci.yml")
+
+            assert "setup-cli/v0." in content, "CLI version reference not found in pipeline"
+            import re
+
+            cli_versions = re.findall(r"setup-cli/(v[\d.]+)/", content)
+            assert len(set(cli_versions)) == 1, f"Multiple CLI versions found: {set(cli_versions)}"
+
+    def test_gitlab_pipeline_has_required_jobs(self, generated_project: GeneratedProject):
+        """GitLab CI pipeline should have bundle-ci and staging-cd jobs."""
+        if generated_project.has_cicd and generated_project.is_gitlab:
+            content = generated_project.get_file_content(".gitlab-ci.yml")
+
+            assert "bundle-ci:" in content, "bundle-ci job not found in pipeline"
+            assert "staging-cd:" in content, "staging-cd job not found in pipeline"
+
+    def test_gitlab_pipeline_has_prod_job_for_full_mode(self, generated_project: GeneratedProject):
+        """GitLab CI pipeline should have prod-cd job for full environment setup."""
+        if (
+            generated_project.has_cicd
+            and generated_project.is_gitlab
+            and generated_project.is_full
+        ):
+            content = generated_project.get_file_content(".gitlab-ci.yml")
+
+            assert "prod-cd:" in content, (
+                "prod-cd job not found in pipeline for full environment setup"
+            )
+
+    def test_gitlab_pipeline_no_prod_job_for_minimal_mode(
+        self, generated_project: GeneratedProject
+    ):
+        """GitLab CI pipeline should NOT have prod-cd job for minimal environment setup."""
+        if (
+            generated_project.has_cicd
+            and generated_project.is_gitlab
+            and generated_project.is_minimal
+        ):
+            content = generated_project.get_file_content(".gitlab-ci.yml")
+
+            assert "prod-cd:" not in content, (
+                "prod-cd job should not exist in pipeline for minimal environment setup"
+            )
+
+    def test_gitlab_pipeline_uses_correct_branches(self, generated_project: GeneratedProject):
+        """GitLab CI pipeline should reference correct branch names."""
+        if generated_project.has_cicd and generated_project.is_gitlab:
+            content = generated_project.get_file_content(".gitlab-ci.yml")
+
+            default_branch = generated_project.default_branch
+            assert default_branch in content, (
+                f"Default branch '{default_branch}' not found in pipeline"
+            )
+
+            if generated_project.is_full:
+                release_branch = generated_project.release_branch
+                assert release_branch in content, (
+                    f"Release branch '{release_branch}' not found in pipeline for full mode"
+                )
+
+    def test_gitlab_pipeline_uses_correct_auth_for_azure(
+        self, generated_project: GeneratedProject
+    ):
+        """GitLab CI pipeline should use ARM_* variables for Azure cloud."""
+        if (
+            generated_project.has_cicd
+            and generated_project.is_gitlab
+            and generated_project.cloud_provider == "azure"
+        ):
+            content = generated_project.get_file_content(".gitlab-ci.yml")
+
+            assert "ARM_TENANT_ID" in content, "ARM_TENANT_ID not found for Azure cloud"
+            assert "ARM_CLIENT_ID" in content, "ARM_CLIENT_ID not found for Azure cloud"
+            assert "ARM_CLIENT_SECRET" in content, "ARM_CLIENT_SECRET not found for Azure cloud"
+
+    def test_gitlab_pipeline_uses_correct_auth_for_aws(self, generated_project: GeneratedProject):
+        """GitLab CI pipeline should use OAuth credentials for AWS cloud."""
+        if (
+            generated_project.has_cicd
+            and generated_project.is_gitlab
+            and generated_project.cloud_provider == "aws"
+        ):
+            content = generated_project.get_file_content(".gitlab-ci.yml")
+
+            # OAuth M2M credentials for AWS/GCP
+            assert "DATABRICKS_HOST" in content, "DATABRICKS_HOST not found for AWS cloud"
+            assert "DATABRICKS_CLIENT_ID" in content, "DATABRICKS_CLIENT_ID not found for AWS"
+            assert "DATABRICKS_CLIENT_SECRET" in content, (
+                "DATABRICKS_CLIENT_SECRET not found for AWS"
+            )
+            # Should NOT have ARM_* variables for AWS
+            assert "ARM_TENANT_ID:" not in content, (
+                "ARM_TENANT_ID should not be in pipeline for AWS"
+            )
+
+    def test_gitlab_pipeline_includes_unit_tests(self, generated_project: GeneratedProject):
+        """GitLab CI pipeline should include unit test step."""
+        if generated_project.has_cicd and generated_project.is_gitlab:
+            content = generated_project.get_file_content(".gitlab-ci.yml")
+
+            assert "pytest" in content.lower(), "pytest not found in pipeline"
+
+    def test_gitlab_pipeline_has_environments(self, generated_project: GeneratedProject):
+        """GitLab CI pipeline should define environments for deploy jobs."""
+        if generated_project.has_cicd and generated_project.is_gitlab:
+            content = generated_project.get_file_content(".gitlab-ci.yml")
+
+            assert "environment:" in content, "Environment definition not found in pipeline"
+            assert "staging" in content, "staging environment not found in pipeline"
+
+            if generated_project.is_full:
+                assert "production" in content, "production environment not found for full mode"
+
+    def test_gitlab_pipeline_has_junit_artifacts(self, generated_project: GeneratedProject):
+        """GitLab CI pipeline should have JUnit artifact reporting."""
+        if generated_project.has_cicd and generated_project.is_gitlab:
+            content = generated_project.get_file_content(".gitlab-ci.yml")
+
+            assert "artifacts:" in content, "artifacts section not found in pipeline"
+            assert "junit:" in content, "JUnit artifact reporting not found in pipeline"

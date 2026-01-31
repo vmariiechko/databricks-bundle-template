@@ -1,0 +1,14 @@
+{
+  "project_name": "test_full_gitlab",
+  "environment_setup": "full",
+  "include_dev_environment": "no",
+  "compute_type": "classic",
+  "cloud_provider": "azure",
+  "uc_catalog_suffix": "test_domain",
+  "include_permissions": "yes",
+  "configure_sp_now": "no",
+  "include_cicd": "yes",
+  "cicd_platform": "gitlab",
+  "default_branch": "main",
+  "release_branch": "release"
+}

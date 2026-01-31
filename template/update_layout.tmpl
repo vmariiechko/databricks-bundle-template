@@ -7,13 +7,14 @@
 # =============================================================================
 # Skip CI/CD platform directories based on selected platform
 # =============================================================================
+# Note: GitLab uses root `.gitlab-ci.yml` file (not a `.gitlab/` directory),
+# so we only need to skip .azure and .github directories.
+# The .gitlab-ci.yml file handles its own conditional content via template guard.
 {{ if eq .include_cicd "yes" }}
     {{ if eq .cicd_platform "github_actions" }}
         {{ skip (printf `%s/%s` $root_dir `.azure`) }}
-        {{ skip (printf `%s/%s` $root_dir `.gitlab`) }}
     {{ else if eq .cicd_platform "azure_devops" }}
         {{ skip (printf `%s/%s` $root_dir `.github`) }}
-        {{ skip (printf `%s/%s` $root_dir `.gitlab`) }}
     {{ else if eq .cicd_platform "gitlab" }}
         {{ skip (printf `%s/%s` $root_dir `.azure`) }}
         {{ skip (printf `%s/%s` $root_dir `.github`) }}
@@ -22,7 +23,6 @@
     # CI/CD not included - skip all CI/CD directories
     {{ skip (printf `%s/%s` $root_dir `.azure`) }}
     {{ skip (printf `%s/%s` $root_dir `.github`) }}
-    {{ skip (printf `%s/%s` $root_dir `.gitlab`) }}
 {{ end }}
 
 # Skip this layout file itself from being copied to output

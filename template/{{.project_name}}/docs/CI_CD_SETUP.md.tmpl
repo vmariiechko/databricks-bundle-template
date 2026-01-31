@@ -21,16 +21,13 @@ The CI/CD pipeline expects the bundle project to be at the **root** of the repos
 │   └── workflows/
 {{- end }}
 {{- if eq .cicd_platform "gitlab" }}
-├── .gitlab/
-│   └── pipelines/
+├── .gitlab-ci.yml
 {{- end }}
 ├── resources/
 ├── src/
 ├── tests/
 └── ...
 ```
-
-> **Important**: This bundle project **must be at the repository root**. {{- if eq .cicd_platform "github_actions" }} GitHub Actions requires the `.github/workflows/` directory to be at the repo root.{{- end }} Ensure `databricks.yml` is in the root directory of your repository, not in a subdirectory.
 
 ### Required Tools
 
@@ -46,10 +43,12 @@ Before CI/CD can deploy resources, Unity Catalog catalogs must exist and service
 ### Understanding Service Principal Roles
 
 This template uses a **single service principal per environment** that serves as both:
-- **Deployer**: Runs `databricks bundle deploy` in CI/CD
-- **Runtime**: Runs jobs and pipelines (configured via `run_as` in `databricks.yml`)
+- **Deployer**: Authenticates the Databricks CLI to run `databricks bundle deploy` in CI/CD
+- **Runtime**: Executes jobs and pipelines (configured via `run_as` in `databricks.yml`)
 
-The same SP credentials you configure in CI/CD are referenced in `variables.yml` as `stage_service_principal` and `prod_service_principal`.
+The service principal configured for CI/CD authentication should be the same one specified as `stage_service_principal`{{ if eq .environment_setup "full" }} and `prod_service_principal`{{ end }} in `variables.yml`. The CI/CD pipeline authenticates as this SP to deploy bundles, and the `run_as` directive ensures deployed jobs execute under the same identity.
+
+> **Advanced**: It is technically possible to use different SPs for deployment and runtime (e.g., a deployment SP with workspace-level permissions and a separate runtime SP with specific data access). In that case, configure the CI/CD variables with the deployer SP credentials and `variables.yml` with the runtime SP's application ID. However, this template assumes a single SP per environment for simplicity.
 
 ### Step 1: Create Catalogs
 
@@ -79,34 +78,28 @@ Before granting Unity Catalog permissions, ensure the service principal is added
 
 The service principal only needs **catalog-level** permissions. Schema-level grants are handled automatically by the bundle deployment (defined in `databricks.yml`).
 
-> **Don't have a service principal yet?** See {{ if eq .cloud_provider "azure" }}[Creating Service Principal Credentials](#creating-service-principal-credentials){{ else }}[Creating OAuth M2M Credentials](#creating-oauth-m2m-credentials){{ end }} below for step-by-step instructions, then return here to grant catalog permissions.
+> Don't have a service principal yet? See {{ if eq .cloud_provider "azure" }}[Creating Service Principal Credentials](#creating-service-principal-credentials){{ else }}[Creating OAuth M2M Credentials](#creating-oauth-m2m-credentials){{ end }} below for step-by-step instructions, then return here to grant catalog permissions.
 {{ if eq .cloud_provider "azure" }}
 **Identify your Service Principal**: In Azure Portal → Microsoft Entra ID → Manage dropdown → App registrations → your SP, copy the **Application (client) ID**. This ID is used in both the CI/CD variable group and SQL grants below.
 {{ else }}
 **Identify your Service Principal**: In Databricks Account Console → User management → Service principals → your SP, copy the **Client ID** from the OAuth secrets section.
 {{ end }}
 ```sql
--- ============================================
 -- STAGING Environment Permissions
--- ============================================
 -- Replace <STAGING_SP_ID> with your staging service principal's application/client ID
-
 GRANT USE CATALOG ON CATALOG stage_{{.uc_catalog_suffix}} TO `<STAGING_SP_ID>`;
 GRANT CREATE SCHEMA ON CATALOG stage_{{.uc_catalog_suffix}} TO `<STAGING_SP_ID>`;
 
 {{- if eq .environment_setup "full" }}
 
--- ============================================
 -- PRODUCTION Environment Permissions
--- ============================================
 -- Replace <PROD_SP_ID> with your production service principal's application/client ID
-
 GRANT USE CATALOG ON CATALOG prod_{{.uc_catalog_suffix}} TO `<PROD_SP_ID>`;
 GRANT CREATE SCHEMA ON CATALOG prod_{{.uc_catalog_suffix}} TO `<PROD_SP_ID>`;
 {{- end }}
 ```
 
-> **Schema permissions are automatic**: When the bundle deploys and creates schemas, the SP becomes the schema owner. Additional grants defined in `databricks.yml` (for groups like `developers`, `qa_team`, etc.) are applied automatically during deployment.
+Schema permissions are automatic: When the bundle deploys and creates schemas, the SP becomes the schema owner. Additional grants defined in `databricks.yml` (for groups like `developers`, `qa_team`, etc.) are applied automatically during deployment.
 
 #### **Why these permissions?**
 
@@ -115,7 +108,7 @@ GRANT CREATE SCHEMA ON CATALOG prod_{{.uc_catalog_suffix}} TO `<PROD_SP_ID>`;
 | `USE CATALOG` | Access the catalog hierarchy |
 | `CREATE SCHEMA` | Create bronze, silver, gold schemas during first deployment |
 
-> Note that you might want to grant other `CREATE <SECURABLE>` privileges e.g. to create Volume via DABs.
+Note that you might want to grant other `CREATE <SECURABLE>` privileges e.g. to create Volume via DABs.
 
 **What you DON'T need to grant manually:**
 - Schema-level privileges (SP owns schemas it creates)
@@ -132,6 +125,8 @@ This project uses a **Release Flow** strategy (similar to GitHub Flow but with a
 {{- else }}
 ![Git Branching Strategy](images/git-flow-minimal.png)
 {{- end }}
+
+> **Branch name mapping**: The diagram above uses generic branch names. In your project: **`{{.default_branch}}`** is configured as the staging integration branch{{ if eq .environment_setup "full" }} and **`{{.release_branch}}`** as the production release branch{{ end }}. Map any references to "main"/"release" in the diagram to your configured branch names.
 
 ### Branch Purposes
 
@@ -408,7 +403,119 @@ For better code quality, set up branch protection rules:
 
 ## GitLab CI/CD Setup
 
-> **Note:** GitLab CI templates are coming soon. This documentation will be updated when available.
+### Step 1: Configure CI/CD Variables
+
+1. Go to your GitLab project
+2. Navigate to **Settings** → **CI/CD** → **Variables**
+3. Click **Add variable** for each variable listed below
+4. For each variable:
+   - **Protect variable**: Uncheck (leave unprotected, see important note below)
+   - **Masked**: Check for secrets
+
+> **Important**: Do not protect variables. GitLab [protected variables](https://docs.gitlab.com/ci/variables/#protect-a-cicd-variable) are only available to pipelines running on protected branches. The CI validation job (`bundle-ci`) runs on merge request source branches (e.g., `feature/*`), which are typically unprotected. If variables are marked as protected, the CI job will fail with authentication errors because it cannot access the credentials. Leave all variables **unprotected** — security is maintained through project access controls and variable masking. As an alternative, you can add branch rule for `feature/*` making it protected and allowing protected variables (see [branch rules](https://docs.gitlab.com/user/project/repository/branches/branch_rules)).
+
+{{- if eq .cloud_provider "azure" }}
+
+#### Variables for Azure Databricks (Service Principal Authentication)
+
+| Variable Name | Value Source (Azure Portal) | Protected? | Masked? |
+|--------------|---------------------------|-----------|---------|
+| `STAGING_AZURE_SP_TENANT_ID` | Microsoft Entra ID → App registrations → [your SP] → **Directory (tenant) ID** | No | No |
+| `STAGING_AZURE_SP_APPLICATION_ID` | Microsoft Entra ID → App registrations → [your SP] → **Application (client) ID** | No | No |
+| `STAGING_AZURE_SP_CLIENT_SECRET` | Microsoft Entra ID → App registrations → [your SP] → Certificates & secrets → [your secret] → **Value** | No | **Yes** |
+{{- if eq .environment_setup "full" }}
+| `PROD_AZURE_SP_TENANT_ID` | Same as above, for production SP | No | No |
+| `PROD_AZURE_SP_APPLICATION_ID` | Same as above, for production SP | No | No |
+| `PROD_AZURE_SP_CLIENT_SECRET` | Same as above, for production SP | No | **Yes** |
+{{- end }}
+
+#### Creating Service Principal Credentials
+
+1. **Go to Azure Portal → Microsoft Entra ID → App registrations**
+2. Select or create your service principal for each environment
+3. Copy credentials:
+   - **Directory (tenant) ID** → `*_AZURE_SP_TENANT_ID`
+   - **Application (client) ID** → `*_AZURE_SP_APPLICATION_ID`
+4. Create client secret:
+   - Go to **Certificates & secrets** → **New client secret**
+   - Copy the **Value** (shown only once!) → `*_AZURE_SP_CLIENT_SECRET`
+5. Grant Databricks access:
+   - Add the service principal to your Databricks workspace
+   - Grant Unity Catalog permissions (see above)
+
+{{- else }}
+
+#### Variables for AWS/GCP Databricks (OAuth M2M Authentication)
+
+| Variable Name | Value Source (Databricks) | Protected? | Masked? |
+|--------------|--------------------------|-----------|---------|
+| `STAGING_DATABRICKS_HOST` | Your Databricks workspace URL (e.g., `https://xxx.cloud.databricks.com`) | No | No |
+| `STAGING_DATABRICKS_CLIENT_ID` | Account Console → User management → Service principals → [your SP] → OAuth secrets → **Client ID** | No | No |
+| `STAGING_DATABRICKS_CLIENT_SECRET` | Account Console → User management → Service principals → [your SP] → OAuth secrets → **Secret** | No | **Yes** |
+{{- if eq .environment_setup "full" }}
+| `PROD_DATABRICKS_HOST` | Same as above, for production workspace | No | No |
+| `PROD_DATABRICKS_CLIENT_ID` | Same as above, for production SP | No | No |
+| `PROD_DATABRICKS_CLIENT_SECRET` | Same as above, for production SP | No | **Yes** |
+{{- end }}
+
+#### Creating OAuth M2M Credentials
+
+1. Go to Databricks Account Console (accounts.cloud.databricks.com)
+2. Navigate to **User management → Service principals**
+3. Create or select a service principal for each environment
+4. Generate OAuth secret:
+   - Go to **OAuth secrets** tab → **Generate secret**
+   - Copy Client ID → `*_DATABRICKS_CLIENT_ID`
+   - Copy Secret (shown only once!) → `*_DATABRICKS_CLIENT_SECRET`
+5. Add to workspace:
+   - Go to **Workspaces → [your workspace] → Settings → Identity and access**
+   - Add the service principal
+6. Grant Unity Catalog permissions (see above)
+
+{{- end }}
+
+### Step 2: Verify Pipeline File
+
+The pipeline file is located at the repository root `.gitlab-ci.yml`
+
+This pipeline is triggered on:
+- **Merge requests** to `{{.default_branch}}`: Runs unit tests and validates bundle configuration
+- **Push** to `{{.default_branch}}`: Deploys to staging environment
+{{- if eq .environment_setup "full" }}
+- **Push** to `{{.release_branch}}`: Deploys to production environment
+{{- end }}
+
+### Step 3: Enable GitLab CI/CD
+
+GitLab CI/CD is enabled by default when a `.gitlab-ci.yml` file exists in the repository root.
+
+To verify CI/CD is enabled:
+1. Go to **Settings** → **General** → **Visibility, project features, permissions**
+2. In the **Repository** section ensure **CI/CD** is enabled
+
+### Step 4: Configure Branch Rules (Recommended)
+
+For better code quality, set up [branch rules](https://docs.gitlab.com/user/project/repository/branches/branch_rules):
+
+1. Go to **Settings** → **Repository** → **Branch rules**
+2. Add or edit the rule for `{{.default_branch}}`:
+   - **Allowed to merge**: Maintainers (or your preference)
+   - **Allowed to push and merge**: No one (force MR workflow)
+   - **Allow force push**: Disabled
+
+{{ if eq .environment_setup "full" }}
+Repeat the above for the release branch `{{.release_branch}}`
+{{- end }}
+
+### Step 5: Configure Merge Request Settings (Recommended)
+
+1. Go to **Settings** → **Merge requests**
+2. Under **Merge checks**, enable:
+   - **Pipelines must succeed** to require CI before merge
+   - **All threads must be resolved** (optional)
+3. Other settings to consider:
+   - Allow squash commits for cleaner history
+   - Enable **"Delete source branch"** option by default
 
 {{- end }}
 
@@ -462,6 +569,9 @@ tests/
 - Verify OAuth credentials: `DATABRICKS_CLIENT_ID` and `DATABRICKS_CLIENT_SECRET`
 - Ensure the service principal has been added to the Databricks workspace
 - Check that the SP has appropriate Unity Catalog permissions
+{{- end }}
+{{- if eq .cicd_platform "gitlab" }}
+- Check that CI/CD variables are **not** marked as protected. Protected variables are only available on protected branches — merge request pipelines run on unprotected source branches and cannot access protected variables. Go to **Settings → CI/CD → Variables** and ensure "Protect variable" is unchecked for all variables.
 {{- end }}
 
 ### Bundle validation fails with "Catalog not found"
