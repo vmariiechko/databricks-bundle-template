@@ -117,6 +117,8 @@ resources:
             parameters:
               - --catalog_name
               - ${var.catalog_name}
+              - --schema_prefix
+              - ${var.schema_prefix}
               - --environment
               - ${bundle.target}
               - --user_name
@@ -157,6 +159,8 @@ resources:
             parameters:
               - --catalog_name
               - ${var.catalog_name}
+              - --schema_prefix
+              - ${var.schema_prefix}
               - --environment
               - ${bundle.target}
               - --user_name

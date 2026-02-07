@@ -16,16 +16,13 @@ Before deploying, ensure you have:
    databricks --version
    ```
 
-2. **Unity Catalog** with these catalogs created:
+2. **Unity Catalog** with these pre-existing catalogs (created by your platform/infra team):
 {{- if eq .environment_setup "full" }}
-   - `user_<your-username>_{{.uc_catalog_suffix}}` (for local development)
-{{- if eq .include_dev_environment "yes" }}
-   - `dev_{{.uc_catalog_suffix}}` (shared dev)
-{{- end }}
+   - `dev_{{.uc_catalog_suffix}}` (development - shared by `user` and{{- if eq .include_dev_environment "yes" }} `dev`{{- end }} targets)
    - `stage_{{.uc_catalog_suffix}}` (pre-production)
    - `prod_{{.uc_catalog_suffix}}` (production)
 {{- else }}
-   - `user_<your-username>_{{.uc_catalog_suffix}}` (for local development)
+   - `dev_{{.uc_catalog_suffix}}` (development)
    - `stage_{{.uc_catalog_suffix}}` (shared/production)
 {{- end }}
 
@@ -88,17 +85,17 @@ databricks bundle run {{.project_name}}_ingestion -t user
 
 ## Environments
 
-| Target | Purpose | Catalog |
-|--------|---------|---------|
-| `user` | Personal development | `user_<username>_{{.uc_catalog_suffix}}` |
+| Target | Purpose | Catalog | Schema Isolation |
+|--------|---------|---------|------------------|
+| `user` | Personal development | `dev_{{.uc_catalog_suffix}}` | `<username>_bronze/silver/gold` |
 {{- if eq .environment_setup "full" }}
 {{- if eq .include_dev_environment "yes" }}
-| `dev` | Shared development | `dev_{{.uc_catalog_suffix}}` |
+| `dev` | Shared development | `dev_{{.uc_catalog_suffix}}` | `bronze/silver/gold` |
 {{- end }}
-| `stage` | Pre-production testing | `stage_{{.uc_catalog_suffix}}` |
-| `prod` | Production | `prod_{{.uc_catalog_suffix}}` |
+| `stage` | Pre-production testing | `stage_{{.uc_catalog_suffix}}` | `bronze/silver/gold` |
+| `prod` | Production | `prod_{{.uc_catalog_suffix}}` | `bronze/silver/gold` |
 {{- else }}
-| `stage` | Shared/Production | `stage_{{.uc_catalog_suffix}}` |
+| `stage` | Shared/Production | `stage_{{.uc_catalog_suffix}}` | `bronze/silver/gold` |
 {{- end }}
 
 ### Deployment Commands
@@ -207,9 +204,11 @@ resources:
 
 ### "Catalog not found"
 
-Create the missing Unity Catalog:
+Catalogs must be pre-existing (created by a metastore admin or platform team).
+Verify that the required catalogs exist and you have `USE CATALOG` permission:
 ```sql
-CREATE CATALOG IF NOT EXISTS user_<username>_{{.uc_catalog_suffix}};
+SHOW CATALOGS;
+-- Required: dev_{{.uc_catalog_suffix}}{{- if eq .environment_setup "full" }}, stage_{{.uc_catalog_suffix}}, prod_{{.uc_catalog_suffix}}{{- else }}, stage_{{.uc_catalog_suffix}}{{- end }}
 ```
 
 {{- if eq .include_permissions "yes" }}

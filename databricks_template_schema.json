@@ -56,7 +56,7 @@
     "uc_catalog_suffix": {
       "type": "string",
       "default": "my_domain",
-      "description": "\n========================================\n\nUnity Catalog suffix for catalog names.\nCatalogs will be named: user_<your-username>_<suffix>, dev_<suffix>, stage_<suffix>, prod_<suffix>\n\nExamples: 'sales', 'marketing', 'analytics', 'my_project'\nMust be lowercase, start with a letter, only letters/numbers/underscores.\nuc_catalog_suffix",
+      "description": "\n========================================\n\nUnity Catalog suffix for catalog names.\nCatalogs will be named: dev_<suffix>, stage_<suffix>, prod_<suffix>\nThese catalogs must already exist (created by your platform/infra team).\n\nThe 'user' target shares the dev catalog with per-user schema prefixes\nfor isolation (e.g., jsmith_bronze, jsmith_silver, jsmith_gold).\n\nExamples: 'sales', 'marketing', 'analytics', 'my_project'\nMust be lowercase, start with a letter, only letters/numbers/underscores.\nuc_catalog_suffix",
       "order": 6,
       "pattern": "^[a-z][a-z0-9_]*$",
       "pattern_match_failure_message": "Catalog suffix must be lowercase, start with a letter, and contain only letters, numbers, and underscores."

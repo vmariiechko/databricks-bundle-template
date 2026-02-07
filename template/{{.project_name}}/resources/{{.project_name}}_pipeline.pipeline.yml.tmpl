@@ -6,15 +6,15 @@ resources:
       channel: CURRENT
 
       catalog: ${var.catalog_name}
-      # Shared default; bundle targets override schema when needed
-      schema: ${var.default_schema_name}
+      # Schema includes prefix for per-user isolation in development
+      schema: ${var.schema_prefix}${var.default_schema_name}
       photon: ${var.photon_enabled}
       continuous: ${var.continuous_mode}
 
       # Specify the FQN for the pipeline event logs table
       event_log:
         catalog: ${var.catalog_name}
-        schema: ${var.default_schema_name}
+        schema: ${var.schema_prefix}${var.default_schema_name}
         name: pipeline_event_log
 
       # LDP configuration passed to notebooks
@@ -22,6 +22,7 @@ resources:
         "spark.databricks.delta.autoCompact.enabled": "true"
         "spark.databricks.delta.optimizeWrite.enabled": "true"
         "catalogName": ${var.catalog_name}
+        "schemaPrefix": ${var.schema_prefix}
         "pipelineEnvironment": ${bundle.target}
         "userName": ${workspace.current_user.short_name}
 

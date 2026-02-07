@@ -14,6 +14,7 @@ from pyspark.sql import functions as F
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--catalog_name", type=str, required=True)
+    parser.add_argument("--schema_prefix", type=str, default="")
     parser.add_argument("--environment", type=str, required=True)
     parser.add_argument("--user_name", type=str, required=True)
     args = parser.parse_args()
@@ -23,8 +24,8 @@ def main():
     spark = SparkSession.builder.appName("SilverTransformation").getOrCreate()
 
     catalog_name = args.catalog_name
-    bronze_schema = "bronze"
-    silver_schema = "silver"
+    bronze_schema = f"{args.schema_prefix}bronze"
+    silver_schema = f"{args.schema_prefix}silver"
 
     # Read from bronze layer
     bronze_table_fqn = f"`{catalog_name}`.`{bronze_schema}`.`sales_customers_raw`"

@@ -10,6 +10,7 @@ from pyspark.sql import SparkSession
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--catalog_name", type=str, required=True)
+    parser.add_argument("--schema_prefix", type=str, default="")
     parser.add_argument("--environment", type=str, required=True)
     parser.add_argument("--user_name", type=str, required=True)
     args = parser.parse_args()
@@ -28,7 +29,7 @@ def main():
     df.show(5)
 
     catalog_name = args.catalog_name
-    schema_name = "bronze"
+    schema_name = f"{args.schema_prefix}bronze"
     table_fqn = f"`{catalog_name}`.`{schema_name}`.`sales_customers_raw`"
     df.write.mode("overwrite").saveAsTable(table_fqn)
 

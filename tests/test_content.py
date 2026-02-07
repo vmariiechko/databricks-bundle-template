@@ -132,13 +132,29 @@ class TestUnityCatalogConfig:
             f"Catalog suffix '{expected_suffix}' not found in variables.yml"
         )
 
-    def test_catalog_prefix_in_user_target(self, generated_project: GeneratedProject):
-        """User target should have catalog with user_ prefix."""
+    def test_user_target_uses_dev_catalog(self, generated_project: GeneratedProject):
+        """User target should share the dev catalog (not a per-user catalog)."""
         data = load_yaml_file(generated_project, "databricks.yml")
         user_vars = data["targets"]["user"].get("variables", {})
         catalog_name = user_vars.get("catalog_name", "")
-        assert "user_" in catalog_name, (
-            f"User target catalog should start with 'user_', got: {catalog_name}"
+        assert catalog_name.startswith("dev_"), (
+            f"User target catalog should start with 'dev_', got: {catalog_name}"
+        )
+
+    def test_user_target_has_schema_prefix(self, generated_project: GeneratedProject):
+        """User target should have schema_prefix with current_user for isolation."""
+        data = load_yaml_file(generated_project, "databricks.yml")
+        user_vars = data["targets"]["user"].get("variables", {})
+        schema_prefix = user_vars.get("schema_prefix", "")
+        assert "current_user.short_name" in schema_prefix, (
+            f"User target schema_prefix should reference current_user.short_name, got: {schema_prefix}"
+        )
+
+    def test_schema_names_include_prefix_variable(self, generated_project: GeneratedProject):
+        """Schema definitions should use ${var.schema_prefix} in name field."""
+        content = generated_project.get_file_content("resources/schemas.yml")
+        assert "${var.schema_prefix}" in content, (
+            "Schema names should include ${var.schema_prefix} for per-user isolation"
         )
 
 

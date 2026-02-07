@@ -17,7 +17,7 @@ databricks bundle validate -t user
 ```
 
 If validation fails, check:
-- Unity Catalog `user_<your-username>_{{.uc_catalog_suffix}}` exists
+- Unity Catalog `dev_{{.uc_catalog_suffix}}` exists and you have `USE CATALOG` permission
 {{- if eq .include_permissions "yes" }}
 - Required groups are created (see [docs/SETUP_GROUPS.md](docs/SETUP_GROUPS.md))
 {{- end }}
@@ -93,9 +93,10 @@ databricks bundle deploy -t stage
 
 ### "Catalog not found" Error
 
-Create the Unity Catalog:
+Catalogs must be pre-existing (created by a metastore admin or platform team).
+Verify that the `dev_{{.uc_catalog_suffix}}` catalog exists and you have access:
 ```sql
-CREATE CATALOG IF NOT EXISTS user_<username>_{{.uc_catalog_suffix}};
+SHOW CATALOGS;
 ```
 
 {{- if eq .include_permissions "yes" }}

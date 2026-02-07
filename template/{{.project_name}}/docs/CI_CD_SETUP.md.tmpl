@@ -50,21 +50,15 @@ The service principal configured for CI/CD authentication should be the same one
 
 > **Advanced**: It is technically possible to use different SPs for deployment and runtime (e.g., a deployment SP with workspace-level permissions and a separate runtime SP with specific data access). In that case, configure the CI/CD variables with the deployer SP credentials and `variables.yml` with the runtime SP's application ID. However, this template assumes a single SP per environment for simplicity.
 
-### Step 1: Create Catalogs
+### Step 1: Verify Catalog Access
 
-Create the following catalogs in your Databricks metastore (requires metastore admin or catalog creator role):
-
-```sql
--- Staging catalog
-CREATE CATALOG IF NOT EXISTS stage_{{.uc_catalog_suffix}};
-
+Ensure the following pre-existing catalogs are accessible (created by your platform/infra team):
+- `stage_{{.uc_catalog_suffix}}`
 {{- if eq .environment_setup "full" }}
--- Production catalog
-CREATE CATALOG IF NOT EXISTS prod_{{.uc_catalog_suffix}};
+- `prod_{{.uc_catalog_suffix}}`
 {{- end }}
-```
 
-> **Note**: The `user_*` catalog is for local development and doesn't require CI/CD access.
+> **Note**: The `user` target shares the `dev_{{.uc_catalog_suffix}}` catalog with per-user schema prefixes and doesn't require CI/CD access.
 
 ### Step 2: Add Service Principal to Workspace
 

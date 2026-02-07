@@ -4,7 +4,11 @@ variables:
   # ================================================
   catalog_name:
     description: Unity Catalog name (override per target in databricks.yml)
-    default: "user_${workspace.current_user.short_name}_{{.uc_catalog_suffix}}"
+    default: "dev_{{.uc_catalog_suffix}}"
+
+  schema_prefix:
+    description: Prefix for schema names (provides per-user isolation in development)
+    default: "${workspace.current_user.short_name}_"
 
   default_schema_name:
     description: Default schema for resources

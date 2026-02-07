@@ -43,8 +43,11 @@ targets:
         environment: user
 
     #### Variables ####
+    # User target shares the dev catalog; isolation via user-prefixed schema names
+    # e.g., jsmith_bronze, jsmith_silver, jsmith_gold
     variables:
-      catalog_name: "user_${workspace.current_user.short_name}_{{.uc_catalog_suffix}}"
+      catalog_name: "dev_{{.uc_catalog_suffix}}"
+      schema_prefix: "${workspace.current_user.short_name}_"
       default_schema_name: "bronze"
       pipeline_min_workers: 1
       pipeline_max_workers: 1
@@ -62,7 +65,7 @@ targets:
       schemas:
         # Bronze: Full access for developers in user environment
         bronze_schema:
-          name: bronze
+          name: ${var.schema_prefix}bronze
           catalog_name: ${var.catalog_name}
           grants:
             - principal: ${var.developers_group}
@@ -71,7 +74,7 @@ targets:
 
         # Silver: Full access for developers
         silver_schema:
-          name: silver
+          name: ${var.schema_prefix}silver
           catalog_name: ${var.catalog_name}
           grants:
             - principal: ${var.developers_group}
@@ -80,7 +83,7 @@ targets:
 
         # Gold: Full access for developers
         gold_schema:
-          name: gold
+          name: ${var.schema_prefix}gold
           catalog_name: ${var.catalog_name}
           grants:
             - principal: ${var.developers_group}
@@ -138,6 +141,7 @@ targets:
     #### Variables ####
     variables:
       catalog_name: "dev_{{.uc_catalog_suffix}}"
+      schema_prefix: ""
       default_schema_name: "bronze"
       pipeline_min_workers: 1
       pipeline_max_workers: 2
@@ -157,7 +161,7 @@ targets:
       schemas:
         # Bronze: Full access for developers and deployment SP
         bronze_schema:
-          name: bronze
+          name: ${var.schema_prefix}bronze
           catalog_name: ${var.catalog_name}
           grants:
             - principal: ${var.dev_service_principal}
@@ -169,7 +173,7 @@ targets:
 
         # Silver: Developers full access, Analytics read-only
         silver_schema:
-          name: silver
+          name: ${var.schema_prefix}silver
           catalog_name: ${var.catalog_name}
           grants:
             - principal: ${var.dev_service_principal}
@@ -185,7 +189,7 @@ targets:
 
         # Gold: Developers full access, Analytics read-only
         gold_schema:
-          name: gold
+          name: ${var.schema_prefix}gold
           catalog_name: ${var.catalog_name}
           grants:
             - principal: ${var.dev_service_principal}
@@ -255,6 +259,7 @@ targets:
     #### Variables ####
     variables:
       catalog_name: "stage_{{.uc_catalog_suffix}}"
+      schema_prefix: ""
       default_schema_name: "bronze"
       pipeline_min_workers: 2
       pipeline_max_workers: 4
@@ -274,7 +279,7 @@ targets:
       schemas:
         # Bronze: SP full access, Developers and QA read-only
         bronze_schema:
-          name: bronze
+          name: ${var.schema_prefix}bronze
           catalog_name: ${var.catalog_name}
           grants:
             - principal: ${var.stage_service_principal}
@@ -291,7 +296,7 @@ targets:
 
         # Silver: SP full access, Developers, QA, and Analytics read-only
         silver_schema:
-          name: silver
+          name: ${var.schema_prefix}silver
           catalog_name: ${var.catalog_name}
           grants:
             - principal: ${var.stage_service_principal}
@@ -312,7 +317,7 @@ targets:
 
         # Gold: SP full access, wider read access for testing
         gold_schema:
-          name: gold
+          name: ${var.schema_prefix}gold
           catalog_name: ${var.catalog_name}
           grants:
             - principal: ${var.stage_service_principal}
@@ -390,6 +395,7 @@ targets:
     #### Variables ####
     variables:
       catalog_name: "prod_{{.uc_catalog_suffix}}"
+      schema_prefix: ""
       default_schema_name: "bronze"
       pipeline_min_workers: 2
       pipeline_max_workers: 8
@@ -409,7 +415,7 @@ targets:
       schemas:
         # Bronze: SP full access, Operations read-only (incident investigation)
         bronze_schema:
-          name: bronze
+          name: ${var.schema_prefix}bronze
           catalog_name: ${var.catalog_name}
           grants:
             - principal: ${var.prod_service_principal}
@@ -422,7 +428,7 @@ targets:
 
         # Silver: SP full access, Analytics and Operations read-only
         silver_schema:
-          name: silver
+          name: ${var.schema_prefix}silver
           catalog_name: ${var.catalog_name}
           grants:
             - principal: ${var.prod_service_principal}
@@ -439,7 +445,7 @@ targets:
 
         # Gold: SP full access, Analytics and Operations read-only
         gold_schema:
-          name: gold
+          name: ${var.schema_prefix}gold
           catalog_name: ${var.catalog_name}
           grants:
             - principal: ${var.prod_service_principal}

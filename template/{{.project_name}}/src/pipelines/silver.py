@@ -14,6 +14,7 @@ from pyspark.sql.functions import sum as _sum
 spark = SparkSession.builder.getOrCreate()
 
 CATALOG_NAME = spark.conf.get("catalogName", "default")
+SCHEMA_PREFIX = spark.conf.get("schemaPrefix", "")
 ENVIRONMENT = spark.conf.get("pipelineEnvironment", "user")
 USER_NAME = spark.conf.get("userName", "user")
 
@@ -21,7 +22,7 @@ USER_NAME = spark.conf.get("userName", "user")
 
 
 def get_fqn(table_name, schema_name):
-    return f"`{CATALOG_NAME}`.`{schema_name}`.`{table_name}`"
+    return f"`{CATALOG_NAME}`.`{SCHEMA_PREFIX}{schema_name}`.`{table_name}`"
 
 
 # COMMAND ----------

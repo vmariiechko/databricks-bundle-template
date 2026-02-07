@@ -141,7 +141,8 @@ rm -rf test-generated
 │                                                                              │
 │  Q6: uc_catalog_suffix                                                       │
 │      "What suffix should be used for Unity Catalog names?"                   │
-│      Example: user_<suffix>, stage_<suffix>, prod_<suffix>                   │
+│      Catalogs: dev_<suffix>, stage_<suffix>, prod_<suffix> (pre-existing)    │
+│      User target shares dev catalog with per-user schema prefixes            │
 │      Default: my_domain                                                      │
 │                                                                              │
 │  Q7: include_permissions                                                     │
@@ -190,7 +191,7 @@ rm -rf test-generated
 | 3 | `include_dev_environment` | string | `no` | Yes | environment_setup = full | Add optional dev target |
 | 4 | `compute_type` | string | `classic` | Yes | - | `serverless`, `classic`, or `both` |
 | 5 | `cloud_provider` | string | `azure` | Yes | compute_type != serverless | For node_type_id selection |
-| 6 | `uc_catalog_suffix` | string | `my_domain` | Yes | - | Appended to env prefix (e.g., `stage_sales`) |
+| 6 | `uc_catalog_suffix` | string | `my_domain` | Yes | - | Suffix for pre-existing env catalogs (e.g., `dev_sales`, `stage_sales`) |
 | 7 | `include_permissions` | string | `yes` | Yes | - | Include RBAC (3-4 groups based on env) |
 | 8 | `configure_sp_now` | string | `no` | Yes | - | Configure SPs during init or later |
 | 9 | `dev_service_principal` | string | `""` | No | configure_sp_now = yes AND include_dev = yes | Dev environment SP app ID |

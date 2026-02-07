@@ -256,7 +256,9 @@ class TestCICDDocumentation:
             assert "Unity Catalog Prerequisites" in content, (
                 "Unity Catalog Prerequisites section not found in CI_CD_SETUP.md"
             )
-            assert "CREATE CATALOG" in content, "Catalog creation SQL not found in CI_CD_SETUP.md"
+            assert "Verify Catalog Access" in content, (
+                "Catalog access verification section not found in CI_CD_SETUP.md"
+            )
             assert "GRANT" in content, "Permission grants not found in CI_CD_SETUP.md"
 
     def test_cicd_setup_doc_has_variable_mapping_table(self, generated_project: GeneratedProject):
