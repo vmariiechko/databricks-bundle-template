@@ -1,6 +1,13 @@
 # Databricks Multi-Environment Bundle Template
 
-A custom template for Databricks Asset Bundles that generates production-ready, multi-environment projects.
+[![Tests](https://github.com/vmariiechko/databricks-bundle-template/actions/workflows/test.yml/badge.svg)](https://github.com/vmariiechko/databricks-bundle-template/actions/workflows/test.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+A custom template for [Databricks Asset Bundles](https://docs.databricks.com/en/dev-tools/bundles/index.html) that generates production-ready, multi-environment projects with configurable compute, permissions, and CI/CD pipelines.
+
+## Why This Template?
+
+Setting up a production-grade Databricks project involves many decisions: environment isolation, compute configuration, RBAC permissions, service principal setup, CI/CD pipelines, and Unity Catalog schemas. This template encodes proven patterns for all of these so you can go from zero to a deployable bundle in minutes, not days.
 
 ## Requirements
 
@@ -10,13 +17,13 @@ A custom template for Databricks Asset Bundles that generates production-ready, 
 ## Usage
 
 ```bash
-databricks bundle init https://github.com/vmariiechko/databricks-bundles-realworld
+databricks bundle init https://github.com/vmariiechko/databricks-bundle-template
 ```
 
 Or from a local clone:
 
 ```bash
-databricks bundle init /path/to/databricks-bundles-realworld
+databricks bundle init /path/to/databricks-bundle-template
 ```
 
 The CLI will guide you through configuration options. Your generated project includes complete documentation for deployment and customization.
@@ -29,7 +36,7 @@ For a quick, non-interactive setup or if you prefer to skip the prompts:
 
 ```bash
 # From remote (create config.json with your values first):
-databricks bundle init https://github.com/vmariiechko/databricks-bundles-realworld \
+databricks bundle init https://github.com/vmariiechko/databricks-bundle-template \
   --config-file config.json
 ```
 
@@ -73,7 +80,7 @@ This section is for developers modifying the template itself.
 ### Repository Structure
 
 ```
-databricks-bundles-realworld/
+databricks-bundle-template/
 ├── databricks_template_schema.json   # Prompt definitions
 ├── library/helpers.tmpl              # Go template helpers
 ├── template/
@@ -92,8 +99,13 @@ databricks-bundles-realworld/
 ### Testing
 
 ```bash
+# Create and activate virtual environment
+python -m venv venv
+source venv/bin/activate    # Linux/macOS
+venv\Scripts\activate       # Windows
+
 # Install dependencies
-pip install -r requirements_dev.txt
+pip install -r tests/requirements_dev.txt
 
 # Run automated tests
 pytest tests/ -V
@@ -111,5 +123,25 @@ databricks bundle validate -t user
 ### Documentation
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) - Design decisions and technical architecture
-- [DEVELOPMENT.md](DEVELOPMENT.md) - Development notes and future enhancements
+- [DEVELOPMENT.md](DEVELOPMENT.md) - Development notes and testing matrix
 - [tests/README.md](tests/README.md) - Tests setup and guide
+
+---
+
+## Contributing
+
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to get started.
+
+## Roadmap
+
+See [ROADMAP.md](ROADMAP.md) for planned features and the project direction. Highlights include configurable git branching models, asset sub-templates, and advanced permissions profiles.
+
+## Community
+
+- **Questions & help**: [GitHub Discussions](https://github.com/vmariiechko/databricks-bundle-template/discussions)
+- **Bug reports**: [Issue tracker](https://github.com/vmariiechko/databricks-bundle-template/issues)
+- **Feature ideas**: [Feature requests](https://github.com/vmariiechko/databricks-bundle-template/issues/new?template=2-feature-request.yml)
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).

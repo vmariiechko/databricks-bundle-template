@@ -1,0 +1,35 @@
+name: Documentation Improvement
+description: Suggest an improvement to documentation
+title: "[Docs]: "
+labels: ["documentation"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What needs documenting?
+      description: Which part of the documentation is missing, unclear, or incorrect?
+      placeholder: "The section on ... doesn't explain ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested Improvement
+      description: How would you improve this documentation?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: doc-type
+    attributes:
+      label: Documentation Area
+      options:
+        - Template README / usage
+        - Generated project documentation
+        - Architecture / development docs
+        - CI/CD setup guides
+        - Permissions / RBAC guides
+        - Other
+    validations:
+      required: true

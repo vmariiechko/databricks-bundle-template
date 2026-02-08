@@ -2,13 +2,21 @@
 
 This directory contains the automated test suite for the Databricks Multi-Environment Bundle Template.
 
+## Prerequisites
+
+- **Python** 3.11+
+- **Databricks CLI** v0.274.0+ ([installation guide](https://docs.databricks.com/en/dev-tools/cli/install.html))
+
 ## Quick Start
 
 ```bash
+# Create and activate virtual environment
 python -m venv venv
+source venv/bin/activate    # Linux/macOS
+venv\Scripts\activate       # Windows
 
 # Install test dependencies
-pip install -r requirements_dev.txt
+pip install -r tests/requirements_dev.txt
 
 # Run all tests
 pytest tests/ -V
@@ -141,21 +149,10 @@ project.has_permissions                   # True if include_permissions=yes
 project.is_serverless                     # True if compute_type=serverless
 ```
 
-## CI/CD Integration
-
-For GitHub Actions:
-
-```yaml
-- name: Run Template Tests
-  run: |
-    pip install -r requirements_dev.txt
-    pytest tests/ -V --tb=short
-```
-
 ## Troubleshooting
 
 ### "databricks: command not found"
-Install the Databricks CLI ([Docs](https://docs.databricks.com/aws/en/dev-tools/cli/install)):
+Install the Databricks CLI ([Docs](https://docs.databricks.com/en/dev-tools/cli/install.html)):
 ```bash
 pip install databricks-cli
 # or

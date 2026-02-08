@@ -1,0 +1,41 @@
+name: Task / Chore
+description: Internal maintenance, refactoring, or technical debt
+title: "[Chore]: "
+labels: ["chore"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for internal maintenance tasks that aren't bugs or new features.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What needs to be done and why?
+      placeholder: "Update pytest from 9.0 to 9.1 to pick up new assertion introspection improvements..."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Type of Work
+      options:
+        - Dependency update
+        - CI/CD fix or improvement
+        - Refactoring
+        - Documentation cleanup
+        - Test improvement
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: files
+    attributes:
+      label: Affected Files
+      description: Which files or areas of the codebase are affected?
+      placeholder: |
+        - tests/requirements_dev.txt
+        - .github/workflows/test.yml

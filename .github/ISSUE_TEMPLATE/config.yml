@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Databricks Asset Bundles Documentation
+    url: https://docs.databricks.com/en/dev-tools/bundles/index.html
+    about: Official Databricks documentation for Asset Bundles
+  - name: Questions & Discussion
+    url: https://github.com/vmariiechko/databricks-bundle-template/discussions/categories/q-a
+    about: Ask questions and get help from the community

@@ -5,7 +5,7 @@
 > **Updated:** 2026-01-31
 > **Status:** Production Ready
 
-This document captures all architectural decisions for converting the `databricks-bundles-realworld` repository into a reusable Databricks Asset Bundles custom template.
+This document captures all architectural decisions for converting the `databricks-bundle-template` repository into a reusable Databricks Asset Bundles custom template.
 
 ---
 
@@ -18,7 +18,8 @@ This document captures all architectural decisions for converting the `databrick
 5. [File Structure](#5-file-structure)
 6. [Node Type Mapping](#6-node-type-mapping)
 7. [Implementation Plan](#7-implementation-plan)
-8. [Future Enhancements](#8-future-enhancements)
+
+> For planned features and future direction, see [ROADMAP.md](ROADMAP.md).
 
 ---
 
@@ -45,10 +46,10 @@ Convert this "real-world example" DABs repository into a reusable custom templat
 
 ```bash
 # Initialize from local path
-databricks bundle init /path/to/databricks-bundles-realworld
+databricks bundle init /path/to/databricks-bundle-template
 
 # Initialize from GitHub (after publishing)
-databricks bundle init https://github.com/vmariiechko/databricks-bundles-realworld
+databricks bundle init https://github.com/vmariiechko/databricks-bundle-template
 ```
 
 ---
@@ -60,7 +61,7 @@ databricks bundle init https://github.com/vmariiechko/databricks-bundles-realwor
 The repository will be converted **in-place** into a template structure:
 
 ```
-databricks-bundles-realworld/           # Repository root (IS the template)
+databricks-bundle-template/           # Repository root (IS the template)
 ├── databricks_template_schema.json     # Prompt definitions
 ├── library/                            # Custom template helpers
 │   └── helpers.tmpl
@@ -314,7 +315,7 @@ All choice-based parameters use pattern validation instead of enum (avoids termi
 ### Template Repository Structure (Post-Conversion)
 
 ```
-databricks-bundles-realworld/
+databricks-bundle-template/
 ├── databricks_template_schema.json          # Prompt definitions
 ├── library/
 │   └── helpers.tmpl                         # Custom Go template helpers
@@ -469,44 +470,6 @@ All configurations will use: `17.3.x-scala2.13` (current LTS as of template crea
 | Step | Task | Files | Description |
 |------|------|-------|-------------|
 | 9 | Create template docs | Update `DEVELOPMENT.md`, `README.md` | Developer notes, template description |
-
----
-
-## 8. Future Enhancements
-
-### Documented for Future Phases
-
-These enhancements are out of scope for initial implementation but should be considered:
-
-#### 8.1 Asset Sub-Templates ("Plugins Layer")
-
-Pattern from `template-example/assets/`:
-
-```bash
-# Future: Add new pipeline to existing project
-cd my_project
-databricks bundle init https://github.com/<org>/databricks-bundles-realworld \
-  --template-dir assets/etl-pipeline
-```
-
-**Potential asset types:**
-- `assets/etl-pipeline/` - Add new LDP pipeline
-- `assets/ingest-job/` - Add ingestion job
-- `assets/ml-pipeline/` - Add ML training pipeline
-- `assets/dbt-project/` - Add dbt integration
-
-#### 8.2 Advanced Permissions Profiles
-
-Instead of yes/no, offer profiles:
-
-```
-Q: Permissions configuration?
-Options:
-  - full (4 groups: developers, qa, operations, analytics)
-  - team (2 groups: developers, analytics)
-  - minimal (owner only)
-  - none
-```
 
 ---
 

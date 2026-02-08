@@ -37,6 +37,7 @@ env/
 *~
 .cursor/
 .claude/
+CLAUDE.md
 
 # ===========================================
 # Testing and Coverage

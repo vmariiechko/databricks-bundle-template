@@ -1,68 +1,6 @@
 # Development Notes
 
-## Template Status: Converted to Custom Template
-
-This repository has been converted from a example DABs setup to a reusable DABs custom template.
-
-### How to Use
-
-```bash
-# Initialize a new project
-databricks bundle init .
-
-# Follow the prompts to configure your project
-```
-
-Your generated project includes complete documentation (README.md, QUICKSTART.md, docs/).
-
----
-
-## Architecture
-
-See [ARCHITECTURE.md](ARCHITECTURE.md) for the complete technical design, including:
-- Parameter map and prompt flow
-- Conditional logic design
-- File structure
-
----
-
-## Testing the Template
-
-### Automated Tests (pytest)
-
-```bash
-# Install dependencies
-pip install -r requirements_dev.txt
-
-# Run all tests
-pytest tests/ -V
-```
-
-Tests validate:
-- **L1 (Generation)**: File existence, directory structure, no leftover `.tmpl` files
-- **L2 (Content)**: YAML syntax, environment targets, SP config, permissions, compute type
-- **CI/CD**: Pipeline generation, YAML validity, auth patterns, branch references, test structure
-
-### Manual Testing
-
-```bash
-# Generate with a specific configuration
-databricks bundle init . --output-dir ../test-output --config-file tests/configs/full_with_dev.json
-
-# Validate the generated bundle
-cd ../test-output/test_full_with_dev/
-databricks bundle validate -t user
-
-# Deploy to verify (optional)
-databricks bundle deploy -t user
-
-# Cleanup
-databricks bundle destroy -t user
-cd ../..
-rm -rf test-output
-```
-
-See [tests/README.md](tests/README.md) for detailed testing documentation.
+Internal development notes, design decisions, and historical context for template maintainers. For contributor setup and workflow, see [CONTRIBUTING.md](CONTRIBUTING.md). For technical architecture, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ---
 
@@ -71,9 +9,9 @@ See [tests/README.md](tests/README.md) for detailed testing documentation.
 ```bash
 # Deploy with SP variables via CLI
 databricks bundle deploy -t prod \
-  --var="dev_service_principal=<app-id>" \
-  --var="stage_service_principal=<app-id>" \
-  --var="prod_service_principal=<app-id>"
+  --var="dev_service_principal=<sp-id>" \
+  --var="stage_service_principal=<sp-id>" \
+  --var="prod_service_principal=<sp-id>"
 ```
 
 ---
@@ -86,45 +24,9 @@ databricks bundle deploy -t prod \
 
 ---
 
-## Completed Tasks
+## Design Decisions
 
-### Phase 1: Template Conversion
-- [x] Multi-environment deployment (user/dev/stage/prod)
-- [x] Configurable compute (serverless/classic/both)
-- [x] Cloud provider node type selection
-- [x] Optional RBAC permissions with environment-aware groups
-- [x] Service principal configuration (now or later)
-- [x] Unity Catalog suffix configuration
-- [x] Template conversion (in-place strategy)
-- [x] Optional dev environment (separate prompt)
-- [x] Environment-aware group configuration (3 vs 4 groups)
-- [x] Multi-workspace documentation
-
-### Phase 1.1: Testing & Documentation
-- [x] Pytest test suite (316 tests)
-- [x] Test configuration files for all scenarios
-- [x] Streamlined documentation (deleted redundant TEMPLATE_USAGE.md)
-- [x] SP architecture fix (user target works without SP)
-- [x] Clear separation: root repo docs vs generated project docs
-
-### Phase 2: CI/CD Pipeline Templates
-- [x] Template schema prompts for CI/CD (`include_cicd`, `cicd_platform`, `default_branch`, `release_branch`)
-- [x] Azure DevOps pipeline template (`.azure/devops_pipelines/`)
-- [x] GitHub Actions workflow template (`.github/workflows/`)
-- [x] GitLab CI/CD pipeline template (`.gitlab-ci.yml`)
-- [x] CI_CD_SETUP.md documentation for all 3 platforms
-- [x] Cloud-specific authentication (Azure SP vs OAuth M2M)
-- [x] `update_layout.tmpl` for conditional directory generation
-- [x] `bundle_init_config.json` for config preservation
-- [x] Test suite expanded (1531 tests across 15 configurations)
-- [x] Unit test execution and JUnit reporting in all pipelines
-- [x] CLI version management via `cli_version` helper template
-
----
-
-## Design Decisions (Phase 1)
-
-This section documents key design decisions made during the initial template development. These decisions should guide future enhancements.
+This section documents key design decisions made during template development. These decisions should guide future enhancements.
 
 ### 1. Environment Structure
 
@@ -147,10 +49,10 @@ This section documents key design decisions made during the initial template dev
 
 | Group | Minimal | Full |
 |-------|---------|------|
-| `developers` | ✓ | ✓ |
-| `qa_team` | ✓ | ✓ |
-| `operations_team` | ✗ | ✓ |
-| `analytics_team` | ✓ | ✓ |
+| `developers` | Yes | Yes |
+| `qa_team` | Yes | Yes |
+| `operations_team` | No | Yes |
+| `analytics_team` | Yes | Yes |
 
 **Rationale**:
 - `operations_team` is only used in prod target permissions
@@ -245,65 +147,72 @@ run_as:
 | `PERMISSIONS_SETUP.md.tmpl` | Yes | Matrix, SP list vary |
 | `templates/cluster_configs.yml` | No | Static reference |
 
----
+### 8. Schema-Per-User Isolation (Replaces Per-User Catalogs)
 
-## Future Enhancements
+**Decision**: User target shares the `dev` catalog with user-prefixed schemas instead of creating per-user catalogs.
 
-### Phase 3: Asset Sub-Templates ("Plugins Layer")
+**Previous approach** (removed): `user_<username>_<suffix>` per-user catalog. This was an anti-pattern because:
+- DABs intentionally don't support catalog creation (only `schemas` are a supported resource type)
+- Catalogs are metastore-scoped, polluting the shared namespace across all workspaces
+- User-created catalogs inherit the metastore's default storage, risking improperly secured blob storage
 
-The template can be extended with **asset sub-templates** that add resources to existing projects. This pattern is demonstrated in the Databricks `data-engineering` example template.
+**Current approach** (dbt-style schema-per-user):
 
-**Concept:**
-```bash
-# Initialize base project
-databricks bundle init /path/to/template
+| Target | Catalog | Schema Prefix | Resulting Schemas |
+|--------|---------|---------------|-------------------|
+| `user` | `dev_<suffix>` | `${workspace.current_user.short_name}_` | `jsmith_bronze`, `jsmith_silver`, `jsmith_gold` |
+| `dev` | `dev_<suffix>` | *(empty)* | `bronze`, `silver`, `gold` |
+| `stage` | `stage_<suffix>` | *(empty)* | `bronze`, `silver`, `gold` |
+| `prod` | `prod_<suffix>` | *(empty)* | `bronze`, `silver`, `gold` |
 
-# Add an ETL pipeline asset later
-cd my_project
-databricks bundle init /path/to/template --template-dir assets/etl-pipeline
+**Implementation**: A `schema_prefix` variable is set to `${workspace.current_user.short_name}_` for the user target and empty for all other targets. Schema resource names use `${var.schema_prefix}bronze`, etc.
+
+**Key insight**: `user` and `dev` targets share the same catalog. The toggle `include_dev_environment` only controls whether a shared `dev` deployment target exists - the user target always uses `dev_<suffix>`.
+
+### 9. Release-Based Branching Strategy
+
+**Decision**: Use `default_branch` (main) for staging deployment and `release_branch` for production deployment.
+
+**Rationale**:
+- Prevents accidental production deployments
+- Staging is continuously updated from main; production only via explicit release merges
+- Minimal mode skips the `release_branch` prompt (no prod target)
+
+**Alternative considered**: Branch = target (push to `stage` branch → deploy to stage). Simpler conceptually but riskier for production and less suitable as a template default.
+
+### 10. Single Combined CI/CD Pipeline File
+
+**Decision**: One pipeline file per platform containing all stages (CI validation + staging CD + production CD) rather than separate files per stage.
+
+**Rationale**:
+- Simpler to maintain - all CI/CD logic in one place
+- Consistent pattern across all 3 platforms (ADO stages, GitHub Actions jobs, GitLab stages)
+- Uses platform-native conditions to control execution (ADO `condition:`, GitHub `if:`, GitLab `rules:`)
+
+**Alternative considered**: Separate files per stage (e.g., `bundle_ci.yml`, `bundle_cd_staging.yml`). Valid but adds complexity without benefit for our simpler validate+deploy workflow.
+
+### 11. Cloud-Specific CI/CD Authentication
+
+**Decision**: Authentication mechanism varies by `cloud_provider` parameter.
+
+| Cloud | CI/CD Variables | Method |
+|-------|----------------|--------|
+| Azure | `ARM_TENANT_ID`, `ARM_CLIENT_ID`, `ARM_CLIENT_SECRET` | Service principal (ARM) |
+| AWS/GCP | `DATABRICKS_HOST`, `DATABRICKS_CLIENT_ID`, `DATABRICKS_CLIENT_SECRET` | OAuth M2M |
+
+**Key consequence**: The `cloud_provider` prompt is always asked (even for serverless compute) because CI/CD authentication requires it.
+
+### 12. Conditional Directory Generation via `skip` Function
+
+**Decision**: Use Go template `skip` function in `update_layout.tmpl` to exclude unused CI/CD platform directories from generated output.
+
+**Implementation**:
+```go
+{{ skip (printf "%s/%s" $root_dir ".azure") }}   // when cicd_platform != azure_devops
+{{ skip (printf "%s/%s" $root_dir ".github") }}   // when cicd_platform != github_actions
 ```
 
-**Potential Asset Types:**
-
-| Asset | Description | Directory |
-|-------|-------------|-----------|
-| `etl-pipeline` | Add new LDP pipeline with bronze/silver layers | `assets/etl-pipeline/` |
-| `ingest-job` | Add data ingestion job | `assets/ingest-job/` |
-| `ml-pipeline` | Add ML training pipeline | `assets/ml-pipeline/` |
-| `dbt-project` | Add dbt integration | `assets/dbt-project/` |
-
-**Implementation Notes:**
-- Each asset has its own `databricks_template_schema.json`
-- Assets generate into `assets/<name>/` within the project
-- Assets can reference existing variables from `variables.yml`
-
-### Phase 4: Advanced Permissions Profiles
-
-Instead of yes/no, offer permission profiles:
-
-```
-Q: Permissions configuration?
-Options:
-  - full (4 groups: developers, qa, operations, analytics)
-  - team (2 groups: developers, analytics)
-  - minimal (owner only)
-  - none
-```
-
----
-
-## Template File Reference
-
-| File | Purpose |
-|------|---------|
-| `databricks_template_schema.json` | Prompt definitions |
-| `library/helpers.tmpl` | Custom Go template helpers (`node_type_id`, `cli_version`, etc.) |
-| `template/update_layout.tmpl` | Conditional directory/file skipping for CI/CD platforms |
-| `template/{{.project_name}}/` | Generated project structure |
-| `tests/` | Pytest test suite |
-| `tests/configs/` | JSON config files for testing |
-| `tests/test_cicd.py` | CI/CD pipeline template tests |
-| `requirements_dev.txt` | Test dependencies |
+**Rationale**: Prevents empty directories/files for unused platforms (e.g., no `.azure/` folder when GitHub Actions is selected).
 
 ---
 
@@ -359,10 +268,6 @@ When testing template changes, validate these combinations:
 
 ---
 
-## Contributing
+## Roadmap
 
-1. Make changes to template files in `template/{{.project_name}}/`
-2. Update prompts in `databricks_template_schema.json` if needed
-3. Add helpers to `library/helpers.tmpl` if needed
-4. Run tests: `pytest tests/ -V`
-5. Update documentation
+For planned features and future direction, see [ROADMAP.md](ROADMAP.md).

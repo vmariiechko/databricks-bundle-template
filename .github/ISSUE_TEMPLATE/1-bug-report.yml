@@ -1,0 +1,111 @@
+name: Bug Report
+description: Report a problem with the template
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug! Please fill out the details below to help us investigate.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear description of the bug.
+      placeholder: What happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: How can we reproduce this issue?
+      placeholder: |
+        1. Run `databricks bundle init ...`
+        2. Select these options: ...
+        3. See error in ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened? Include error messages, logs or error screenshots if applicable.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: environment-setup
+    attributes:
+      label: Environment Setup
+      options:
+        - full
+        - minimal
+        - N/A
+    validations:
+      required: true
+
+  - type: dropdown
+    id: compute-type
+    attributes:
+      label: Compute Type
+      options:
+        - classic
+        - serverless
+        - both
+        - N/A
+    validations:
+      required: true
+
+  - type: dropdown
+    id: cloud-provider
+    attributes:
+      label: Cloud Provider
+      options:
+        - azure
+        - aws
+        - gcp
+        - N/A
+    validations:
+      required: true
+
+  - type: dropdown
+    id: cicd-platform
+    attributes:
+      label: CI/CD Platform
+      options:
+        - azure_devops
+        - github_actions
+        - gitlab
+        - None (CI/CD not included)
+        - N/A
+    validations:
+      required: true
+
+  - type: input
+    id: cli-version
+    attributes:
+      label: Databricks CLI Version
+      description: "Output of `databricks --version`"
+      placeholder: "v0.274.0"
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched for [existing issues](https://github.com/vmariiechko/databricks-bundle-template/issues) and this hasn't been reported
+          required: true
+        - label: I'm using the latest version of the template
+          required: false

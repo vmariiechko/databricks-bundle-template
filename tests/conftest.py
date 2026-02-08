@@ -6,6 +6,7 @@ accessing test configurations.
 """
 
 import json
+import os
 import shutil
 import subprocess
 import tempfile
@@ -27,6 +28,21 @@ CONFIGS_DIR = TESTS_DIR / "configs"
 # =============================================================================
 # Configuration Fixtures
 # =============================================================================
+
+
+@pytest.fixture(scope="session", autouse=True)
+def mock_databricks_auth():
+    """Force mock Databricks auth env vars for tests.
+
+    We override any local environment variables to ensure tests run in isolation
+    and do not use real credentials. This prevents accidental connection to
+    real workspaces during template generation tests.
+    """
+    os.environ["DATABRICKS_HOST"] = "XXXXX"
+    os.environ["DATABRICKS_TOKEN"] = "XXXXX"
+    # Prevent using a profile from .databrickscfg
+    if "DATABRICKS_CONFIG_PROFILE" in os.environ:
+        del os.environ["DATABRICKS_CONFIG_PROFILE"]
 
 
 def get_config_files() -> list[Path]:

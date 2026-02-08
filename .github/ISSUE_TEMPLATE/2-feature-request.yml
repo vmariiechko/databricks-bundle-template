@@ -1,0 +1,54 @@
+name: Feature Request
+description: Suggest a new feature or enhancement
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a feature! Please describe what you'd like and why it would be useful.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: What problem does this feature solve? What's the use case?
+      placeholder: "I'm trying to ... but the template currently ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: How do you think this should work?
+      placeholder: "The template could add a prompt for ... which would generate ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Have you considered any workarounds or alternative approaches?
+
+  - type: checkboxes
+    id: axes
+    attributes:
+      label: Configuration Axes Affected
+      description: Which template configuration areas does this feature relate to?
+      options:
+        - label: Environment setup (full/minimal, dev environment)
+        - label: Compute type (classic/serverless/both)
+        - label: Permissions / RBAC
+        - label: CI/CD pipelines
+        - label: Cloud provider (Azure/AWS/GCP)
+        - label: Unity Catalog / schemas
+        - label: New configuration axis
+        - label: Not related to configuration axes
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Any other context, screenshots, or references that would help.

@@ -1,0 +1,18 @@
+[project]
+name = "databricks-bundle-template"
+version = "1.0.0"
+description = "A custom Databricks Asset Bundles template for production-ready, multi-environment data pipeline projects"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.11"
+authors = [{name = "Vadym Mariiechko"}]
+keywords = ["databricks", "asset-bundles", "dabs", "template", "data-engineering"]
+
+[project.urls]
+Homepage = "https://github.com/vmariiechko/databricks-bundle-template"
+Issues = "https://github.com/vmariiechko/databricks-bundle-template/issues"
+Documentation = "https://github.com/vmariiechko/databricks-bundle-template#readme"
+Changelog = "https://github.com/vmariiechko/databricks-bundle-template/blob/main/CHANGELOG.md"
+
+[tool.ruff]
+src = ["src", "tests"]
