@@ -59,6 +59,9 @@ bundle-ci:
 {{- if eq .environment_setup "full" }}
     # Validate bundle for production
 {{- if eq .cloud_provider "azure" }}
+{{- if eq .workspace_setup "multi_workspace" }}
+    - export DATABRICKS_HOST=$PROD_DATABRICKS_HOST
+{{- end }}
     - export ARM_TENANT_ID=$PROD_AZURE_SP_TENANT_ID
     - export ARM_CLIENT_ID=$PROD_AZURE_SP_APPLICATION_ID
     - export ARM_CLIENT_SECRET=$PROD_AZURE_SP_CLIENT_SECRET
@@ -75,6 +78,9 @@ bundle-ci:
       junit: test-results.xml
 {{- if eq .cloud_provider "azure" }}
   variables:
+{{- if eq .workspace_setup "multi_workspace" }}
+    DATABRICKS_HOST: $STAGING_DATABRICKS_HOST
+{{- end }}
     ARM_TENANT_ID: $STAGING_AZURE_SP_TENANT_ID
     ARM_CLIENT_ID: $STAGING_AZURE_SP_APPLICATION_ID
     ARM_CLIENT_SECRET: $STAGING_AZURE_SP_CLIENT_SECRET
@@ -101,6 +107,9 @@ staging-cd:
     - databricks bundle deploy -t stage
 {{- if eq .cloud_provider "azure" }}
   variables:
+{{- if eq .workspace_setup "multi_workspace" }}
+    DATABRICKS_HOST: $STAGING_DATABRICKS_HOST
+{{- end }}
     ARM_TENANT_ID: $STAGING_AZURE_SP_TENANT_ID
     ARM_CLIENT_ID: $STAGING_AZURE_SP_APPLICATION_ID
     ARM_CLIENT_SECRET: $STAGING_AZURE_SP_CLIENT_SECRET
@@ -129,6 +138,9 @@ prod-cd:
     - databricks bundle deploy -t prod
 {{- if eq .cloud_provider "azure" }}
   variables:
+{{- if eq .workspace_setup "multi_workspace" }}
+    DATABRICKS_HOST: $PROD_DATABRICKS_HOST
+{{- end }}
     ARM_TENANT_ID: $PROD_AZURE_SP_TENANT_ID
     ARM_CLIENT_ID: $PROD_AZURE_SP_APPLICATION_ID
     ARM_CLIENT_SECRET: $PROD_AZURE_SP_CLIENT_SECRET

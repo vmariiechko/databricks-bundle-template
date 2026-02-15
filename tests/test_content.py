@@ -8,6 +8,7 @@ structure and content.
 
 import pytest
 import yaml
+
 from conftest import GeneratedProject
 
 # =============================================================================
@@ -351,6 +352,97 @@ class TestDocumentationContent:
                 assert "operations_team" in content, (
                     "operations_team should be in SETUP_GROUPS.md for full mode"
                 )
+
+
+# =============================================================================
+# Workspace Configuration Tests
+# =============================================================================
+
+
+class TestWorkspaceConfig:
+    """Test workspace configuration based on workspace_setup option."""
+
+    def test_user_target_never_uses_variable_host(self, generated_project: GeneratedProject):
+        """User target should never use a variable-based workspace host."""
+        data = load_yaml_file(generated_project, "databricks.yml")
+        user_host = data["targets"]["user"]["workspace"]["host"]
+        assert "${var." not in str(user_host), (
+            f"User target should use current workspace, not a variable. "
+            f"Got: {user_host} for config: {generated_project.config_name}"
+        )
+
+    def test_multi_workspace_stage_uses_variable(self, generated_project: GeneratedProject):
+        """Stage target should use PLACEHOLDER in multi_workspace mode."""
+        if not generated_project.is_multi_workspace:
+            pytest.skip("Single workspace mode")
+        data = load_yaml_file(generated_project, "databricks.yml")
+        stage_host = data["targets"]["stage"]["workspace"]["host"]
+        assert "WORKSPACE_HOST_PLACEHOLDER_STAGE" in stage_host, (
+            f"Stage host should contain WORKSPACE_HOST_PLACEHOLDER_STAGE, got: {stage_host}"
+        )
+
+    def test_multi_workspace_prod_uses_variable(self, generated_project: GeneratedProject):
+        """Prod target should use PLACEHOLDER in multi_workspace mode."""
+        if not generated_project.is_multi_workspace or not generated_project.is_full:
+            pytest.skip("Not multi_workspace full mode")
+        data = load_yaml_file(generated_project, "databricks.yml")
+        prod_host = data["targets"]["prod"]["workspace"]["host"]
+        assert "WORKSPACE_HOST_PLACEHOLDER_PROD" in prod_host, (
+            f"Prod host should contain WORKSPACE_HOST_PLACEHOLDER_PROD, got: {prod_host}"
+        )
+
+    def test_multi_workspace_dev_uses_variable(self, generated_project: GeneratedProject):
+        """Dev target should use PLACEHOLDER in multi_workspace mode."""
+        if not generated_project.is_multi_workspace or not generated_project.has_dev_environment:
+            pytest.skip("Not multi_workspace with dev")
+        data = load_yaml_file(generated_project, "databricks.yml")
+        dev_host = data["targets"]["dev"]["workspace"]["host"]
+        assert "WORKSPACE_HOST_PLACEHOLDER_DEV" in dev_host, (
+            f"Dev host should contain WORKSPACE_HOST_PLACEHOLDER_DEV, got: {dev_host}"
+        )
+
+    def test_single_workspace_no_host_variables(self, generated_project: GeneratedProject):
+        """Single workspace mode should not have workspace host variables."""
+        if not generated_project.is_single_workspace:
+            pytest.skip("Multi workspace mode")
+        content = generated_project.get_file_content("variables.yml")
+        assert "workspace_host:" not in content, (
+            "Single workspace should not have workspace_host variables in variables.yml"
+        )
+        assert "WORKSPACE_HOST_PLACEHOLDER" not in content, (
+            "Single workspace should not have WORKSPACE_HOST_PLACEHOLDER in variables.yml"
+        )
+
+    def test_multi_workspace_has_stage_host_variable(self, generated_project: GeneratedProject):
+        """Multi workspace mode should have stage workspace host placeholder in databricks.yml."""
+        if not generated_project.is_multi_workspace:
+            pytest.skip("Single workspace mode")
+        content = generated_project.get_file_content("databricks.yml")
+        assert "WORKSPACE_HOST_PLACEHOLDER_STAGE" in content, (
+            "Multi workspace should have WORKSPACE_HOST_PLACEHOLDER_STAGE in databricks.yml"
+        )
+
+    def test_multi_workspace_prod_variable_only_in_full(self, generated_project: GeneratedProject):
+        """Prod workspace host placeholder should only exist in full mode."""
+        if not generated_project.is_multi_workspace:
+            pytest.skip("Single workspace mode")
+        content = generated_project.get_file_content("databricks.yml")
+        if generated_project.is_full:
+            assert "WORKSPACE_HOST_PLACEHOLDER_PROD" in content, (
+                "Full mode multi_workspace should have WORKSPACE_HOST_PLACEHOLDER_PROD in databricks.yml"
+            )
+        else:
+            assert "WORKSPACE_HOST_PLACEHOLDER_PROD" not in content, (
+                "Minimal mode multi_workspace should not have WORKSPACE_HOST_PLACEHOLDER_PROD in databricks.yml"
+            )
+
+    def test_workspace_setup_in_bundle_config(self, generated_project: GeneratedProject):
+        """bundle_init_config.json should preserve workspace_setup value."""
+        content = generated_project.get_file_content("bundle_init_config.json")
+        workspace_setup = generated_project.config.get("workspace_setup", "single_workspace")
+        assert f'"workspace_setup": "{workspace_setup}"' in content, (
+            f"workspace_setup '{workspace_setup}' not found in bundle_init_config.json"
+        )
 
 
 # =============================================================================

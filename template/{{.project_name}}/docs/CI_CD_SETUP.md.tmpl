@@ -67,6 +67,10 @@ Before granting Unity Catalog permissions, ensure the service principal is added
 1. Go to your workspace → Settings → Identity and access
 2. Click Service principals → Add service principal
 3. Add your relevant stage/prod SPs
+{{- if eq .workspace_setup "multi_workspace" }}
+
+> **Multi-workspace**: Add each service principal to its **respective** workspace. The staging SP must be added to the staging workspace, and the production SP to the production workspace.
+{{- end }}
 
 ### Step 3: Grant Catalog Permissions
 
@@ -112,12 +116,12 @@ Note that you might want to grant other `CREATE <SECURABLE>` privileges e.g. to 
 
 ## Git Branching Strategy
 
-This project uses a **Release Flow** strategy (similar to GitHub Flow but with a dedicated release branch). It is simpler than Gitflow and well-suited for Databricks bundles.
+This project uses a **hybrid Release Flow tailored for DataOps**. It is simpler than Gitflow (no `develop` branch) and well-suited for data pipeline projects where stability matters more than rapid feature shipping.
 
 {{- if eq .environment_setup "full" }}
-![Git Branching Strategy](images/git-flow-full.png)
+![Git Branching Strategy](images/dataops-release-flow-full.png)
 {{- else }}
-![Git Branching Strategy](images/git-flow-minimal.png)
+![Git Branching Strategy](images/dataops-release-flow-minimal.png)
 {{- end }}
 
 > **Branch name mapping**: The diagram above uses generic branch names. In your project: **`{{.default_branch}}`** is configured as the staging integration branch{{ if eq .environment_setup "full" }} and **`{{.release_branch}}`** as the production release branch{{ end }}. Map any references to "main"/"release" in the diagram to your configured branch names.
@@ -151,6 +155,19 @@ This project uses a **Release Flow** strategy (similar to GitHub Flow but with a
    - No CI validation runs (already validated on `{{.default_branch}}`)
 6. Merge to `{{.release_branch}}`
    - CD pipeline deploys to production environment
+
+### Hotfix Workflow
+
+For production issues, we recommend:
+
+1. **Fix Forward (Preferred)**: Pause the broken job in the workspace, then push the fix through the normal `feature/*` → `{{.default_branch}}` → `{{.release_branch}}` flow. This is almost always possible for data pipelines because they tolerate short delays better than user-facing services. This ensures full validation.
+
+2. **Upstream-First (Emergency)**: When you cannot wait (e.g., a corrupted table blocking downstream consumers):
+   - Create a branch from `{{.default_branch}}`, fix the issue, and merge to `{{.default_branch}}` (ensuring it passes CI)
+   - Cherry-pick the merge commit to `{{.release_branch}}` for immediate deployment
+   - *Why?* This prevents regression bugs where a hotfix exists in production but is overwritten by the next staging deployment because it never made it to the main branch
+
+> **Advanced:** You can create a `hotfix/*` branch from `{{.release_branch}}`, merge it directly to `{{.release_branch}}`, then cherry-pick the fix back to `{{.default_branch}}`. However, this bypasses CI validation on the main path — treat it as an emergency escape hatch only, not a routine practice.
 {{- end }}
 
 ---
@@ -185,10 +202,16 @@ This project uses a **Release Flow** strategy (similar to GitHub Flow but with a
 
 | Variable Name | Value Source (Azure Portal) | Secret? |
 |--------------|---------------------------|---------|
+{{- if eq .workspace_setup "multi_workspace" }}
+| `STAGING_DATABRICKS_HOST` | Your staging Databricks workspace URL (e.g., `https://adb-xxx.azuredatabricks.net`) | No |
+{{- end }}
 | `STAGING_AZURE_SP_TENANT_ID` | Microsoft Entra ID → App registrations → [your SP] → **Directory (tenant) ID** | No |
 | `STAGING_AZURE_SP_APPLICATION_ID` | Microsoft Entra ID → App registrations → [your SP] → **Application (client) ID** | No |
 | `STAGING_AZURE_SP_CLIENT_SECRET` | Microsoft Entra ID → App registrations → [your SP] → Certificates & secrets → [your secret] → **Value** | **Yes** |
 {{- if eq .environment_setup "full" }}
+{{- if eq .workspace_setup "multi_workspace" }}
+| `PROD_DATABRICKS_HOST` | Your production Databricks workspace URL | No |
+{{- end }}
 | `PROD_AZURE_SP_TENANT_ID` | Same as above, for production SP | No |
 | `PROD_AZURE_SP_APPLICATION_ID` | Same as above, for production SP | No |
 | `PROD_AZURE_SP_CLIENT_SECRET` | Same as above, for production SP | **Yes** |
@@ -289,10 +312,16 @@ For better code quality, set up branch policies:
 
 | Secret Name | Value Source (Azure Portal) |
 |-------------|---------------------------|
+{{- if eq .workspace_setup "multi_workspace" }}
+| `STAGING_DATABRICKS_HOST` | Your staging Databricks workspace URL (e.g., `https://adb-xxx.azuredatabricks.net`) |
+{{- end }}
 | `STAGING_AZURE_SP_TENANT_ID` | Microsoft Entra ID → App registrations → [your SP] → **Directory (tenant) ID** |
 | `STAGING_AZURE_SP_APPLICATION_ID` | Microsoft Entra ID → App registrations → [your SP] → **Application (client) ID** |
 | `STAGING_AZURE_SP_CLIENT_SECRET` | Microsoft Entra ID → App registrations → [your SP] → Certificates & secrets → [your secret] → **Value** |
 {{- if eq .environment_setup "full" }}
+{{- if eq .workspace_setup "multi_workspace" }}
+| `PROD_DATABRICKS_HOST` | Your production Databricks workspace URL |
+{{- end }}
 | `PROD_AZURE_SP_TENANT_ID` | Same as above, for production SP |
 | `PROD_AZURE_SP_APPLICATION_ID` | Same as above, for production SP |
 | `PROD_AZURE_SP_CLIENT_SECRET` | Same as above, for production SP |
@@ -414,10 +443,16 @@ For better code quality, set up branch protection rules:
 
 | Variable Name | Value Source (Azure Portal) | Protected? | Masked? |
 |--------------|---------------------------|-----------|---------|
+{{- if eq .workspace_setup "multi_workspace" }}
+| `STAGING_DATABRICKS_HOST` | Your staging Databricks workspace URL (e.g., `https://adb-xxx.azuredatabricks.net`) | No | No |
+{{- end }}
 | `STAGING_AZURE_SP_TENANT_ID` | Microsoft Entra ID → App registrations → [your SP] → **Directory (tenant) ID** | No | No |
 | `STAGING_AZURE_SP_APPLICATION_ID` | Microsoft Entra ID → App registrations → [your SP] → **Application (client) ID** | No | No |
 | `STAGING_AZURE_SP_CLIENT_SECRET` | Microsoft Entra ID → App registrations → [your SP] → Certificates & secrets → [your secret] → **Value** | No | **Yes** |
 {{- if eq .environment_setup "full" }}
+{{- if eq .workspace_setup "multi_workspace" }}
+| `PROD_DATABRICKS_HOST` | Your production Databricks workspace URL | No | No |
+{{- end }}
 | `PROD_AZURE_SP_TENANT_ID` | Same as above, for production SP | No | No |
 | `PROD_AZURE_SP_APPLICATION_ID` | Same as above, for production SP | No | No |
 | `PROD_AZURE_SP_CLIENT_SECRET` | Same as above, for production SP | No | **Yes** |
@@ -582,6 +617,65 @@ tests/
 
 - Run `pytest tests/ -V` locally to see detailed output
 - Check that all test dependencies are in `requirements_dev.txt`
+
+{{- if eq .workspace_setup "multi_workspace" }}
+
+---
+
+## Multi-Workspace Deployment
+
+This project is configured for **separate workspaces per environment**, following [Databricks best practices for CI/CD](https://docs.databricks.com/aws/en/dev-tools/ci-cd/best-practices).
+
+### Workspace Topology
+
+| Target | Workspace | Host Variable |
+|--------|-----------|---------------|
+| user | Your current workspace (development) | Set at init time |
+{{- if eq .include_dev_environment "yes" }}
+| dev | Development workspace | `dev_workspace_host` |
+{{- end }}
+| stage | Staging workspace | `stage_workspace_host` |
+{{- if eq .environment_setup "full" }}
+| prod | Production workspace | `prod_workspace_host` |
+{{- end }}
+
+### How It Works
+
+Each deployment target in `databricks.yml` references a workspace host variable:
+- The Databricks CLI reads the target's `workspace.host` to determine which workspace to connect to
+- Authentication credentials ({{ if eq .cloud_provider "azure" }}ARM for Azure{{ else }}OAuth M2M for {{ .cloud_provider }}{{ end }}) are provided via CI/CD variables
+- The service principal must be registered in each respective workspace
+
+### Per-Workspace Service Principals
+
+Each workspace requires its own service principal registration:
+
+1. **Add SP to each workspace**: Follow [Step 2: Add Service Principal to Workspace](#step-2-add-service-principal-to-workspace) above for each workspace. The same {{ if eq .cloud_provider "azure" }}Azure AD{{ else }}account-level{{ end }} service principal can be used across workspaces, but it must be explicitly added to each workspace where it needs access.
+
+2. **Grant catalog permissions**: Run the `GRANT` SQL statements from [Step 3: Grant Catalog Permissions](#step-3-grant-catalog-permissions) in **each respective workspace's SQL editor**:
+   - Staging grants in the staging workspace
+   - Production grants in the production workspace
+
+> **Example:** Your staging SP with client ID `abc-123` needs to be added to BOTH the staging and production workspaces if it deploys to both. The SP identity is centralized in {{ if eq .cloud_provider "azure" }}Azure AD{{ else }}the Account Console{{ end }}, but workspace access is per-workspace.
+
+### Configuring Workspace URLs
+
+**Option 1: Edit `databricks.yml` (for local development)**
+
+1. Open `databricks.yml`
+2. Search for `WORKSPACE_HOST_PLACEHOLDER`
+3. Replace placeholders with your actual workspace URLs:
+   ```yaml
+   workspace:
+     host: https://adb-123.azuredatabricks.net  # Your actual staging workspace
+   ```
+
+**Option 2: Use environment variables (CI/CD and local)**
+
+Set `DATABRICKS_HOST` before running bundle commands:
+- **Local**: `export DATABRICKS_HOST=https://adb-123.azuredatabricks.net`
+- **CI/CD**: Already configured via pipeline variables (see setup instructions above)
+{{- end }}
 
 ---
 

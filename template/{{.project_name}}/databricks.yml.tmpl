@@ -32,15 +32,15 @@ targets:
   user:
     mode: development
     default: true
-    workspace:
-      host: {{workspace_host}}
-      root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
     presets:
       name_prefix: "[user ${workspace.current_user.short_name}] "
       trigger_pause_status: PAUSED
       pipelines_development: true
       tags:
         environment: user
+    workspace:
+      host: {{workspace_host}}
+      root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
 
     #### Variables ####
     # User target shares the dev catalog; isolation via user-prefixed schema names
@@ -118,7 +118,11 @@ targets:
       tags:
         environment: dev
     workspace:
+{{- if eq .workspace_setup "multi_workspace" }}
+      host: WORKSPACE_HOST_PLACEHOLDER_DEV  # Replace with https://your-dev-workspace.azuredatabricks.net or set DATABRICKS_HOST env var
+{{- else }}
       host: {{workspace_host}}
+{{- end }}
       root_path: /Workspace/${bundle.target}/.bundle/${bundle.name}
     git:
       branch: dev
@@ -231,8 +235,11 @@ targets:
       tags:
         environment: stage
     workspace:
-      # MULTI-WORKSPACE: If using a separate workspace for stage, replace the host below
+{{- if eq .workspace_setup "multi_workspace" }}
+      host: WORKSPACE_HOST_PLACEHOLDER_STAGE  # Replace with https://your-stage-workspace.azuredatabricks.net or set DATABRICKS_HOST env var
+{{- else }}
       host: {{workspace_host}}
+{{- end }}
       root_path: /Workspace/${bundle.target}/.bundle/${bundle.name}
     git:
       branch: {{.default_branch}}
@@ -367,8 +374,11 @@ targets:
       tags:
         environment: prod
     workspace:
-      # MULTI-WORKSPACE: If using a separate workspace for production, replace the host below:
+{{- if eq .workspace_setup "multi_workspace" }}
+      host: WORKSPACE_HOST_PLACEHOLDER_PROD  # Replace with https://your-prod-workspace.azuredatabricks.net or set DATABRICKS_HOST env var
+{{- else }}
       host: {{workspace_host}}
+{{- end }}
       root_path: /Workspace/${bundle.target}/.bundle/${bundle.name}
     git:
       branch: {{.release_branch}}

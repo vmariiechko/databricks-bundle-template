@@ -53,11 +53,20 @@
       "pattern_match_failure_message": "Please enter 'azure', 'aws', or 'gcp'."
     },
 
+    "workspace_setup": {
+      "type": "string",
+      "default": "single_workspace",
+      "description": "\n========================================\n\nWorkspace topology for your environments?\nType 'single_workspace' or 'multi_workspace':\n- single_workspace: All environments share one Databricks workspace (Unity Catalog provides isolation)\n- multi_workspace: Separate workspaces per environment (Databricks recommended for production)\n\nSee: https://docs.databricks.com/aws/en/dev-tools/ci-cd/best-practices\nworkspace_setup",
+      "order": 6,
+      "pattern": "^(single_workspace|multi_workspace)$",
+      "pattern_match_failure_message": "Please enter 'single_workspace' or 'multi_workspace'."
+    },
+
     "uc_catalog_suffix": {
       "type": "string",
       "default": "my_domain",
       "description": "\n========================================\n\nUnity Catalog suffix for catalog names.\nCatalogs will be named: dev_<suffix>, stage_<suffix>, prod_<suffix>\nThese catalogs must already exist (created by your platform/infra team).\n\nThe 'user' target shares the dev catalog with per-user schema prefixes\nfor isolation (e.g., jsmith_bronze, jsmith_silver, jsmith_gold).\n\nExamples: 'sales', 'marketing', 'analytics', 'my_project'\nMust be lowercase, start with a letter, only letters/numbers/underscores.\nuc_catalog_suffix",
-      "order": 6,
+      "order": 7,
       "pattern": "^[a-z][a-z0-9_]*$",
       "pattern_match_failure_message": "Catalog suffix must be lowercase, start with a letter, and contain only letters, numbers, and underscores."
     },
@@ -66,7 +75,7 @@
       "type": "string",
       "default": "yes",
       "description": "\n========================================\n\nInclude comprehensive permissions/RBAC configuration?\nType 'yes' or 'no':\n- yes: Full permission setup with environment-aware groups (developers, qa_team, analytics_team; operations_team in full mode)\n- no: No permissions blocks (you'll configure access manually)\ninclude_permissions",
-      "order": 7,
+      "order": 8,
       "pattern": "^(yes|no)$",
       "pattern_match_failure_message": "Please enter 'yes' or 'no'."
     },
@@ -75,7 +84,7 @@
       "type": "string",
       "default": "no",
       "description": "\n========================================\n\nConfigure service principal IDs now?\nType 'yes' or 'no':\n- yes: Enter SP application IDs for each environment\n- no: Leave placeholders (search for 'SP_PLACEHOLDER' later to replace)\n\nService principals are required for CI/CD deployments to dev/stage/prod.\nYou can use the same SP ID for multiple environments if needed.\nconfigure_sp_now",
-      "order": 8,
+      "order": 9,
       "pattern": "^(yes|no)$",
       "pattern_match_failure_message": "Please enter 'yes' or 'no'."
     },
@@ -84,7 +93,7 @@
       "type": "string",
       "default": "",
       "description": "\n========================================\n\nService Principal Application ID for the DEV environment.\nLeave empty to use placeholder.\ndev_service_principal",
-      "order": 9,
+      "order": 10,
       "skip_prompt_if": {
         "anyOf": [
           {
@@ -109,7 +118,7 @@
       "type": "string",
       "default": "",
       "description": "\n========================================\n\nService Principal Application ID for the STAGE environment.\nLeave empty to use placeholder.\nstage_service_principal",
-      "order": 10,
+      "order": 11,
       "skip_prompt_if": {
         "properties": {
           "configure_sp_now": {
@@ -123,7 +132,7 @@
       "type": "string",
       "default": "",
       "description": "\n========================================\n\nService Principal Application ID for the PROD environment.\nLeave empty to use placeholder.\nprod_service_principal",
-      "order": 11,
+      "order": 12,
       "skip_prompt_if": {
         "anyOf": [
           {
@@ -148,7 +157,7 @@
       "type": "string",
       "default": "yes",
       "description": "\n========================================\n\nInclude CI/CD pipeline templates?\nType 'yes' or 'no':\n- yes: Generate CI/CD workflows for automated bundle validation and deployment\n- no: Skip CI/CD (you'll set up pipelines manually)\ninclude_cicd",
-      "order": 12,
+      "order": 13,
       "pattern": "^(yes|no)$",
       "pattern_match_failure_message": "Please enter 'yes' or 'no'."
     },
@@ -157,7 +166,7 @@
       "type": "string",
       "default": "azure_devops",
       "description": "\n========================================\n\nWhich CI/CD platform do you use?\nType 'azure_devops', 'github_actions', or 'gitlab':\n- azure_devops: Azure DevOps Pipelines (YAML)\n- github_actions: GitHub Actions workflows\n- gitlab: GitLab CI/CD pipelines\ncicd_platform",
-      "order": 13,
+      "order": 14,
       "pattern": "^(azure_devops|github_actions|gitlab)$",
       "pattern_match_failure_message": "Please enter 'azure_devops', 'github_actions', or 'gitlab'.",
       "skip_prompt_if": {
@@ -173,7 +182,7 @@
       "type": "string",
       "default": "main",
       "description": "\n========================================\n\nName of your default branch.\nStaging deployments trigger when PRs are merged into this branch.\ndefault_branch",
-      "order": 14,
+      "order": 15,
       "skip_prompt_if": {
         "properties": {
           "include_cicd": {
@@ -187,7 +196,7 @@
       "type": "string",
       "default": "release",
       "description": "\n========================================\n\nName of your release/production branch.\nProduction deployments trigger when PRs are merged into this branch.\nrelease_branch",
-      "order": 15,
+      "order": 16,
       "skip_prompt_if": {
         "anyOf": [
           {

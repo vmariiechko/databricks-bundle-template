@@ -65,6 +65,7 @@ See [example configs](./tests/configs/) for options and refer to [Template Optio
 | Include dev environment | `yes` / `no` | `no` |
 | Compute type | `classic` / `serverless` / `both` | `classic` |
 | Cloud provider | `azure` / `aws` / `gcp` | `azure` |
+| Workspace setup | `single_workspace` / `multi_workspace` | `single_workspace` |
 | Include permissions | `yes` / `no` | `yes` |
 | Include CI/CD | `yes` / `no` | `yes` |
 | CI/CD platform | `azure_devops` / `github_actions` / `gitlab` | `azure_devops` |

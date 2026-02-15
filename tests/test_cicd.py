@@ -269,18 +269,17 @@ class TestCICDDocumentation:
             assert "Value Source" in content, "Value source column not found in variable table"
             assert "Secret?" in content, "Secret column not found in variable table"
 
-    def test_cicd_setup_doc_has_repo_root_requirement(
-        self, generated_project: GeneratedProject
-    ):
+    def test_cicd_setup_doc_has_repo_root_requirement(self, generated_project: GeneratedProject):
         """CI_CD_SETUP.md should have repository root requirement guidance."""
         if generated_project.has_cicd:
             content = generated_project.get_file_content("docs/CI_CD_SETUP.md")
             assert "repository root" in content.lower(), (
                 "Repository root requirement not found in CI_CD_SETUP.md"
             )
-            assert "must be at" in content.lower() or "must be at the repository root" in content.lower(), (
-                "Repo root guidance not found in CI_CD_SETUP.md"
-            )
+            assert (
+                "must be at" in content.lower()
+                or "must be at the repository root" in content.lower()
+            ), "Repo root guidance not found in CI_CD_SETUP.md"
 
     def test_cicd_setup_doc_has_git_flow_section(self, generated_project: GeneratedProject):
         """CI_CD_SETUP.md should have Git branching strategy section."""
@@ -497,9 +496,7 @@ class TestGitHubActionsWorkflowContent:
                     f"Release branch '{release_branch}' not found in workflow for full mode"
                 )
 
-    def test_github_workflow_uses_correct_auth_for_azure(
-        self, generated_project: GeneratedProject
-    ):
+    def test_github_workflow_uses_correct_auth_for_azure(self, generated_project: GeneratedProject):
         """GitHub Actions workflow should use ARM_* variables for Azure cloud."""
         if (
             generated_project.has_cicd
@@ -639,11 +636,7 @@ class TestGitLabPipelineContent:
 
     def test_gitlab_pipeline_has_prod_job_for_full_mode(self, generated_project: GeneratedProject):
         """GitLab CI pipeline should have prod-cd job for full environment setup."""
-        if (
-            generated_project.has_cicd
-            and generated_project.is_gitlab
-            and generated_project.is_full
-        ):
+        if generated_project.has_cicd and generated_project.is_gitlab and generated_project.is_full:
             content = generated_project.get_file_content(".gitlab-ci.yml")
 
             assert "prod-cd:" in content, (
@@ -681,9 +674,7 @@ class TestGitLabPipelineContent:
                     f"Release branch '{release_branch}' not found in pipeline for full mode"
                 )
 
-    def test_gitlab_pipeline_uses_correct_auth_for_azure(
-        self, generated_project: GeneratedProject
-    ):
+    def test_gitlab_pipeline_uses_correct_auth_for_azure(self, generated_project: GeneratedProject):
         """GitLab CI pipeline should use ARM_* variables for Azure cloud."""
         if (
             generated_project.has_cicd
@@ -741,3 +732,100 @@ class TestGitLabPipelineContent:
 
             assert "artifacts:" in content, "artifacts section not found in pipeline"
             assert "junit:" in content, "JUnit artifact reporting not found in pipeline"
+
+
+# =============================================================================
+# Multi-Workspace CI/CD Tests
+# =============================================================================
+
+
+class TestMultiWorkspaceCICD:
+    """Test CI/CD templates handle multi-workspace correctly."""
+
+    def test_azure_multi_workspace_ado_has_databricks_host(
+        self, generated_project: GeneratedProject
+    ):
+        """ADO pipeline should include DATABRICKS_HOST for Azure multi-workspace."""
+        if not (
+            generated_project.has_cicd
+            and generated_project.is_azure_devops
+            and generated_project.cloud_provider == "azure"
+            and generated_project.is_multi_workspace
+        ):
+            pytest.skip("Not Azure ADO multi-workspace")
+
+        project_name = generated_project.project_name
+        pipeline_path = f".azure/devops_pipelines/{project_name}_bundle_cicd.yml"
+        content = generated_project.get_file_content(pipeline_path)
+
+        assert "STAGING_DATABRICKS_HOST" in content, (
+            "STAGING_DATABRICKS_HOST not found in ADO pipeline for Azure multi-workspace"
+        )
+        if generated_project.is_full:
+            assert "PROD_DATABRICKS_HOST" in content, (
+                "PROD_DATABRICKS_HOST not found in ADO pipeline for Azure multi-workspace full mode"
+            )
+
+    def test_azure_single_workspace_ado_no_databricks_host(
+        self, generated_project: GeneratedProject
+    ):
+        """ADO pipeline should NOT include DATABRICKS_HOST for Azure single-workspace."""
+        if not (
+            generated_project.has_cicd
+            and generated_project.is_azure_devops
+            and generated_project.cloud_provider == "azure"
+            and generated_project.is_single_workspace
+        ):
+            pytest.skip("Not Azure ADO single-workspace")
+
+        project_name = generated_project.project_name
+        pipeline_path = f".azure/devops_pipelines/{project_name}_bundle_cicd.yml"
+        content = generated_project.get_file_content(pipeline_path)
+
+        assert "STAGING_DATABRICKS_HOST" not in content, (
+            "STAGING_DATABRICKS_HOST should not be in ADO pipeline for Azure single-workspace"
+        )
+
+    def test_azure_multi_workspace_github_has_databricks_host(
+        self, generated_project: GeneratedProject
+    ):
+        """GitHub Actions should include DATABRICKS_HOST for Azure multi-workspace."""
+        if not (
+            generated_project.has_cicd
+            and generated_project.is_github_actions
+            and generated_project.cloud_provider == "azure"
+            and generated_project.is_multi_workspace
+        ):
+            pytest.skip("Not Azure GitHub Actions multi-workspace")
+
+        project_name = generated_project.project_name
+        workflow_path = f".github/workflows/{project_name}_bundle_cicd.yml"
+        content = generated_project.get_file_content(workflow_path)
+
+        assert "STAGING_DATABRICKS_HOST" in content, (
+            "STAGING_DATABRICKS_HOST not found in GitHub Actions for Azure multi-workspace"
+        )
+        if generated_project.is_full:
+            assert "PROD_DATABRICKS_HOST" in content, (
+                "PROD_DATABRICKS_HOST not found in GitHub Actions for Azure multi-workspace full mode"
+            )
+
+    def test_azure_single_workspace_github_no_databricks_host(
+        self, generated_project: GeneratedProject
+    ):
+        """GitHub Actions should NOT include DATABRICKS_HOST for Azure single-workspace."""
+        if not (
+            generated_project.has_cicd
+            and generated_project.is_github_actions
+            and generated_project.cloud_provider == "azure"
+            and generated_project.is_single_workspace
+        ):
+            pytest.skip("Not Azure GitHub Actions single-workspace")
+
+        project_name = generated_project.project_name
+        workflow_path = f".github/workflows/{project_name}_bundle_cicd.yml"
+        content = generated_project.get_file_content(workflow_path)
+
+        assert "STAGING_DATABRICKS_HOST" not in content, (
+            "STAGING_DATABRICKS_HOST should not be in GitHub Actions for Azure single-workspace"
+        )

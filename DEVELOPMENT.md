@@ -214,6 +214,25 @@ run_as:
 
 **Rationale**: Prevents empty directories/files for unused platforms (e.g., no `.azure/` folder when GitHub Actions is selected).
 
+### 13. Workspace Topology Configuration
+
+**Decision**: Binary prompt `workspace_setup` with options: `single_workspace` (default) and `multi_workspace`.
+
+**Rationale**:
+- Binary choice is simple to support and understand
+- `single_workspace` preserves current behavior (backwards compatible)
+- `multi_workspace` generates variable-based workspace hosts per target
+- A three-option approach (e.g., "prod_separate") was considered but rejected: users who share workspaces between environments simply set the same URL for those variables
+- Follows the existing SP placeholder pattern (`WORKSPACE_HOST_PLACEHOLDER_*`)
+
+**Implementation**:
+- Single workspace: All targets use `{{workspace_host}}` (resolved at init time)
+- Multi workspace: User target uses `{{workspace_host}}`; dev/stage/prod targets should provide placeholders `WORKSPACE_HOST_PLACEHOLDER_*` in `databricks.yml.tmpl`
+- Cannot parametrize it using variables in `variables.yml` because CLI prohibits variable interpolation in `workspace.host` for fields that configure authentication
+- Azure CI/CD pipelines include `DATABRICKS_HOST` per environment (AWS/GCP already has this)
+
+**Key insight**: The user target always uses the current workspace regardless of workspace_setup, since it's for personal development. Only CI/CD deployment targets (dev/stage/prod) get separate workspace hosts.
+
 ---
 
 ## Testing Matrix
@@ -222,28 +241,32 @@ When testing template changes, validate these combinations:
 
 ### Core Configurations
 
-| # | environment_setup | include_dev | compute_type | include_permissions | Expected Targets |
-|---|-------------------|-------------|--------------|---------------------|------------------|
-| 1 | full | yes | serverless | yes | user, dev, stage, prod |
-| 2 | full | yes | classic | yes | user, dev, stage, prod |
-| 3 | full | no | classic | yes | user, stage, prod |
-| 4 | full | no | both | no | user, stage, prod |
-| 5 | minimal | (skipped) | serverless | no | user, stage |
-| 6 | minimal | (skipped) | classic | no | user, stage |
+| # | environment_setup | include_dev | compute_type | include_permissions | workspace_setup | Expected Targets |
+|---|-------------------|-------------|--------------|---------------------|-----------------|------------------|
+| 1 | full | yes | serverless | yes | single_workspace | user, dev, stage, prod |
+| 2 | full | yes | classic | yes | single_workspace | user, dev, stage, prod |
+| 3 | full | no | classic | yes | single_workspace | user, stage, prod |
+| 4 | full | no | both | no | single_workspace | user, stage, prod |
+| 5 | minimal | (skipped) | serverless | no | single_workspace | user, stage |
+| 6 | minimal | (skipped) | classic | no | single_workspace | user, stage |
+| 7 | full | no | classic | yes | multi_workspace | user, stage, prod |
+| 8 | minimal | (skipped) | classic | yes | multi_workspace | user, stage |
 
 ### CI/CD Configurations
 
-| # | cicd_platform | cloud_provider | environment_setup | Config File |
-|---|---------------|----------------|-------------------|-------------|
-| 7 | azure_devops | azure | full | `full_with_cicd_ado.json` |
-| 8 | azure_devops | azure | minimal | `minimal_with_cicd_ado.json` |
-| 9 | azure_devops | aws | full | `full_cicd_aws.json` |
-| 10 | github_actions | azure | full | `full_with_github_actions.json` |
-| 11 | github_actions | azure | minimal | `minimal_with_github_actions.json` |
-| 12 | github_actions | aws | full | `full_github_actions_aws.json` |
-| 13 | gitlab | azure | full | `full_with_gitlab.json` |
-| 14 | gitlab | azure | minimal | `minimal_with_gitlab.json` |
-| 15 | gitlab | aws | full | `full_gitlab_aws.json` |
+| # | cicd_platform | cloud_provider | environment_setup | workspace_setup | Config File |
+|---|---------------|----------------|-------------------|-----------------|-------------|
+| 9 | azure_devops | azure | full | single_workspace | `full_with_cicd_ado.json` |
+| 10 | azure_devops | azure | minimal | single_workspace | `minimal_with_cicd_ado.json` |
+| 11 | azure_devops | aws | full | single_workspace | `full_cicd_aws.json` |
+| 12 | github_actions | azure | full | single_workspace | `full_with_github_actions.json` |
+| 13 | github_actions | azure | minimal | single_workspace | `minimal_with_github_actions.json` |
+| 14 | github_actions | aws | full | single_workspace | `full_github_actions_aws.json` |
+| 15 | gitlab | azure | full | single_workspace | `full_with_gitlab.json` |
+| 16 | gitlab | azure | minimal | single_workspace | `minimal_with_gitlab.json` |
+| 17 | gitlab | aws | full | single_workspace | `full_gitlab_aws.json` |
+| 18 | azure_devops | azure | full | multi_workspace | `full_multi_workspace_cicd_ado.json` |
+| 19 | github_actions | azure | full | multi_workspace | `full_multi_workspace_github.json` |
 
 ### Test Config Files (in `tests/configs/`)
 
@@ -265,6 +288,12 @@ When testing template changes, validate these combinations:
 - `full_with_gitlab.json` - Full + GitLab (Azure cloud)
 - `minimal_with_gitlab.json` - Minimal + GitLab
 - `full_gitlab_aws.json` - Full + GitLab (AWS cloud)
+
+**Multi-Workspace:**
+- `full_multi_workspace.json` - Full mode with multi-workspace
+- `full_multi_workspace_cicd_ado.json` - Full + multi-workspace + Azure DevOps
+- `full_multi_workspace_github.json` - Full + multi-workspace + GitHub Actions
+- `minimal_multi_workspace.json` - Minimal mode with multi-workspace
 
 ---
 

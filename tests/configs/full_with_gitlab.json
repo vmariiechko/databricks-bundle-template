@@ -4,6 +4,7 @@
   "include_dev_environment": "no",
   "compute_type": "classic",
   "cloud_provider": "azure",
+  "workspace_setup": "single_workspace",
   "uc_catalog_suffix": "test_domain",
   "include_permissions": "yes",
   "configure_sp_now": "no",

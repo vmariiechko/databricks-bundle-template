@@ -185,6 +185,14 @@ class GeneratedProject:
     def cloud_provider(self) -> str:
         return self.config.get("cloud_provider", "azure")
 
+    @property
+    def is_multi_workspace(self) -> bool:
+        return self.config.get("workspace_setup") == "multi_workspace"
+
+    @property
+    def is_single_workspace(self) -> bool:
+        return self.config.get("workspace_setup", "single_workspace") == "single_workspace"
+
 
 def generate_project(config_path: Path, output_dir: Path) -> GeneratedProject:
     """Generate a project from the template using a config file."""
