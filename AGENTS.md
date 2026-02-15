@@ -47,7 +47,7 @@ template/{{.project_name}}/    # Go templates, generates user's project
 
 | File | Purpose |
 |------|---------|
-| `databricks_template_schema.json` | 15 prompts with `skip_prompt_if` conditionals |
+| `databricks_template_schema.json` | interactive user prompts with `skip_prompt_if` conditionals |
 | `library/helpers.tmpl` | Custom Go template helpers (e.g., `node_type_id`, `cli_version`) |
 | `template/update_layout.tmpl` | Conditional file/directory skipping for CI/CD platforms |
 | `tests/configs/*.json` | Test configurations for pytest parametrization |
@@ -56,11 +56,11 @@ template/{{.project_name}}/    # Go templates, generates user's project
 
 ### Template Parameters
 
-The template has 15 parameters defined in `databricks_template_schema.json`.
+The template keeps user parameters defined in `databricks_template_schema.json`.
 
 #### Configuration Axes
 
-These 7 parameters drive conditional logic and produce structurally different outputs:
+These parameters drive conditional logic and produce structurally different outputs:
 
 | Parameter | Options | Effect |
 |-----------|---------|--------|
@@ -71,6 +71,8 @@ These 7 parameters drive conditional logic and produce structurally different ou
 | `include_cicd` | `yes` / `no` | CI/CD pipeline templates |
 | `cicd_platform` | `azure_devops` / `github_actions` / `gitlab` | Platform-specific pipeline |
 | `cloud_provider` | `azure` / `aws` / `gcp` | Auth method (ARM vs OAuth M2M) |
+| `workspace_setup` | `single_workspace` / `multi_workspace` | Workspace topology per environment |
+
 
 #### Other Template Parameters
 
@@ -107,12 +109,13 @@ User target has **no SP references** - works immediately. SP grants only exist i
 
 ## Testing
 
-Tests use pytest with parametrized fixtures across 15 config files:
+Tests use pytest with parametrized fixtures across config files:
 - `full_with_dev.json`, `full_no_dev.json`, `full_serverless.json`, `full_with_sp.json`
 - `minimal_classic.json`, `minimal_serverless.json`
 - `full_with_cicd_ado.json`, `minimal_with_cicd_ado.json`, `full_cicd_aws.json`
 - `full_with_github_actions.json`, `minimal_with_github_actions.json`, `full_github_actions_aws.json`
 - `full_with_gitlab.json`, `minimal_with_gitlab.json`, `full_gitlab_aws.json`
+- `full_multi_workspace.json`, `full_multi_workspace_cicd_ado.json`, `full_multi_workspace_github.json`, `minimal_multi_workspace.json`
 
 **L1 tests**: File existence, directory structure, no `.tmpl` leftovers
 **L2 tests**: YAML syntax, environment targets, content validation

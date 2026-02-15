@@ -82,7 +82,11 @@ databricks bundle deploy -t prod
 ```
 {{- end }}
 
+{{- if eq .workspace_setup "multi_workspace" }}
+> **Multi-Workspace**: Your project uses separate workspace hosts per environment. Search for `WORKSPACE_HOST_PLACEHOLDER` in `databricks.yml` and replace with your actual workspace URLs, or set `DATABRICKS_HOST` environment variable before deploying to stage/prod.
+{{- else }}
 > **Multi-Workspace Setup**: If using a separate prod workspace, update `workspace.host` in `databricks.yml`. See [README.md](README.md) for details.
+{{- end }}
 {{- else }}
 ```bash
 databricks bundle deploy -t stage

@@ -140,43 +140,48 @@ rm -rf test-generated
 │      Options: azure | aws | gcp                                              │
 │      Default: azure                                                          │
 │                                                                              │
-│  Q6: uc_catalog_suffix                                                       │
+│  Q6: workspace_setup                                                         │
+│      "Workspace topology for your environments?"                             │
+│      Options: single_workspace | multi_workspace                             │
+│      Default: single_workspace                                               │
+│                                                                              │
+│  Q7: uc_catalog_suffix                                                       │
 │      "What suffix should be used for Unity Catalog names?"                   │
 │      Catalogs: dev_<suffix>, stage_<suffix>, prod_<suffix> (pre-existing)    │
 │      User target shares dev catalog with per-user schema prefixes            │
 │      Default: my_domain                                                      │
 │                                                                              │
-│  Q7: include_permissions                                                     │
+│  Q8: include_permissions                                                     │
 │      "Include comprehensive permissions/RBAC configuration?"                 │
 │      Options: yes | no                                                       │
 │      Default: yes                                                            │
 │                                                                              │
-│  Q8: configure_sp_now                                                        │
+│  Q9: configure_sp_now                                                        │
 │      "Configure service principal IDs now?"                                  │
 │      Options: yes | no (configure later via search-replace)                  │
 │      Default: no                                                             │
 │                                                                              │
-│  Q9-11: Service Principal IDs  [CONDITIONAL]                                 │
+│  Q10-12: Service Principal IDs  [CONDITIONAL]                                │
 │      dev_service_principal   [SKIP IF configure_sp_now=no OR dev not incl.]  │
 │      stage_service_principal [SKIP IF configure_sp_now=no]                   │
 │      prod_service_principal  [SKIP IF configure_sp_now=no OR minimal mode]   │
 │      Default: "" (empty, uses SP_PLACEHOLDER_<ENV>)                          │
 │                                                                              │
-│  Q12: include_cicd                                                           │
+│  Q13: include_cicd                                                           │
 │      "Include CI/CD pipeline configuration?"                                 │
 │      Options: yes | no                                                       │
 │      Default: yes                                                            │
 │                                                                              │
-│  Q13: cicd_platform  [SKIP IF include_cicd = no]                             │
+│  Q14: cicd_platform  [SKIP IF include_cicd = no]                             │
 │      "Which CI/CD platform?"                                                 │
 │      Options: azure_devops | github_actions | gitlab                         │
 │      Default: azure_devops                                                   │
 │                                                                              │
-│  Q14: default_branch  [SKIP IF include_cicd = no]                            │
+│  Q15: default_branch  [SKIP IF include_cicd = no]                            │
 │      "What is the default branch for staging deployments?"                   │
 │      Default: main                                                           │
 │                                                                              │
-│  Q15: release_branch  [SKIP IF include_cicd = no OR minimal mode]            │
+│  Q16: release_branch  [SKIP IF include_cicd = no OR minimal mode]            │
 │      "What is the release branch for production deployments?"                │
 │      Default: release                                                        │
 │                                                                              │
@@ -192,16 +197,17 @@ rm -rf test-generated
 | 3 | `include_dev_environment` | string | `no` | Yes | environment_setup = full | Add optional dev target |
 | 4 | `compute_type` | string | `classic` | Yes | - | `serverless`, `classic`, or `both` |
 | 5 | `cloud_provider` | string | `azure` | Yes | compute_type != serverless | For node_type_id selection |
-| 6 | `uc_catalog_suffix` | string | `my_domain` | Yes | - | Suffix for pre-existing env catalogs (e.g., `dev_sales`, `stage_sales`) |
-| 7 | `include_permissions` | string | `yes` | Yes | - | Include RBAC (3-4 groups based on env) |
-| 8 | `configure_sp_now` | string | `no` | Yes | - | Configure SPs during init or later |
-| 9 | `dev_service_principal` | string | `""` | No | configure_sp_now = yes AND include_dev = yes | Dev environment SP app ID |
-| 10 | `stage_service_principal` | string | `""` | No | configure_sp_now = yes | Stage environment SP app ID |
-| 11 | `prod_service_principal` | string | `""` | No | configure_sp_now = yes AND environment_setup = full | Prod environment SP app ID |
-| 12 | `include_cicd` | string | `yes` | Yes | - | Include CI/CD pipeline templates |
-| 13 | `cicd_platform` | string | `azure_devops` | Yes | include_cicd = yes | CI/CD platform selection |
-| 14 | `default_branch` | string | `main` | Yes | include_cicd = yes | Branch for staging deployments |
-| 15 | `release_branch` | string | `release` | Yes | include_cicd = yes AND environment_setup = full | Branch for production deployments |
+| 6 | `workspace_setup` | string | `single_workspace` | Yes | - | `single_workspace` = shared; `multi_workspace` = separate |
+| 7 | `uc_catalog_suffix` | string | `my_domain` | Yes | - | Suffix for pre-existing env catalogs (e.g., `dev_sales`, `stage_sales`) |
+| 8 | `include_permissions` | string | `yes` | Yes | - | Include RBAC (3-4 groups based on env) |
+| 9 | `configure_sp_now` | string | `no` | Yes | - | Configure SPs during init or later |
+| 10 | `dev_service_principal` | string | `""` | No | configure_sp_now = yes AND include_dev = yes | Dev environment SP app ID |
+| 11 | `stage_service_principal` | string | `""` | No | configure_sp_now = yes | Stage environment SP app ID |
+| 12 | `prod_service_principal` | string | `""` | No | configure_sp_now = yes AND environment_setup = full | Prod environment SP app ID |
+| 13 | `include_cicd` | string | `yes` | Yes | - | Include CI/CD pipeline templates |
+| 14 | `cicd_platform` | string | `azure_devops` | Yes | include_cicd = yes | CI/CD platform selection |
+| 15 | `default_branch` | string | `main` | Yes | include_cicd = yes | Branch for staging deployments |
+| 16 | `release_branch` | string | `release` | Yes | include_cicd = yes AND environment_setup = full | Branch for production deployments |
 
 ### Validation Patterns
 
@@ -214,6 +220,7 @@ All choice-based parameters use pattern validation instead of enum (avoids termi
 | `include_dev_environment` | `^(yes\|no)$` | "Please enter 'yes' or 'no'" |
 | `compute_type` | `^(classic\|serverless\|both)$` | "Please enter 'classic', 'serverless', or 'both'" |
 | `cloud_provider` | `^(azure\|aws\|gcp)$` | "Please enter 'azure', 'aws', or 'gcp'" |
+| `workspace_setup` | `^(single_workspace\|multi_workspace)$` | "Please enter 'single_workspace' or 'multi_workspace'" |
 | `uc_catalog_suffix` | `^[a-z][a-z0-9_]*$` | "Catalog suffix must be lowercase, start with a letter, and contain only letters, numbers, and underscores" |
 | `include_permissions` | `^(yes\|no)$` | "Please enter 'yes' or 'no'" |
 | `configure_sp_now` | `^(yes\|no)$` | "Please enter 'yes' or 'no'" |
@@ -265,6 +272,15 @@ All choice-based parameters use pattern validation instead of enum (avoids termi
 | `configure_sp_now = yes` | Prompt for SP IDs, populate in variables.yml |
 | `configure_sp_now = no` | Leave as `SP_PLACEHOLDER_<ENV>` with comment for search-replace |
 
+### Workspace Configuration
+
+| Condition | Effect |
+|-----------|--------|
+| `workspace_setup = single_workspace` | All targets use `{{workspace_host}}` (init-time workspace URL) |
+| `workspace_setup = multi_workspace` | Non-user targets use `${var.<env>_workspace_host}` variables |
+| `workspace_setup = multi_workspace` + Azure CI/CD | CI/CD includes `DATABRICKS_HOST` per environment |
+| `workspace_setup = multi_workspace` + AWS/GCP CI/CD | No change (already has per-env `DATABRICKS_HOST`) |
+
 ### CI/CD Pipeline Generation
 
 | Condition | Effect |
@@ -281,6 +297,7 @@ All choice-based parameters use pattern validation instead of enum (avoids termi
 | Cloud Provider | CI/CD Variables |
 |----------------|----------------|
 | Azure | `ARM_TENANT_ID`, `ARM_CLIENT_ID`, `ARM_CLIENT_SECRET` (Service Principal) |
+| Azure + multi_workspace | `ARM_TENANT_ID`, `ARM_CLIENT_ID`, `ARM_CLIENT_SECRET`, `DATABRICKS_HOST` per environment |
 | AWS/GCP | `DATABRICKS_HOST`, `DATABRICKS_CLIENT_ID`, `DATABRICKS_CLIENT_SECRET` (OAuth M2M) |
 
 ### File-Level Conditional Generation
@@ -307,6 +324,8 @@ All choice-based parameters use pattern validation instead of enum (avoids termi
 | `release_branch` in pipeline | `environment_setup = full` |
 | `tests/` directory | `include_cicd = yes` |
 | `requirements_dev.txt` | `include_cicd = yes` |
+| Workspace host variables in variables.yml | `workspace_setup = multi_workspace` |
+| `DATABRICKS_HOST` in Azure CI/CD env blocks | `workspace_setup = multi_workspace` AND `cloud_provider = azure` |
 
 ---
 
@@ -357,7 +376,7 @@ databricks-bundle-template/
 │       ├── QUICKSTART.md.tmpl
 │       └── README.md.tmpl
 ├── tests/                                   # Pytest test suite
-│   ├── configs/                             # 15 test configurations
+│   ├── configs/                             # test configurations
 │   ├── test_generation.py                   # L1: File generation tests
 │   ├── test_content.py                      # L2: Content validation tests
 │   └── test_cicd.py                         # CI/CD pipeline tests

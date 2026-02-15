@@ -1,10 +1,9 @@
 {
-  "project_name": "test_full_no_dev",
-  "environment_setup": "full",
-  "include_dev_environment": "no",
+  "project_name": "test_minimal_multi_ws",
+  "environment_setup": "minimal",
   "compute_type": "classic",
   "cloud_provider": "azure",
-  "workspace_setup": "single_workspace",
+  "workspace_setup": "multi_workspace",
   "uc_catalog_suffix": "test_domain",
   "include_permissions": "yes",
   "configure_sp_now": "no",

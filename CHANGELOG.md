@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] - Unreleased
+
+### Added
+
+#### Workspace Topology Configuration
+- New `workspace_setup` prompt: choose between `single_workspace` (default) and `multi_workspace`
+- Multi-workspace mode generates variable-based workspace hosts per target (`${var.stage_workspace_host}`, etc.)
+- Workspace host variables with `WORKSPACE_HOST_PLACEHOLDER_*` pattern in `variables.yml`
+- Azure CI/CD pipelines include `DATABRICKS_HOST` per environment in multi-workspace mode
+- Dedicated "Multi-Workspace Deployment" section in generated CI/CD setup guide
+- 4 new test configurations for multi-workspace scenarios (19 total configs)
+
 ## [1.0.0] - 2026-02-07
 
 Initial public release.

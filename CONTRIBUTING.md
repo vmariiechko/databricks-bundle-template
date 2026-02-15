@@ -34,7 +34,7 @@ Thank you for your interest in contributing! This project is a Databricks Asset 
 
 This is a **Go template** project consumed by the Databricks CLI via `databricks bundle init`. Key concepts:
 
-- **`databricks_template_schema.json`** defines the 15 interactive prompts users see during initialization
+- **`databricks_template_schema.json`** defines interactive prompts users see during initialization
 - **`library/helpers.tmpl`** contains custom Go template helper functions
 - **`template/{{.project_name}}/`** contains all the Go template files that generate the user's project
 - **`template/update_layout.tmpl`** controls conditional file/directory generation (e.g., skip `.azure/` when GitHub Actions is selected)
@@ -42,7 +42,7 @@ This is a **Go template** project consumed by the Databricks CLI via `databricks
 
 ### Template Parameters
 
-The template has 15 parameters. Seven of these are **configuration axes** that drive conditional logic and produce structurally different outputs:
+The template has multiple parameters. Part of these are **configuration axes** that drive conditional logic and produce structurally different outputs:
 
 | Parameter | Options | Effect |
 |-----------|---------|--------|
@@ -53,6 +53,7 @@ The template has 15 parameters. Seven of these are **configuration axes** that d
 | `include_cicd` | `yes` / `no` | CI/CD pipeline templates |
 | `cicd_platform` | `azure_devops` / `github_actions` / `gitlab` | Platform-specific pipeline |
 | `cloud_provider` | `azure` / `aws` / `gcp` | Auth method (ARM vs OAuth M2M) |
+| `workspace_setup` | `single_workspace` / `multi_workspace` | Workspace topology per environment |
 
 The remaining parameters provide input values:
 

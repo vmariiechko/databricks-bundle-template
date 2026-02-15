@@ -41,7 +41,7 @@ Brief description of what this feature does and why it matters.
 ### Configurable Git Branching Model
 
 **Status**: Proposed
-**Target**: v1.1
+**Target**: v1.2
 
 The template currently uses a fixed branching model: `main` branch for staging deployments and a `release` branch for production deployments. Different teams follow different branching strategies, and the template should accommodate this.
 
@@ -146,6 +146,22 @@ Enhanced traceability for generated bundles, useful in large organizations manag
 ---
 
 ## Completed
+
+### v1.1.0
+
+#### Workspace Topology Configuration
+
+**Status**: Shipped
+
+Configurable workspace topology: single shared workspace (default) or separate workspaces per environment.
+Multi-workspace mode generates variable-based hosts in `databricks.yml` and adds `DATABRICKS_HOST` to Azure CI/CD pipelines.
+
+**Scope:**
+- New `workspace_setup` prompt (`single_workspace` / `multi_workspace`)
+- Placeholder-based workspace hosts pattern `WORKSPACE_HOST_PLACEHOLDER_*` in `databricks.yml.tmpl`
+- Azure CI/CD updated with per-environment `DATABRICKS_HOST`
+- Updated documentation across README, QUICKSTART, CI_CD_SETUP
+- 4 new test configurations for multi-workspace scenarios (19 total configs)
 
 ### v1.0.0
 

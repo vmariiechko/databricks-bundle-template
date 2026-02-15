@@ -46,10 +46,16 @@ defaults:
 env:
 {{- if eq .cloud_provider "azure" }}
   # Azure Databricks uses ARM service principal authentication
+{{- if eq .workspace_setup "multi_workspace" }}
+  STAGING_DATABRICKS_HOST: {{`${{ secrets.STAGING_DATABRICKS_HOST }}`}}
+{{- end }}
   STAGING_ARM_TENANT_ID: {{`${{ secrets.STAGING_AZURE_SP_TENANT_ID }}`}}
   STAGING_ARM_CLIENT_ID: {{`${{ secrets.STAGING_AZURE_SP_APPLICATION_ID }}`}}
   STAGING_ARM_CLIENT_SECRET: {{`${{ secrets.STAGING_AZURE_SP_CLIENT_SECRET }}`}}
 {{- if eq .environment_setup "full" }}
+{{- if eq .workspace_setup "multi_workspace" }}
+  PROD_DATABRICKS_HOST: {{`${{ secrets.PROD_DATABRICKS_HOST }}`}}
+{{- end }}
   PROD_ARM_TENANT_ID: {{`${{ secrets.PROD_AZURE_SP_TENANT_ID }}`}}
   PROD_ARM_CLIENT_ID: {{`${{ secrets.PROD_AZURE_SP_APPLICATION_ID }}`}}
   PROD_ARM_CLIENT_SECRET: {{`${{ secrets.PROD_AZURE_SP_CLIENT_SECRET }}`}}
@@ -124,6 +130,9 @@ jobs:
       - name: Validate bundle for staging
         env:
 {{- if eq .cloud_provider "azure" }}
+{{- if eq .workspace_setup "multi_workspace" }}
+          DATABRICKS_HOST: {{`${{ env.STAGING_DATABRICKS_HOST }}`}}
+{{- end }}
           ARM_TENANT_ID: {{`${{ env.STAGING_ARM_TENANT_ID }}`}}
           ARM_CLIENT_ID: {{`${{ env.STAGING_ARM_CLIENT_ID }}`}}
           ARM_CLIENT_SECRET: {{`${{ env.STAGING_ARM_CLIENT_SECRET }}`}}
@@ -140,6 +149,9 @@ jobs:
       - name: Validate bundle for production
         env:
 {{- if eq .cloud_provider "azure" }}
+{{- if eq .workspace_setup "multi_workspace" }}
+          DATABRICKS_HOST: {{`${{ env.PROD_DATABRICKS_HOST }}`}}
+{{- end }}
           ARM_TENANT_ID: {{`${{ env.PROD_ARM_TENANT_ID }}`}}
           ARM_CLIENT_ID: {{`${{ env.PROD_ARM_CLIENT_ID }}`}}
           ARM_CLIENT_SECRET: {{`${{ env.PROD_ARM_CLIENT_SECRET }}`}}
@@ -173,6 +185,9 @@ jobs:
       - name: Validate bundle for staging
         env:
 {{- if eq .cloud_provider "azure" }}
+{{- if eq .workspace_setup "multi_workspace" }}
+          DATABRICKS_HOST: {{`${{ env.STAGING_DATABRICKS_HOST }}`}}
+{{- end }}
           ARM_TENANT_ID: {{`${{ env.STAGING_ARM_TENANT_ID }}`}}
           ARM_CLIENT_ID: {{`${{ env.STAGING_ARM_CLIENT_ID }}`}}
           ARM_CLIENT_SECRET: {{`${{ env.STAGING_ARM_CLIENT_SECRET }}`}}
@@ -187,6 +202,9 @@ jobs:
       - name: Deploy bundle to staging
         env:
 {{- if eq .cloud_provider "azure" }}
+{{- if eq .workspace_setup "multi_workspace" }}
+          DATABRICKS_HOST: {{`${{ env.STAGING_DATABRICKS_HOST }}`}}
+{{- end }}
           ARM_TENANT_ID: {{`${{ env.STAGING_ARM_TENANT_ID }}`}}
           ARM_CLIENT_ID: {{`${{ env.STAGING_ARM_CLIENT_ID }}`}}
           ARM_CLIENT_SECRET: {{`${{ env.STAGING_ARM_CLIENT_SECRET }}`}}
@@ -221,6 +239,9 @@ jobs:
       - name: Validate bundle for production
         env:
 {{- if eq .cloud_provider "azure" }}
+{{- if eq .workspace_setup "multi_workspace" }}
+          DATABRICKS_HOST: {{`${{ env.PROD_DATABRICKS_HOST }}`}}
+{{- end }}
           ARM_TENANT_ID: {{`${{ env.PROD_ARM_TENANT_ID }}`}}
           ARM_CLIENT_ID: {{`${{ env.PROD_ARM_CLIENT_ID }}`}}
           ARM_CLIENT_SECRET: {{`${{ env.PROD_ARM_CLIENT_SECRET }}`}}
@@ -235,6 +256,9 @@ jobs:
       - name: Deploy bundle to production
         env:
 {{- if eq .cloud_provider "azure" }}
+{{- if eq .workspace_setup "multi_workspace" }}
+          DATABRICKS_HOST: {{`${{ env.PROD_DATABRICKS_HOST }}`}}
+{{- end }}
           ARM_TENANT_ID: {{`${{ env.PROD_ARM_TENANT_ID }}`}}
           ARM_CLIENT_ID: {{`${{ env.PROD_ARM_CLIENT_ID }}`}}
           ARM_CLIENT_SECRET: {{`${{ env.PROD_ARM_CLIENT_SECRET }}`}}

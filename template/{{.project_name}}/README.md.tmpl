@@ -128,7 +128,29 @@ See `templates/cluster_configs.yml` for configuration examples.
 This bundle uses **serverless compute** by default. Classic cluster configurations are available as comments in resource files. See `templates/cluster_configs.yml` for examples.
 {{- end }}
 
+{{- if eq .workspace_setup "multi_workspace" }}
+
+### Multi-Workspace Configuration
+
+This project is configured for **separate workspaces per environment**, following [Databricks best practices](https://docs.databricks.com/aws/en/dev-tools/ci-cd/best-practices).
+
+**Configure workspace URLs** in `databricks.yml`:
+1. Search for `WORKSPACE_HOST_PLACEHOLDER`
+2. Replace with your actual workspace URLs in each target's `workspace.host` field
+3. Alternatively, set `DATABRICKS_HOST` environment variable when running bundle commands
+
+| Target | Placeholder in databricks.yml |
+|--------|-------------------------------|
+{{- if eq .include_dev_environment "yes" }}
+| dev | `WORKSPACE_HOST_PLACEHOLDER_DEV` |
+{{- end }}
+| stage | `WORKSPACE_HOST_PLACEHOLDER_STAGE` |
 {{- if eq .environment_setup "full" }}
+| prod | `WORKSPACE_HOST_PLACEHOLDER_PROD` |
+{{- end }}
+
+The `user` target always uses your current workspace (set during `bundle init`).
+{{- else if eq .environment_setup "full" }}
 
 ### Multi-Workspace Setup
 
