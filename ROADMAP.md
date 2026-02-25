@@ -38,35 +38,6 @@ Brief description of what this feature does and why it matters.
 
 ## Planned Features
 
-### Configurable Git Branching Model
-
-**Status**: Proposed
-**Target**: v1.2
-
-The template currently uses a fixed branching model: `main` branch for staging deployments and a `release` branch for production deployments. Different teams follow different branching strategies, and the template should accommodate this.
-
-**Scope:**
-- New prompt for branching model selection during `bundle init`
-- Support for common strategies: trunk-based development, GitFlow, release-branch
-- CI/CD templates adapt triggers and branch references based on the selected model
-- Generated documentation explains the selected branching strategy
-
-**Open questions:**
-- How many branching models to support at launch?
-- Should custom/freeform branch mapping be an option?
-
-### Git Flow Diagrams
-
-**Status**: Proposed
-**Target**: v1.1
-
-Add visual diagrams illustrating the CI/CD branching strategies for each supported platform. The generated `CI_CD_SETUP.md` already references these diagrams but they have not been created yet.
-
-**Scope:**
-- Image-based flow diagrams for Azure DevOps, GitHub Actions, and GitLab
-- Diagrams embedded in or linked from `CI_CD_SETUP.md`
-- Diagrams adapt to the selected environment setup (full vs minimal)
-
 ### Template Version Tracking
 
 **Status**: Proposed
@@ -162,6 +133,12 @@ Multi-workspace mode generates variable-based hosts in `databricks.yml` and adds
 - Azure CI/CD updated with per-environment `DATABRICKS_HOST`
 - Updated documentation across README, QUICKSTART, CI_CD_SETUP
 - 4 new test configurations for multi-workspace scenarios (19 total configs)
+
+#### Branching Strategy Diagrams
+
+**Status**: Shipped
+
+Visual diagrams illustrating the environment-branch promotion model for full mode (with hotfix flow) and minimal mode. Diagrams are conditionally embedded in the generated `CI_CD_SETUP.md` based on environment setup.
 
 ### v1.0.0
 

@@ -281,7 +281,7 @@ class TestCICDDocumentation:
                 or "must be at the repository root" in content.lower()
             ), "Repo root guidance not found in CI_CD_SETUP.md"
 
-    def test_cicd_setup_doc_has_git_flow_section(self, generated_project: GeneratedProject):
+    def test_cicd_setup_doc_has_branching_strategy_section(self, generated_project: GeneratedProject):
         """CI_CD_SETUP.md should have Git branching strategy section."""
         if generated_project.has_cicd:
             content = generated_project.get_file_content("docs/CI_CD_SETUP.md")
