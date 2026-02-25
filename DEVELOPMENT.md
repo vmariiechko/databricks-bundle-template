@@ -169,16 +169,34 @@ run_as:
 
 **Key insight**: `user` and `dev` targets share the same catalog. The toggle `include_dev_environment` only controls whether a shared `dev` deployment target exists - the user target always uses `dev_<suffix>`.
 
-### 9. Release-Based Branching Strategy
+### 9. Environment-Branch Promotion Model
 
-**Decision**: Use `default_branch` (main) for staging deployment and `release_branch` for production deployment.
+**Decision**: Use `default_branch` (main) for staging deployment and `release_branch` for production deployment, following an environment-branch promotion model based on [GitLab Flow](https://about.gitlab.com/topics/version-control/what-is-gitlab-flow/).
 
 **Rationale**:
 - Prevents accidental production deployments
 - Staging is continuously updated from main; production only via explicit release merges
 - Minimal mode skips the `release_branch` prompt (no prod target)
+- Code flows in one direction only: `feature/*` → `main` → `release`
 
-**Alternative considered**: Branch = target (push to `stage` branch → deploy to stage). Simpler conceptually but riskier for production and less suitable as a template default.
+**Why this model**: The `feature/*` → `main` (staging) → `release` (production) pattern matches [GitLab Flow with environment branches](https://about.gitlab.com/topics/version-control/what-is-gitlab-flow/). In GitLab Flow, long-lived environment branches represent deployment targets, and code is promoted downstream through merges. This template's `main` branch maps to GitLab Flow's integration branch and `release` maps to the production environment branch.
+
+This pattern is widely endorsed in the data engineering community:
+- [Databricks](https://docs.databricks.com/en/dev-tools/bundles/deployment-modes.html) recommends branching strategies aligned with deployment environments, and DABs natively supports this via `mode: production` with `git.branch` validation
+- [dbt Labs](https://docs.getdbt.com/blog/git-branching-strategies-with-dbt) classifies this as "indirect promotion" with hierarchical environment branches, recommended for teams needing explicit staging/production separation
+- The data engineering community broadly favors this two-branch pattern over GitFlow (too complex for data pipelines) or GitHub Flow (insufficient production gating)
+
+**Alternatives considered**:
+
+| Strategy | Why not chosen |
+|----------|---------------|
+| **Branch = target** (push to `stage` branch → deploy to stage) | Simpler conceptually but riskier for production and less suitable as a template default |
+| **[Gitflow](https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow)** | Adds a `develop` branch and release branches, introducing complexity that data pipeline projects rarely need |
+| **[GitHub Flow](https://docs.github.com/en/get-started/using-github/github-flow)** (single branch, deploy from main) | No explicit production gating; every merge to main goes straight to production, which is too risky as a template default for data pipelines |
+| **[Trunk-based development](https://trunkbaseddevelopment.com/)** | Requires feature flags and high CI maturity; too opinionated as a template default |
+| **Configurable branching model** (user selects strategy during `bundle init`) | Each strategy requires different CI/CD triggers, branch references, hotfix workflows, and documentation. The combinatorial explosion across 3 CI/CD platforms makes this prohibitively complex to maintain. The environment-branch model is the best default for the widest audience. Teams with strong preferences can adapt the generated CI/CD files post-init |
+
+**Previous naming**: This was originally called "hybrid Release Flow tailored for DataOps." Research showed that Microsoft's [Release Flow](https://devblogs.microsoft.com/devops/release-flow-how-we-do-branching-on-the-vsts-team/) uses short-lived, disposable release branches (per sprint), not a long-lived production branch. The actual model matches GitLab Flow's environment branch pattern, so the naming was corrected in v1.1.1.
 
 ### 10. Single Combined CI/CD Pipeline File
 

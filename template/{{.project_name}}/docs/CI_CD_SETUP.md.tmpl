@@ -116,12 +116,12 @@ Note that you might want to grant other `CREATE <SECURABLE>` privileges e.g. to 
 
 ## Git Branching Strategy
 
-This project uses a **hybrid Release Flow tailored for DataOps**. It is simpler than Gitflow (no `develop` branch) and well-suited for data pipeline projects where stability matters more than rapid feature shipping.
+This project uses an **environment-branch promotion model** based on [GitLab Flow](https://about.gitlab.com/topics/version-control/what-is-gitlab-flow/). Feature branches merge into the default branch (staging), which promotes to the release branch (production). It is simpler than [Gitflow](https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow) (no `develop` branch) and more structured than [GitHub Flow](https://docs.github.com/en/get-started/using-github/github-flow) (explicit production gating via a long-lived release branch). This pattern is well-suited for data pipeline projects where stability matters more than rapid feature shipping.
 
 {{- if eq .environment_setup "full" }}
-![Git Branching Strategy](images/dataops-release-flow-full.png)
+![Git Branching Strategy](images/branching-strategy-full.png)
 {{- else }}
-![Git Branching Strategy](images/dataops-release-flow-minimal.png)
+![Git Branching Strategy](images/branching-strategy-minimal.png)
 {{- end }}
 
 > **Branch name mapping**: The diagram above uses generic branch names. In your project: **`{{.default_branch}}`** is configured as the staging integration branch{{ if eq .environment_setup "full" }} and **`{{.release_branch}}`** as the production release branch{{ end }}. Map any references to "main"/"release" in the diagram to your configured branch names.

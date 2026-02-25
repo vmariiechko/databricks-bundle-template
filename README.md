@@ -135,7 +135,7 @@ Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines
 
 ## Roadmap
 
-See [ROADMAP.md](ROADMAP.md) for planned features and the project direction. Highlights include configurable git branching models, asset sub-templates, and advanced permissions profiles.
+See [ROADMAP.md](ROADMAP.md) for planned features and the project direction. Highlights include asset sub-templates and advanced permissions profiles.
 
 ## Community
 

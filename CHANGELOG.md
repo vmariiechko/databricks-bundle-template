@@ -5,7 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [1.1.0] - Unreleased
+## [1.1.1] - 2026-02-25
+
+### Changed
+
+#### Branching Strategy Documentation
+- Renamed branching strategy from "hybrid Release Flow tailored for DataOps" to "environment-branch promotion model based on GitLab Flow"
+- Added links to [GitLab Flow](https://about.gitlab.com/topics/version-control/what-is-gitlab-flow/), [GitHub Flow](https://docs.github.com/en/get-started/using-github/github-flow), and [Gitflow](https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow) documentation in generated CI/CD setup guide
+- Expanded DEVELOPMENT.md Design Decision #9 with strategy comparison, community references, and rationale
+
+### Removed
+- Removed "Configurable Git Branching Model" from ROADMAP.md (complexity not justified; rationale documented in DEVELOPMENT.md)
+
+### Fixed
+- Updated ROADMAP.md "Git Flow Diagrams" to reflect shipped status (diagrams already exist in template)
+- Renamed diagram image files for consistency (`dataops-release-flow-*` → `branching-strategy-*`)
+
+## [1.1.0] - 2026-02-15
 
 ### Added
 
@@ -66,4 +82,6 @@ Initial public release.
 - L2 tests: YAML syntax, environment targets, content validation
 - CI/CD tests: pipeline generation, auth patterns, branch references
 
+[1.1.1]: https://github.com/vmariiechko/databricks-bundle-template/releases/tag/v1.1.1
+[1.1.0]: https://github.com/vmariiechko/databricks-bundle-template/releases/tag/v1.1.0
 [1.0.0]: https://github.com/vmariiechko/databricks-bundle-template/releases/tag/v1.0.0
