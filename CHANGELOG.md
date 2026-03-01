@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.2.0] - 2026-03-01
+
+### Changed
+
+#### Permissions & Groups Model Revision
+- **User target no longer has group-based schema grants** — `databricks bundle deploy -t user` now works immediately without creating groups. Groups are only required for dev/stage/prod targets
+- **Analytics team now has read access to all schemas** (bronze, silver, gold) in all non-user targets. Previously analytics_team only had access to silver and gold schemas in dev, stage, and prod targets
+- Updated access control matrix in PERMISSIONS_SETUP.md to reflect the user target having no group dependencies
+- Updated SETUP_GROUPS.md to clarify that groups are only required for non-user targets and that analytics_team has access to all schemas
+- Updated QUICKSTART.md, README.md troubleshooting, and group prerequisite sections to clarify user target has zero group dependencies
+- Added multi-workspace group guidance to SETUP_GROUPS.md (account-level groups, SCIM provisioning, identity federation)
+
+### Added
+- New `full_no_permissions.json` test configuration (full+dev mode with permissions=no) — 20 total test configs
+- New tests: `test_user_target_no_schema_grants`, `test_analytics_team_has_bronze_access`, `test_resources_block_structure`
+- Enhanced PERMISSIONS_SETUP.md `include_permissions=no` section with step-by-step manual setup guide, SQL grant examples, and Databricks documentation links
+- Conditional skip for `docs/SETUP_GROUPS.md` via `update_layout.tmpl` when `include_permissions=no`
+
+### Fixed
+- **YAML structure bug**: When `include_permissions=no`, `resources:` was inside the permissions conditional, causing `jobs:` overrides to be incorrectly nested under `variables:` instead of `resources:` in all targets. Fixed by making `resources:` unconditional with only `schemas:` grants wrapped in the permissions conditional
+
 ## [1.1.1] - 2026-02-25
 
 ### Changed
@@ -82,6 +103,7 @@ Initial public release.
 - L2 tests: YAML syntax, environment targets, content validation
 - CI/CD tests: pipeline generation, auth patterns, branch references
 
-[1.1.1]: https://github.com/vmariiechko/databricks-bundle-template/releases/tag/v1.1.1
+[1.2.0]: https://github.com/vmariiechko/databricks-bundle-template/releases/tag/v1.2.0
+[1.1.1]: https://github.com/vmariiechko/databricks-bundle-template/blob/main/CHANGELOG.md#111---2026-02-25
 [1.1.0]: https://github.com/vmariiechko/databricks-bundle-template/releases/tag/v1.1.0
 [1.0.0]: https://github.com/vmariiechko/databricks-bundle-template/releases/tag/v1.0.0

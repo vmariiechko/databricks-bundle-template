@@ -45,19 +45,22 @@ This section documents key design decisions made during template development. Th
 
 ### 2. Group Configuration
 
-**Decision**: Groups are environment-aware (3 groups in minimal, 4 in full mode)
+**Decision**: Groups are environment-aware (3 groups in minimal, 4 in full mode). User target has zero group dependencies.
 
 | Group | Minimal | Full |
 |-------|---------|------|
-| `developers` | Yes | Yes |
-| `qa_team` | Yes | Yes |
-| `operations_team` | No | Yes |
-| `analytics_team` | Yes | Yes |
+| `developers` | Yes (stage) | Yes (dev, stage) |
+| `qa_team` | Yes (stage) | Yes (stage) |
+| `operations_team` | No | Yes (prod) |
+| `analytics_team` | Yes (stage) | Yes (dev, stage, prod) |
 
 **Rationale**:
 - `operations_team` is only used in prod target permissions
 - No point asking users to create a group they won't use
+- `analytics_team` has read access to all schemas in all targets
+- User target uses personal identity only — zero group dependencies ensures immediate usability
 - Documentation (`SETUP_GROUPS.md.tmpl`) adapts to show only required groups
+- `SETUP_GROUPS.md` is skipped entirely when `include_permissions=no`
 
 ### 3. Workspace Configuration
 
@@ -78,18 +81,18 @@ This section documents key design decisions made during template development. Th
 
 **Decision**: Per-environment SPs with user target isolation
 
-| Target | SP Required? | Run-As | SP Grants |
-|--------|--------------|--------|-----------|
-| `user` | No | Current user | None (uses user identity) |
-| `dev` | Yes (for CI/CD) | Commented SP | Explicit in target override |
-| `stage` | Yes (for CI/CD) | SP | Explicit in target override |
-| `prod` | Yes (for CI/CD) | SP | Explicit in target override |
+| Target | SP Required? | Run-As | SP Grants | Group Grants |
+|--------|--------------|--------|-----------|--------------|
+| `user` | No | Current user | None | None (zero group dependencies) |
+| `dev` | Yes (for CI/CD) | SP | Explicit in target override | Explicit in target override |
+| `stage` | Yes (for CI/CD) | SP | Explicit in target override | Explicit in target override |
+| `prod` | Yes (for CI/CD) | SP | Explicit in target override | Explicit in target override |
 
 **Key Implementation Details**:
 - Base `schemas.yml` has **no SP grants** - only schema definitions
-- SP grants are added **per-target** in `databricks.yml` schema overrides
-- `user` target works immediately without any SP configuration
-- CI/CD targets (dev/stage/prod) require SP setup before deployment
+- SP and group grants are added **per-target** in `databricks.yml` schema overrides
+- `user` target works immediately without any SP or group configuration
+- CI/CD targets (dev/stage/prod) require SP setup and groups before deployment
 
 **Rationale**:
 - User target must work out-of-the-box for quick testing

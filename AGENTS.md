@@ -2,9 +2,30 @@
 
 This file provides guidance to AI coding assistants when working with code in this repository.
 
+Always use context7 when I need code generation, setup or configuration steps, or library/API documentation. This means you should automatically use the Context7 MCP tools to resolve library id and get library docs without me having to explicitly ask.
+
 ## What This Repository Is
 
 A **Databricks Asset Bundles (DABs) custom template** that generates multi-environment data pipeline projects. Users run `databricks bundle init .` to create production-ready bundles with configurable environments, compute, and permissions.
+
+## Development Process
+
+When implementing features, fixes, or changes, follow this workflow:
+
+1. **Branch**: Create a feature branch from `main` before making changes:
+   - `feature/<name>` for features and fixes
+   - `docs/<name>` for documentation-only changes
+2. **Implement**: Make changes, add/update tests. Run `pytest tests/ -V` and ensure all tests pass.
+3. **Update metadata** (as applicable):
+   - `CHANGELOG.md` — add entry under `[Unreleased]` following [Keep a Changelog](https://keepachangelog.com/) format
+   - `ROADMAP.md` — update feature status if the change relates to a tracked item
+   - `DEVELOPMENT.md` — add/update design decisions if architectural choices were made
+   - `ARCHITECTURE.md` — update if the change affects project structure or architecture
+   - `tests/configs/` — add new test configurations if new configuration axes are introduced
+4. **Propose commit message** — output a suggested commit message (imperative mood, free-form, no conventional commit prefixes). Do **not** stage or commit; the maintainer reviews and commits manually.
+5. **PR** (on request) — create a pull request via `gh pr create` following `.github/PULL_REQUEST_TEMPLATE.md`.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for full contributor guidelines.
 
 ## Commands
 

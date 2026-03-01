@@ -251,8 +251,10 @@ All choice-based parameters use pattern validation instead of enum (avoids termi
 
 | Condition | Effect |
 |-----------|--------|
-| `include_permissions = yes` | Include all `permissions` blocks in targets, all `grants` in schemas |
-| `include_permissions = no` | Omit all `permissions` and `grants` blocks entirely |
+| `include_permissions = yes` | Include `permissions` blocks in non-user targets, `grants` in schemas for non-user targets |
+| `include_permissions = no` | Omit all `permissions` and `grants` blocks; skip `SETUP_GROUPS.md` generation |
+
+**Note**: The user target never has schema grants or group-based permissions, regardless of `include_permissions`. This ensures `databricks bundle deploy -t user` works immediately without creating groups.
 
 ### Service Principal Configuration
 
@@ -315,8 +317,9 @@ All choice-based parameters use pattern validation instead of enum (avoids termi
 | `job_clusters` sections in jobs | `compute_type = classic` OR `compute_type = both` |
 | `environments` sections in jobs | `compute_type = serverless` OR `compute_type = both` |
 | `clusters` in pipelines | `compute_type = classic` OR `compute_type = both` |
-| All `permissions:` blocks | `include_permissions = yes` |
-| All `grants:` blocks in schemas | `include_permissions = yes` (per-target only) |
+| All `permissions:` blocks | `include_permissions = yes` (non-user targets only) |
+| All `grants:` blocks in schemas | `include_permissions = yes` (non-user targets only) |
+| `docs/SETUP_GROUPS.md` | `include_permissions = yes` (skipped via `update_layout.tmpl` when no) |
 | `.azure/` directory | `include_cicd = yes` AND `cicd_platform = azure_devops` |
 | `.github/` directory | `include_cicd = yes` AND `cicd_platform = github_actions` |
 | `.gitlab-ci.yml` content | `include_cicd = yes` AND `cicd_platform = gitlab` |

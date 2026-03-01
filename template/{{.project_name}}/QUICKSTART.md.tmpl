@@ -19,7 +19,10 @@ databricks bundle validate -t user
 If validation fails, check:
 - Unity Catalog `dev_{{.uc_catalog_suffix}}` exists and you have `USE CATALOG` permission
 {{- if eq .include_permissions "yes" }}
-- Required groups are created (see [docs/SETUP_GROUPS.md](docs/SETUP_GROUPS.md))
+
+> **Note**: The `user` target has no group dependencies and works immediately with your personal identity.
+> Groups are only required when deploying to {{- if eq .include_dev_environment "yes" }} dev,{{- end }} stage{{- if eq .environment_setup "full" }}, or prod{{- end }} targets.
+> See [docs/SETUP_GROUPS.md](docs/SETUP_GROUPS.md) for group setup instructions.
 {{- end }}
 
 ## 3. Deploy to User Environment
@@ -107,7 +110,11 @@ SHOW CATALOGS;
 
 ### "Group not found" Error
 
-Create required groups in workspace **Settings → Identity and access → Groups**
+Groups are required only for {{- if eq .include_dev_environment "yes" }} dev,{{- end }} stage{{- if eq .environment_setup "full" }}, and prod{{- end }} targets.
+The `user` target has no group dependencies and works immediately.
+
+Create required groups in workspace **Settings → Identity and access → Groups**.
+See [docs/SETUP_GROUPS.md](docs/SETUP_GROUPS.md) for details.
 {{- end }}
 
 ### Service Principal Errors

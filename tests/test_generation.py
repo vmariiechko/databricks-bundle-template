@@ -129,11 +129,16 @@ class TestDocsGenerated:
             f"docs/PERMISSIONS_SETUP.md not found for config: {generated_project.config_name}"
         )
 
-    def test_setup_groups_exists(self, generated_project: GeneratedProject):
-        """SETUP_GROUPS.md should be generated."""
-        assert generated_project.file_exists("docs/SETUP_GROUPS.md"), (
-            f"docs/SETUP_GROUPS.md not found for config: {generated_project.config_name}"
-        )
+    def test_setup_groups_conditional(self, generated_project: GeneratedProject):
+        """SETUP_GROUPS.md should only exist when include_permissions=yes."""
+        if generated_project.has_permissions:
+            assert generated_project.file_exists("docs/SETUP_GROUPS.md"), (
+                f"docs/SETUP_GROUPS.md not found when permissions enabled for config: {generated_project.config_name}"
+            )
+        else:
+            assert not generated_project.file_exists("docs/SETUP_GROUPS.md"), (
+                f"docs/SETUP_GROUPS.md should not exist when permissions disabled for config: {generated_project.config_name}"
+            )
 
 
 class TestTemplatesGenerated:
