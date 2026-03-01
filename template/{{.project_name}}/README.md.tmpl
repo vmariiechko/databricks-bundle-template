@@ -2,6 +2,13 @@
 
 A Databricks Asset Bundle for multi-environment deployment with {{- if eq .environment_setup "full" }} user,{{- if eq .include_dev_environment "yes" }} dev,{{- end }} stage, and prod{{- else }} user and stage{{- end }} environments.
 
+## Template Source
+
+This project was generated from the Databricks Asset Bundles template:
+https://github.com/vmariiechko/databricks-bundle-template
+
+For template updates, fixes, and release notes, check the template repository.
+
 ## Getting Started
 
 **New to this project?** Follow the [QUICKSTART.md](QUICKSTART.md) for step-by-step deployment instructions.
@@ -28,13 +35,15 @@ Before deploying, ensure you have:
 
 {{- if eq .include_permissions "yes" }}
 
-3. **User groups** created in your workspace:
+3. **User groups** created in your workspace (required for {{- if eq .include_dev_environment "yes" }} dev,{{- end }} stage{{- if eq .environment_setup "full" }}, prod{{- end }} targets only):
    - `developers` - data engineers, data scientists etc.
    - `qa_team` - QA engineers
 {{- if eq .environment_setup "full" }}
    - `operations_team` - operations/SRE
 {{- end }}
    - `analytics_team` - analytics users
+
+   > The `user` target works immediately with no group setup required.
 
    See [docs/SETUP_GROUPS.md](docs/SETUP_GROUPS.md) for setup instructions.
 {{- end }}
@@ -237,7 +246,10 @@ SHOW CATALOGS;
 
 ### "Group not found"
 
-Create groups in Databricks workspace: **Settings → Identity and access → Groups**
+Groups are only required for {{- if eq .include_dev_environment "yes" }} dev,{{- end }} stage{{- if eq .environment_setup "full" }}, and prod{{- end }} targets. The `user` target has no group dependencies.
+
+Create groups in Databricks workspace: **Settings → Identity and access → Groups**.
+See [docs/SETUP_GROUPS.md](docs/SETUP_GROUPS.md) for details.
 {{- end }}
 
 ### Service Principal Errors (CI/CD targets only)

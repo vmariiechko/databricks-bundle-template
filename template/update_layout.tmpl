@@ -27,5 +27,12 @@
     {{ skip (printf `%s/%s` $root_dir `.gitlab-ci.yml`) }}
 {{ end }}
 
+# =============================================================================
+# Skip permissions documentation when not configured
+# =============================================================================
+{{ if eq .include_permissions "no" }}
+    {{ skip (printf `%s/%s` $root_dir `docs/SETUP_GROUPS.md`) }}
+{{ end }}
+
 # Skip this layout file itself from being copied to output
 {{ skip `update_layout` }}

@@ -58,39 +58,8 @@ targets:
       job_cluster_max_workers: 1
       max_retries: 0  # No retries in dev mode - fail fast
 
-{{- if eq .include_permissions "yes" }}
-
     #### Resource Overrides ####
     resources:
-      schemas:
-        # Bronze: Full access for developers in user environment
-        bronze_schema:
-          name: ${var.schema_prefix}bronze
-          catalog_name: ${var.catalog_name}
-          grants:
-            - principal: ${var.developers_group}
-              privileges:
-                - ALL_PRIVILEGES
-
-        # Silver: Full access for developers
-        silver_schema:
-          name: ${var.schema_prefix}silver
-          catalog_name: ${var.catalog_name}
-          grants:
-            - principal: ${var.developers_group}
-              privileges:
-                - ALL_PRIVILEGES
-
-        # Gold: Full access for developers
-        gold_schema:
-          name: ${var.schema_prefix}gold
-          catalog_name: ${var.catalog_name}
-          grants:
-            - principal: ${var.developers_group}
-              privileges:
-                - ALL_PRIVILEGES
-{{- end }}
-
       jobs:
         {{.project_name}}_ingestion:
           # Override schedule - don't run automatically in user env
@@ -158,12 +127,11 @@ targets:
       job_cluster_min_workers: 1
       job_cluster_max_workers: 3
 
-{{- if eq .include_permissions "yes" }}
-
     #### Resource Overrides ####
     resources:
+{{- if eq .include_permissions "yes" }}
       schemas:
-        # Bronze: Full access for developers and deployment SP
+        # Bronze: Full access for developers and deployment SP, Analytics read-only
         bronze_schema:
           name: ${var.schema_prefix}bronze
           catalog_name: ${var.catalog_name}
@@ -174,6 +142,10 @@ targets:
             - principal: ${var.developers_group}
               privileges:
                 - ALL_PRIVILEGES
+            - principal: ${var.analytics_team_group}
+              privileges:
+                - USE_SCHEMA
+                - SELECT
 
         # Silver: Developers full access, Analytics read-only
         silver_schema:
@@ -279,12 +251,11 @@ targets:
       job_cluster_min_workers: 2
       job_cluster_max_workers: 5
 
-{{- if eq .include_permissions "yes" }}
-
     #### Resource Overrides ####
     resources:
+{{- if eq .include_permissions "yes" }}
       schemas:
-        # Bronze: SP full access, Developers and QA read-only
+        # Bronze: SP full access, Developers, QA, and Analytics read-only
         bronze_schema:
           name: ${var.schema_prefix}bronze
           catalog_name: ${var.catalog_name}
@@ -297,6 +268,10 @@ targets:
                 - USE_SCHEMA
                 - SELECT
             - principal: ${var.qa_team_group}
+              privileges:
+                - USE_SCHEMA
+                - SELECT
+            - principal: ${var.analytics_team_group}
               privileges:
                 - USE_SCHEMA
                 - SELECT
@@ -322,7 +297,7 @@ targets:
                 - USE_SCHEMA
                 - SELECT
 
-        # Gold: SP full access, wider read access for testing
+        # Gold: SP full access, Developers, QA, and Analytics read-only
         gold_schema:
           name: ${var.schema_prefix}gold
           catalog_name: ${var.catalog_name}
@@ -418,12 +393,11 @@ targets:
       job_cluster_min_workers: 2
       job_cluster_max_workers: 8
 
-{{- if eq .include_permissions "yes" }}
-
     #### Resource Overrides ####
     resources:
+{{- if eq .include_permissions "yes" }}
       schemas:
-        # Bronze: SP full access, Operations read-only (incident investigation)
+        # Bronze: SP full access, Analytics and Operations read-only
         bronze_schema:
           name: ${var.schema_prefix}bronze
           catalog_name: ${var.catalog_name}
@@ -431,6 +405,10 @@ targets:
             - principal: ${var.prod_service_principal}
               privileges:
                 - ALL_PRIVILEGES
+            - principal: ${var.analytics_team_group}
+              privileges:
+                - USE_SCHEMA
+                - SELECT
             - principal: ${var.operations_group}
               privileges:
                 - USE_SCHEMA

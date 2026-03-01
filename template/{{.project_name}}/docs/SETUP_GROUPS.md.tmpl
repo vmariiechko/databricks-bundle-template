@@ -1,6 +1,8 @@
 # Setting Up User Groups
 
-Before deploying this bundle with permissions enabled, you must create the required groups in your Databricks workspace. These are custom groups you create, not system groups.
+Before deploying to non-user targets ({{- if eq .include_dev_environment "yes" }}dev, {{- end }}stage{{- if eq .environment_setup "full" }}, prod{{- end }}), you must create the required groups in your Databricks workspace. The `user` target works immediately with no group dependencies.
+
+These are custom groups you create, not system groups.
 
 ---
 
@@ -8,6 +10,7 @@ Before deploying this bundle with permissions enabled, you must create the requi
 
 - [How to Create Groups](#how-to-create-groups)
 - [Required Groups by Environment](#required-groups-by-environment)
+- [Multi-Workspace Group Configuration](#multi-workspace-group-configuration)
 - [Validation](#validation)
 - [Adding Members to Groups](#adding-members-to-groups)
 - [Customizing Group Names](#customizing-group-names)
@@ -49,17 +52,18 @@ Your bundle is configured with **full environment setup** (user{{- if eq .includ
 Your bundle is configured with **minimal environment setup** (user, stage), requiring 3 groups.
 {{- end }}
 
-### 1. developers (Required for all environments)
+### 1. developers (Required for {{- if eq .include_dev_environment "yes" }} dev,{{- end }} stage)
 - **Purpose**: Data engineers and developers working on data pipelines
 - **Access**:
-  - **user**: Full access (ALL_PRIVILEGES) to all schemas
 {{- if eq .include_dev_environment "yes" }}
-  - **dev**: Full access (ALL_PRIVILEGES) to all schemas
+  - **dev**: Full access (ALL_PRIVILEGES) to all schemas + CAN_MANAGE on resources
 {{- end }}
-  - **stage**: Read-only (USE_SCHEMA, SELECT) to all schemas
+  - **stage**: Read-only (USE_SCHEMA, SELECT) to all schemas + CAN_VIEW on resources
 {{- if eq .environment_setup "full" }}
   - **prod**: Not granted direct access (automation via service principal)
 {{- end }}
+
+> **Note**: The `user` target uses your personal identity and does not reference any groups.
 
 **Who to add**: Data engineers, ETL developers, data platform engineers
 
@@ -91,13 +95,45 @@ Your bundle is configured with **minimal environment setup** (user, stage), requ
 - **Purpose**: Analytics and BI teams consuming curated data
 - **Access**:
 {{- if eq .include_dev_environment "yes" }}
-  - **dev**: Read-only (USE_SCHEMA, SELECT) to silver and gold schemas
+  - **dev**: Read-only (USE_SCHEMA, SELECT) to all schemas (bronze, silver, gold)
 {{- end }}
-  - **stage**: Read-only (USE_SCHEMA, SELECT) to silver and gold schemas
+  - **stage**: Read-only (USE_SCHEMA, SELECT) to all schemas (bronze, silver, gold)
 {{- if eq .environment_setup "full" }}
-  - **prod**: Read-only (USE_SCHEMA, SELECT) to silver and gold schemas
+  - **prod**: Read-only (USE_SCHEMA, SELECT) to all schemas (bronze, silver, gold)
 {{- end }}
 - **Who to add**: Data analysts, BI developers, business users, data scientists
+
+{{- if eq .workspace_setup "multi_workspace" }}
+
+---
+
+## Multi-Workspace Group Configuration
+
+Your bundle is configured for **separate workspaces per environment**. Groups must exist in **every workspace** where targets will deploy.
+
+### Account-Level vs Workspace-Level Groups
+
+Databricks supports two types of groups:
+- **Account-level groups** (recommended): Created in the [Databricks Account Console](https://accounts.cloud.databricks.com). Can be assigned to multiple workspaces.
+- **Workspace-level groups** (legacy): Created within a single workspace. Cannot be shared across workspaces.
+
+### Recommended Setup
+
+1. **Create groups at the account level** via the Account Console or [SCIM provisioning](https://docs.databricks.com/aws/en/admin/users-groups/scim/)
+2. **Assign groups to each workspace** where targets will deploy:
+{{- if eq .include_dev_environment "yes" }}
+  - Dev workspace: `developers`, `analytics_team`
+{{- end }}
+  - Stage workspace: `developers`, `qa_team`, `analytics_team`
+{{- if eq .environment_setup "full" }}
+  - Prod workspace: `operations_team`, `analytics_team`
+{{- end }}
+3. **Use SCIM provisioning** from your identity provider (Azure AD, Okta, etc.) for automatic sync
+
+### Identity Federation
+
+If your Databricks account uses [identity federation](https://docs.databricks.com/aws/en/admin/users-groups/) with SCIM provisioning from your identity provider (IdP), groups are synced to the Databricks account and can then be assigned to workspaces. This ensures consistent group names across workspaces and automatic membership updates.
+{{- end }}
 
 ---
 

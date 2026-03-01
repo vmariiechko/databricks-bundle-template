@@ -269,6 +269,65 @@ class TestPermissionsConfig:
                 "operations_group should not exist in minimal mode"
             )
 
+    def test_user_target_no_schema_grants(self, generated_project: GeneratedProject):
+        """User target should never have schema grants, regardless of include_permissions."""
+        data = load_yaml_file(generated_project, "databricks.yml")
+        user_target = data["targets"]["user"]
+        resources = user_target.get("resources", {})
+        schemas = resources.get("schemas", {})
+        for schema_name, schema_config in schemas.items():
+            grants = schema_config.get("grants") if isinstance(schema_config, dict) else None
+            assert grants is None, (
+                f"User target should have no schema grants, but found grants in {schema_name} "
+                f"for config: {generated_project.config_name}"
+            )
+
+    def test_analytics_team_has_bronze_access(self, generated_project: GeneratedProject):
+        """Analytics team should have USE_SCHEMA+SELECT on bronze in all non-user targets."""
+        if not generated_project.has_permissions:
+            return
+
+        data = load_yaml_file(generated_project, "databricks.yml")
+        targets_to_check = []
+
+        if generated_project.has_dev_environment:
+            targets_to_check.append("dev")
+        targets_to_check.append("stage")
+        if generated_project.is_full:
+            targets_to_check.append("prod")
+
+        for target_name in targets_to_check:
+            target = data["targets"][target_name]
+            bronze = target.get("resources", {}).get("schemas", {}).get("bronze_schema", {})
+            grants = bronze.get("grants", [])
+
+            analytics_grants = [
+                g for g in grants if g.get("principal") == "${var.analytics_team_group}"
+            ]
+            assert len(analytics_grants) > 0, (
+                f"analytics_team_group should have grants on bronze_schema in {target_name} target "
+                f"for config: {generated_project.config_name}"
+            )
+            privileges = analytics_grants[0].get("privileges", [])
+            assert "USE_SCHEMA" in privileges and "SELECT" in privileges, (
+                f"analytics_team_group should have USE_SCHEMA and SELECT on bronze in {target_name} "
+                f"for config: {generated_project.config_name}"
+            )
+
+    def test_resources_block_structure(self, generated_project: GeneratedProject):
+        """resources: block should be properly structured in all targets (not nested under variables)."""
+        data = load_yaml_file(generated_project, "databricks.yml")
+
+        for target_name, target_config in data["targets"].items():
+            if not isinstance(target_config, dict):
+                continue
+            variables = target_config.get("variables", {})
+            if isinstance(variables, dict):
+                assert "jobs" not in variables, (
+                    f"'jobs' found under 'variables' in {target_name} target - "
+                    f"should be under 'resources'. Config: {generated_project.config_name}"
+                )
+
 
 # =============================================================================
 # Compute Type Tests
@@ -339,19 +398,27 @@ class TestDocumentationContent:
             assert "prod" in content, "QUICKSTART should mention prod deployment in full mode"
 
     def test_groups_doc_matches_config(self, generated_project: GeneratedProject):
-        """SETUP_GROUPS.md should list correct groups for configuration."""
+        """SETUP_GROUPS.md should list correct groups when it exists, or not exist when permissions disabled."""
+        if not generated_project.has_permissions:
+            assert not generated_project.file_exists("docs/SETUP_GROUPS.md"), (
+                "SETUP_GROUPS.md should not exist when permissions disabled"
+            )
+            return
+
         content = generated_project.get_file_content("docs/SETUP_GROUPS.md")
 
         # Core groups should always be mentioned when permissions enabled
-        if generated_project.has_permissions:
-            assert "developers" in content
-            assert "qa_team" in content
-            assert "analytics_team" in content
+        assert "developers" in content
+        assert "qa_team" in content
+        assert "analytics_team" in content
+        assert "bronze, silver, gold" in content, (
+            "SETUP_GROUPS.md should mention analytics_team access to bronze, silver, and gold schemas"
+        )
 
-            if generated_project.is_full:
-                assert "operations_team" in content, (
-                    "operations_team should be in SETUP_GROUPS.md for full mode"
-                )
+        if generated_project.is_full:
+            assert "operations_team" in content, (
+                "operations_team should be in SETUP_GROUPS.md for full mode"
+            )
 
 
 # =============================================================================
