@@ -57,6 +57,8 @@ See [example configs](./tests/configs/) for options and refer to [Template Optio
 - **Configurable compute** (classic clusters, serverless, or both)
 - **CI/CD pipeline templates** (Azure DevOps, GitHub Actions, GitLab)
 
+See the [example project](https://github.com/vmariiechko/databricks-bundle-template-example) for a pre-generated output (AWS + GitHub Actions + classic compute, no RBAC).
+
 ## Template Options
 
 | Option | Choices | Default |

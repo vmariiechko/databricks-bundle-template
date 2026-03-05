@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+## [1.3.0] - 2026-03-05
+
+### Added
+- **`_template_version` field in generated `bundle_init_config.json`** — all generated projects now record which template version was used. Useful for tracking generated project provenance and knowing when to regenerate.
+- **`cicd_platform_display` helper in `library/helpers.tmpl`** — reusable helper returning the human-readable CI/CD platform name (e.g. `GitHub Actions` instead of `github_actions`). Used in generated README.
+- **Example repository companion** — pre-generated example at [databricks-bundle-template-example](https://github.com/vmariiechko/databricks-bundle-template-example) (AWS + GitHub Actions + classic compute, no RBAC), linked from template README.
+- **`scripts/regenerate-example.sh`** — maintainer script to regenerate the example repo from the current template state. Uses Python for cross-platform file sync. See `DEVELOPMENT.md` for usage.
+- **`scripts/example_repo_config.json`** — generation config for the example repository.
+- **Example repo regeneration runbook** in `DEVELOPMENT.md` — documents when and how to update the example repo, including the release checklist step for `_template_version`.
+
+### Fixed
+- **Generated README CI/CD section** now shows human-readable platform name (e.g. `GitHub Actions`) instead of the raw config value (`github_actions`)
+- **Generated `databricks.yml` documentation link** updated to current `/aws/en/` URL format
+
 ## [1.2.0] - 2026-03-01
 
 ### Changed
@@ -103,6 +119,7 @@ Initial public release.
 - L2 tests: YAML syntax, environment targets, content validation
 - CI/CD tests: pipeline generation, auth patterns, branch references
 
+[1.3.0]: https://github.com/vmariiechko/databricks-bundle-template/releases/tag/v1.3.0
 [1.2.0]: https://github.com/vmariiechko/databricks-bundle-template/releases/tag/v1.2.0
 [1.1.1]: https://github.com/vmariiechko/databricks-bundle-template/blob/main/CHANGELOG.md#111---2026-02-25
 [1.1.0]: https://github.com/vmariiechko/databricks-bundle-template/releases/tag/v1.1.0

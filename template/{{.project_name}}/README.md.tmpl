@@ -4,7 +4,7 @@ A Databricks Asset Bundle for multi-environment deployment with {{- if eq .envir
 
 ## Template Source
 
-This project was generated from the Databricks Asset Bundles template:
+This project was generated from the Databricks Asset Bundles template:<br>
 https://github.com/vmariiechko/databricks-bundle-template
 
 For template updates, fixes, and release notes, check the template repository.
@@ -66,7 +66,7 @@ databricks bundle run {{.project_name}}_ingestion -t user
 ```
 {{.project_name}}/
 ├── databricks.yml              # Bundle configuration
-├── variables.yml               # Shared variables (catalogs, SPs, groups)
+├── variables.yml               # Shared variables (catalogs, SPs{{- if eq .include_permissions "yes" }}, groups{{- end }})
 ├── resources/
 │   ├── {{.project_name}}_ingestion.job.yml       # ETL ingestion job
 │   ├── {{.project_name}}_pipeline.pipeline.yml   # LDP pipeline
@@ -123,7 +123,7 @@ databricks bundle destroy -t <target>    # Cleanup
 | File | Purpose |
 |------|---------|
 | `databricks.yml` | Targets, permissions, resource includes |
-| `variables.yml` | Catalogs, service principals, group names |
+| `variables.yml` | Catalogs, service principals{{- if eq .include_permissions "yes" }}, group names{{- end }} |
 | `resources/*.yml` | Job and pipeline definitions |
 
 ### Compute
@@ -263,7 +263,7 @@ If deploying to {{- if eq .include_dev_environment "yes" }} dev,{{- end }} stage
 
 ## CI/CD
 
-This project includes pre-configured CI/CD pipelines for **{{.cicd_platform }}**.
+This project includes pre-configured CI/CD pipelines for **{{template "cicd_platform_display" .}}**.
 
 | Pipeline Stage | Trigger | Action |
 |---------------|---------|--------|
@@ -300,9 +300,9 @@ See the pipeline notebooks in `src/pipelines/` for examples.
 
 ## Resources
 
-- [Unity Catalog](https://docs.databricks.com/data-governance/unity-catalog/)
-- [Databricks Asset Bundles](https://docs.databricks.com/dev-tools/bundles/)
+- [Unity Catalog](https://docs.databricks.com/aws/en/data-governance/unity-catalog)
+- [Databricks Asset Bundles](https://docs.databricks.com/aws/en/dev-tools/bundles)
 - [Lakeflow Declarative Pipelines](https://docs.databricks.com/aws/en/ldp/)
 {{- if eq .include_cicd "yes" }}
-- [CI/CD on Databricks](https://docs.databricks.com/dev-tools/ci-cd/)
+- [CI/CD on Databricks](https://docs.databricks.com/aws/en/dev-tools/ci-cd)
 {{- end }}

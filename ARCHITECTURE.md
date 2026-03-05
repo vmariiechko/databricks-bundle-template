@@ -383,6 +383,9 @@ databricks-bundle-template/
 │   ├── test_generation.py                   # L1: File generation tests
 │   ├── test_content.py                      # L2: Content validation tests
 │   └── test_cicd.py                         # CI/CD pipeline tests
+├── scripts/                                 # Maintainer scripts
+│   ├── regenerate-example.sh                # Regenerates the example repository
+│   └── example_repo_config.json             # Config for example repo generation
 ├── ARCHITECTURE.md                          # This document
 ├── DEVELOPMENT.md                           # Developer notes and roadmap
 └── README.md                                # Template repository README

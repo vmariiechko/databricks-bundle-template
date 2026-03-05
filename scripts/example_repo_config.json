@@ -1,0 +1,16 @@
+{
+  "_comment": "Config used to generate the example repository at https://github.com/vmariiechko/databricks-bundle-template-example",
+  "project_name": "my_data_project",
+  "environment_setup": "full",
+  "include_dev_environment": "no",
+  "compute_type": "classic",
+  "cloud_provider": "aws",
+  "workspace_setup": "single_workspace",
+  "uc_catalog_suffix": "analytics",
+  "include_permissions": "no",
+  "configure_sp_now": "no",
+  "include_cicd": "yes",
+  "cicd_platform": "github_actions",
+  "default_branch": "main",
+  "release_branch": "release"
+}
