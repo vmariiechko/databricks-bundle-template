@@ -68,3 +68,15 @@
 {{- define "cli_version" -}}
      0.274.0
 {{- end -}}
+
+{{/* ============================================================================
+     CICD PLATFORM DISPLAY NAME
+     Returns the human-readable CI/CD platform name for use in documentation
+     ============================================================================ */}}
+
+{{- define "cicd_platform_display" -}}
+     {{- if eq .cicd_platform "github_actions" -}}GitHub Actions
+     {{- else if eq .cicd_platform "azure_devops" -}}Azure DevOps
+     {{- else if eq .cicd_platform "gitlab" -}}GitLab
+     {{- end -}}
+{{- end -}}

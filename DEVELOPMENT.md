@@ -318,6 +318,67 @@ When testing template changes, validate these combinations:
 
 ---
 
+## Updating the Example Repository
+
+The [example repository](https://github.com/vmariiechko/databricks-bundle-template-example) is a pre-generated output of this template. It should be regenerated whenever template changes affect generated project structure, configuration files, or documentation.
+
+### When to regenerate
+
+Regenerate after any change that modifies:
+- `template/{{.project_name}}/` files (bundle config, resources, CI/CD workflows, docs)
+- `databricks_template_schema.json` (if it affects the example config's axes)
+- `library/helpers.tmpl`
+
+No need to regenerate for changes to tests, template-repo-only docs (DEVELOPMENT.md, ARCHITECTURE.md), or CHANGELOG/ROADMAP.
+
+### Regeneration steps
+
+```bash
+# Activate the venv first (Python is required by the script)
+source venv/bin/activate   # Linux/macOS
+venv\Scripts\activate      # Windows
+
+# From the template repo root
+./scripts/regenerate-example.sh
+
+# Or specify the example repo path explicitly
+./scripts/regenerate-example.sh /path/to/databricks-bundle-template-example
+```
+
+The script:
+1. Generates a fresh project into a temp directory using `scripts/example_repo_config.json`
+2. Syncs the output to the example repo via Python (preserving `.git` and `LICENSE`)
+3. Injects the workspace host warning into the README
+4. Appends the maintenance/about note at the bottom of the README
+5. Cleans up the temp directory
+
+### After running the script
+
+1. **Review the diff**: `cd ../databricks-bundle-template-example && git diff`
+2. **Check the README** — verify the workspace host warning and about note look correct
+3. **Commit in the example repo**: use a message like `Regenerate from databricks-bundle-template v1.x.x`
+4. **Tag the commit**: `git tag generated-from-v1.x.x && git push --tags`
+5. **Push**: `git push`
+
+### On template releases
+
+When cutting a new template version, update `_template_version` in `template/{{.project_name}}/bundle_init_config.json.tmpl` to match the new version before regenerating the example repo.
+
+---
+
+## Release Checklist
+
+Steps to perform before tagging a new release:
+
+1. **Update `_template_version`** in `template/{{.project_name}}/bundle_init_config.json.tmpl` to the new version string
+2. **Update `CHANGELOG.md`** — move items from `[Unreleased]` to a new versioned section with today's date
+3. **Run the full test suite**: `pytest tests/ -V`
+4. **Regenerate the example repo**: `./scripts/regenerate-example.sh` (see [Updating the Example Repository](#updating-the-example-repository))
+5. **Commit and push** both repos, then create a PR in the template repo
+6. **Tag the release** after the PR is merged: `git tag v1.x.x && git push --tags`
+7. **Create a GitHub Release** from the tag with the changelog section as release notes
+8. **Tag the example repo commit**: `git tag generated-from-v1.x.x && git push --tags`
+
 ## Roadmap
 
 For planned features and future direction, see [ROADMAP.md](ROADMAP.md).
