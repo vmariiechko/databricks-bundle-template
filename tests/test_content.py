@@ -545,3 +545,10 @@ class TestCrossFileConsistency:
         # Check databricks.yml
         db_content = generated_project.get_file_content("databricks.yml")
         assert suffix in db_content, f"Catalog suffix '{suffix}' not in databricks.yml"
+
+    def test_direct_engine_enabled(self, generated_project: GeneratedProject):
+        """Generated bundles should use the direct deployment engine."""
+        data = load_yaml_file(generated_project, "databricks.yml")
+        assert data.get("bundle", {}).get("engine") == "direct", (
+            f"bundle.engine should be 'direct' for config: {generated_project.config_name}"
+        )

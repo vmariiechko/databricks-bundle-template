@@ -5,7 +5,7 @@ This directory contains the automated test suite for the Databricks Multi-Enviro
 ## Prerequisites
 
 - **Python** 3.11+
-- **Databricks CLI** v0.274.0+ ([installation guide](https://docs.databricks.com/en/dev-tools/cli/install.html))
+- **Databricks CLI** v0.296.0+ ([installation guide](https://docs.databricks.com/en/dev-tools/cli/install.html))
 
 ## Quick Start
 

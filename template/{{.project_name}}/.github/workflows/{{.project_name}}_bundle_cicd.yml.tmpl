@@ -1,7 +1,7 @@
 {{- if and (eq .include_cicd "yes") (eq .cicd_platform "github_actions") -}}
 # GitHub Actions Workflow for {{.project_name}}
 #
-# This workflow validates and deploys Databricks Asset Bundles:
+# This workflow validates and deploys Declarative Automation Bundles:
 # - bundle-ci: Validates bundle configuration on Pull Requests to {{.default_branch}}
 # - staging-cd: Deploys to staging when PRs are merged into {{.default_branch}}
 {{- if eq .environment_setup "full" }}

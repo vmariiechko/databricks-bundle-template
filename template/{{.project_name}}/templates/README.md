@@ -1,6 +1,6 @@
 # Configuration Templates
 
-This folder contains reusable configuration templates that you can copy and paste into your Databricks Asset Bundle resource files.
+This folder contains reusable configuration templates that you can copy and paste into your Declarative Automation Bundle resource files.
 
 ## Why Templates?
 

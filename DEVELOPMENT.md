@@ -254,6 +254,19 @@ This pattern is widely endorsed in the data engineering community:
 
 **Key insight**: The user target always uses the current workspace regardless of workspace_setup, since it's for personal development. Only CI/CD deployment targets (dev/stage/prod) get separate workspace hosts.
 
+### 14. Direct Deployment Engine
+
+**Decision**: Generated bundles use `engine: direct` (hardcoded, not configurable).
+
+**Rationale**:
+- Direct engine replaces the Terraform backend, configurable via `bundle.engine` since v0.295.0, latest fixes in v0.296.0
+- Terraform backend will be deprecated; direct engine will become the default
+- No existing template users need backward compatibility
+- Adding a template parameter would increase the testing matrix with no benefit
+- `.databricks/` gitignore pattern covers the direct engine's `resources.json` state file
+
+**Consequence**: Minimum CLI version bumped to v0.296.0. `*.tfstate` patterns removed from `.gitignore`.
+
 ---
 
 ## Testing Matrix

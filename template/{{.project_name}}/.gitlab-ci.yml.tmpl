@@ -1,7 +1,7 @@
 {{- if and (eq .include_cicd "yes") (eq .cicd_platform "gitlab") -}}
 # GitLab CI/CD Pipeline for {{.project_name}}
 #
-# This pipeline validates and deploys Databricks Asset Bundles:
+# This pipeline validates and deploys Declarative Automation Bundles:
 # - bundle-ci: Validates bundle configuration on Merge Requests to {{.default_branch}}
 # - staging-cd: Deploys to staging when MRs are merged into {{.default_branch}}
 {{- if eq .environment_setup "full" }}

@@ -1,9 +1,7 @@
 # ===========================================
-# Databricks Asset Bundles
+# Declarative Automation Bundles
 # ===========================================
 .databricks/
-*.tfstate
-*.tfstate.backup
 
 # ===========================================
 # Python

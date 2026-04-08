@@ -6,7 +6,7 @@ Always use context7 when I need code generation, setup or configuration steps, o
 
 ## What This Repository Is
 
-A **Databricks Asset Bundles (DABs) custom template** that generates multi-environment data pipeline projects. Users run `databricks bundle init .` to create production-ready bundles with configurable environments, compute, and permissions.
+A **Declarative Automation Bundles (DABs) custom template** that generates multi-environment data pipeline projects. Users run `databricks bundle init .` to create production-ready bundles with configurable environments, compute, and permissions.
 
 ## Development Process
 

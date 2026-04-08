@@ -1,11 +1,11 @@
 # Contributing to databricks-bundle-template
 
-Thank you for your interest in contributing! This project is a Databricks Asset Bundles custom template, and contributions of all kinds are welcome: bug reports, feature requests, documentation improvements, and code changes.
+Thank you for your interest in contributing! This project is a Declarative Automation Bundles custom template, and contributions of all kinds are welcome: bug reports, feature requests, documentation improvements, and code changes.
 
 ## Prerequisites
 
 - **Python** 3.11+
-- **Databricks CLI** v0.274.0+ ([installation guide](https://docs.databricks.com/en/dev-tools/cli/install.html))
+- **Databricks CLI** v0.296.0+ ([installation guide](https://docs.databricks.com/en/dev-tools/cli/install.html))
 
 ## Getting Started
 
