@@ -1,4 +1,4 @@
-# This is a Databricks asset bundle definition for {{.project_name}}.
+# This is a Declarative automation bundle definition for {{.project_name}}.
 # See https://docs.databricks.com/aws/en/dev-tools/bundles for documentation.
 #
 # Generated with: databricks bundle init
@@ -13,6 +13,7 @@
 bundle:
   name: {{.project_name}}
   databricks_cli_version: '>= {{template "cli_version" .}}'
+  engine: direct
 
 # Experimental features configuration
 experimental:
@@ -51,7 +52,11 @@ targets:
       default_schema_name: "bronze"
       pipeline_min_workers: 1
       pipeline_max_workers: 1
+{{- if eq .compute_type "classic" }}
       photon_enabled: false
+{{- else }}
+      photon_enabled: true  # Required for serverless compute
+{{- end }}
       continuous_mode: false
       failure_notification_emails: []
       job_cluster_min_workers: 1

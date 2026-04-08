@@ -98,7 +98,7 @@ body:
     attributes:
       label: Databricks CLI Version
       description: "Output of `databricks --version`"
-      placeholder: "v0.274.0"
+      placeholder: "v0.296.0"
 
   - type: checkboxes
     id: checks

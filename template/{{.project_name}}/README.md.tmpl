@@ -1,10 +1,10 @@
 # {{.project_name}}
 
-A Databricks Asset Bundle for multi-environment deployment with {{- if eq .environment_setup "full" }} user,{{- if eq .include_dev_environment "yes" }} dev,{{- end }} stage, and prod{{- else }} user and stage{{- end }} environments.
+A Declarative Automation Bundle for multi-environment deployment with {{- if eq .environment_setup "full" }} user,{{- if eq .include_dev_environment "yes" }} dev,{{- end }} stage, and prod{{- else }} user and stage{{- end }} environments.
 
 ## Template Source
 
-This project was generated from the Databricks Asset Bundles template:<br>
+This project was generated from the Declarative Automation Bundles template:<br>
 https://github.com/vmariiechko/databricks-bundle-template
 
 For template updates, fixes, and release notes, check the template repository.
@@ -301,7 +301,7 @@ See the pipeline notebooks in `src/pipelines/` for examples.
 ## Resources
 
 - [Unity Catalog](https://docs.databricks.com/aws/en/data-governance/unity-catalog)
-- [Databricks Asset Bundles](https://docs.databricks.com/aws/en/dev-tools/bundles)
+- [Declarative Automation Bundles](https://docs.databricks.com/aws/en/dev-tools/bundles)
 - [Lakeflow Declarative Pipelines](https://docs.databricks.com/aws/en/ldp/)
 {{- if eq .include_cicd "yes" }}
 - [CI/CD on Databricks](https://docs.databricks.com/aws/en/dev-tools/ci-cd)

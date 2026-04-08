@@ -3,7 +3,7 @@
 [![Tests](https://github.com/vmariiechko/databricks-bundle-template/actions/workflows/test.yml/badge.svg)](https://github.com/vmariiechko/databricks-bundle-template/actions/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A custom template for [Databricks Asset Bundles](https://docs.databricks.com/en/dev-tools/bundles/index.html) that generates production-ready, multi-environment projects with configurable compute, permissions, and CI/CD pipelines.
+A custom template for [Declarative Automation Bundles](https://docs.databricks.com/aws/en/dev-tools/bundles/) that generates production-ready, multi-environment projects with configurable compute, permissions, and CI/CD pipelines.
 
 ## Why This Template?
 
@@ -11,7 +11,7 @@ Setting up a production-grade Databricks project involves many decisions: enviro
 
 ## Requirements
 
-- Databricks CLI v0.274.0+ (`pip install databricks-cli`)
+- Databricks CLI v0.296.0+ (`pip install databricks-cli`)
 - Unity Catalog enabled workspace
 
 ## Usage

@@ -4,7 +4,7 @@ This document outlines the planned direction for the Databricks Bundle Template.
 
 ## Vision
 
-A comprehensive, community-driven Databricks Asset Bundles template that covers the most common real-world configurations for production data engineering projects. The template should be opinionated where it matters (secure defaults, proven patterns) and flexible where teams differ (branching strategies, compute choices, permission models).
+A comprehensive, community-driven Declarative Automation Bundles template that covers the most common real-world configurations for production data engineering projects. The template should be opinionated where it matters (secure defaults, proven patterns) and flexible where teams differ (branching strategies, compute choices, permission models).
 
 ## How to Influence the Roadmap
 

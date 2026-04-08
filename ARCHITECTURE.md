@@ -5,7 +5,7 @@
 > **Updated:** 2026-01-31
 > **Status:** Production Ready
 
-This document captures all architectural decisions for converting the `databricks-bundle-template` repository into a reusable Databricks Asset Bundles custom template.
+This document captures all architectural decisions for converting the `databricks-bundle-template` repository into a reusable Declarative Automation Bundles custom template.
 
 ---
 
@@ -554,7 +554,7 @@ All configurations will use: `17.3.x-scala2.13` (current LTS as of template crea
 
 | Term | Definition |
 |------|------------|
-| **DAB** | Databricks Asset Bundle |
+| **DAB** | Declarative Automation Bundle |
 | **LDP** | Lakeflow Declarative Pipelines (formerly DLT) |
 | **UC** | Unity Catalog |
 | **SP** | Service Principal |

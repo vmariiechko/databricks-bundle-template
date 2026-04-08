@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-04-08
+
+### Changed
+- **Renamed "Databricks Asset Bundles" to "Declarative Automation Bundles"** across all documentation, templates, and metadata — aligns with the [official Databricks rename](https://docs.databricks.com/aws/en/dev-tools/bundles/) announced March 16, 2026. The DABs acronym remains unchanged
+- **Bumped minimum Databricks CLI version** from v0.274.0 to v0.296.0 to support the direct deployment engine configuration
+- **Enabled direct deployment engine** (`bundle.engine: direct`) in generated bundles, replacing the Terraform-based deployment backend for faster, simpler deployments without external dependencies
+- **Removed `*.tfstate` patterns from `.gitignore`** — no longer needed with the direct engine; `.databricks/` already covers state files
+- **Updated documentation URLs** to current `docs.databricks.com/aws/en/` format
+
+### Fixed
+- **Photon now enabled on user target for serverless compute** — serverless pipelines require `photon: true`; previously the user target hardcoded `false` regardless of compute type, causing deployment failures with serverless and both compute modes
+
 ## [1.3.0] - 2026-03-05
 
 ### Added
@@ -119,6 +131,7 @@ Initial public release.
 - L2 tests: YAML syntax, environment targets, content validation
 - CI/CD tests: pipeline generation, auth patterns, branch references
 
+[1.4.0]: https://github.com/vmariiechko/databricks-bundle-template/releases/tag/v1.4.0
 [1.3.0]: https://github.com/vmariiechko/databricks-bundle-template/releases/tag/v1.3.0
 [1.2.0]: https://github.com/vmariiechko/databricks-bundle-template/releases/tag/v1.2.0
 [1.1.1]: https://github.com/vmariiechko/databricks-bundle-template/blob/main/CHANGELOG.md#111---2026-02-25

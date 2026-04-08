@@ -2,7 +2,7 @@
 
 ## Scope
 
-This security policy covers the **template generation logic** of this repository - the Go template files, schema definitions, and helper functions that produce Databricks Asset Bundle projects.
+This security policy covers the **template generation logic** of this repository - the Go template files, schema definitions, and helper functions that produce Declarative Automation Bundle projects.
 
 This policy does **not** cover:
 - Security of the generated Databricks projects themselves

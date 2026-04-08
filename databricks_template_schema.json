@@ -1,5 +1,5 @@
 {
-  "welcome_message": "\nWelcome to the Databricks Multi-Environment Bundle Template!\n\nThis template creates a production-ready Databricks Asset Bundle with:\n- Multi-environment deployment (user/dev/stage/prod)\n- Configurable compute (serverless or classic)\n- Optional RBAC permissions\n- Sample ETL jobs and pipelines\n- Unity Catalog schema management\n- CI/CD pipeline templates (Azure DevOps, GitHub Actions, GitLab)\n\nLet's configure your project...\n",
+  "welcome_message": "\nWelcome to the Databricks Multi-Environment Bundle Template!\n\nThis template creates a production-ready Declarative Automation Bundle with:\n- Multi-environment deployment (user/dev/stage/prod)\n- Configurable compute (serverless or classic)\n- Optional RBAC permissions\n- Sample ETL jobs and pipelines\n- Unity Catalog schema management\n- CI/CD pipeline templates (Azure DevOps, GitHub Actions, GitLab)\n\nLet's configure your project...\n",
 
   "properties": {
     "project_name": {
@@ -220,6 +220,6 @@
 
   "success_message": "\n========================================\n\n\nYour project '{{.project_name}}' has been created successfully!\n\nNext steps:\n1. cd {{.project_name}}\n2. Review and update the configuration files\n3. Run: databricks bundle validate -t user\n4. Run: databricks bundle deploy -t user\n\nFor detailed setup instructions, see:\n- README.md - Project overview and quickstart\n- docs/PERMISSIONS_SETUP.md - RBAC configuration\n- docs/CI_CD_SETUP.md - CI/CD pipeline configuration\n",
 
-  "min_databricks_cli_version": "v0.274.0",
+  "min_databricks_cli_version": "v0.296.0",
   "version": 1
 }
