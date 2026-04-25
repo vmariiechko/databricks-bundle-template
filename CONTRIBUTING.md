@@ -143,6 +143,88 @@ All contributions must:
 - If your change affects generated output, include a sample of the before/after
 - Update documentation if behavior changes
 
+## Adding an Asset
+
+The repository also ships an **asset library**: standalone sub-templates under `assets/<asset-name>/` that install individual Databricks artifacts (pipelines, jobs, dashboards) via `databricks bundle init --template-dir`. See [ASSETS.md](ASSETS.md) for the end-user catalog and install pattern, and [ARCHITECTURE.md §8](ARCHITECTURE.md#8-asset-library--plugins-layer) for the design rationale.
+
+### Naming conventions
+
+- **Asset directory**: kebab-case (`assets/<asset-name>/`). The name appears in CLI commands (`--template-dir assets/<asset-name>`), so it should read naturally there.
+- **Test file and config JSON**: snake_case, derived from the asset name. Example: asset `sdp-checkpoint-recovery` gets `tests/assets/test_sdp_checkpoint_recovery.py` and `tests/configs/assets/sdp_checkpoint_recovery.json`.
+- **Multiple configs for one asset**: the default config is `<asset>.json`. Additional variants use suffixes: `<asset>_<variant>.json` (for example `sdp_checkpoint_recovery.json` default, `sdp_checkpoint_recovery_custom_target.json` variant). The asset name is always the prefix; parametrize tests over the variants explicitly.
+
+### Framework rules
+
+Every asset must follow these seven rules:
+
+1. **Self-contained.** No references to files outside the asset directory. No shared `library/helpers.tmpl`. If two assets need the same helper, each defines its own copy. Duplication is the price of portability.
+2. **Schema at minimum.** An asset with no prompts still ships a `databricks_template_schema.json` declaring `version` and `min_databricks_cli_version`. `"properties": {}` is valid.
+3. **Target path never collides with a conventional bundle.** The asset installs under a predictable subdirectory that a fresh bundle would not already contain (`ops/<name>/`, `resources/<name>.yml`, etc.). Prefer a `{{.target_dir}}` or `{{.<artifact>_name}}` prompt so the user can rename on install.
+4. **No modification of parent files.** The CLI cannot edit existing files. If an integration requires a line change (e.g., adding an `include:` glob to `databricks.yml`), the asset's README states the exact one-liner.
+5. **Install command is canonical and identical per asset.** Every asset README documents exactly:
+   ```bash
+   databricks bundle init https://github.com/vmariiechko/databricks-bundle-template \
+     --template-dir assets/<asset-name>
+   ```
+6. **Tests are per-asset.** Framework-level smoke checks (`tests/assets/test_framework.py`) run automatically for every `assets/*/`. Asset-specific deep tests live at `tests/assets/test_<asset_name>.py` and are added only when the asset has non-trivial structure to verify (exact file lists, YAML validity, Python parses, etc.). Both reuse the `install_asset` fixture from `tests/assets/conftest.py`.
+7. **Single repo-wide CHANGELOG.** No per-asset versioning for now. Changes are grouped under `[Unreleased]` → `### Added / ### Changed`.
+
+### Authoring walkthrough
+
+1. Create the asset directory:
+
+   ```
+   assets/<asset-name>/
+   ├── databricks_template_schema.json
+   ├── README.md
+   └── template/
+       └── <target-path-or-{{.target_dir}}>/
+           └── ...files...
+   ```
+
+   - `databricks_template_schema.json`: prompt schema. See the `sdp-checkpoint-recovery` asset for a minimal single-prompt example.
+   - `README.md`: asset-level: purpose, canonical install command, link to usage docs inside `template/`.
+   - `template/...`: anything under this directory is what the user gets in their bundle. Use Go template variables for any user-parameterized paths (`template/{{.target_dir}}/file.py`) or file contents.
+
+2. Add a test config at `tests/configs/assets/<asset_name_snake_case>.json` with the prompt values to use in automated tests. Use `{}` if the asset has no prompts.
+
+3. (Optional) Add asset-specific tests at `tests/assets/test_<asset_name_snake_case>.py`. Use the shared `install_asset` fixture from `tests/assets/conftest.py`:
+
+   ```python
+   def test_something(install_asset):
+       output_dir = install_asset("<asset-name>", config="<asset_name>")
+       # assert on output_dir contents
+   ```
+
+   Framework-level smoke tests run automatically without any extra file.
+
+4. Add a row to the catalog table in [ASSETS.md](ASSETS.md).
+
+5. Add an `[Unreleased]` entry in [CHANGELOG.md](CHANGELOG.md) under `### Added`.
+
+6. Verify locally:
+
+   ```bash
+   # The asset installs cleanly to a temp directory
+   databricks bundle init ./assets/<asset-name> \
+     --output-dir /tmp/<asset-name>-test \
+     --config-file tests/configs/assets/<asset_name>.json
+
+   # The full test suite still passes
+   pytest tests/ -V
+   ```
+
+### PR checklist for asset changes
+
+When opening a PR that introduces or modifies an asset:
+
+- [ ] Asset has its own `databricks_template_schema.json` and `README.md`
+- [ ] Framework smoke tests pass (`pytest tests/assets/test_framework.py -v`)
+- [ ] Asset-specific tests pass (if added)
+- [ ] `ASSETS.md` catalog is updated
+- [ ] `CHANGELOG.md` has an `[Unreleased]` entry
+- [ ] No changes outside `assets/<asset-name>/`, `tests/assets/`, `tests/configs/assets/`, and the four cross-reference docs (`ASSETS.md`, `CHANGELOG.md`, `README.md`, and `ROADMAP.md` if status changes)
+
 ## Reporting Issues
 
 - **Bug reports**: Use the [bug report template](https://github.com/vmariiechko/databricks-bundle-template/issues/new?template=1-bug-report.yml)

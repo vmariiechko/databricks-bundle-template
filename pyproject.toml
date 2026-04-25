@@ -14,5 +14,29 @@ Issues = "https://github.com/vmariiechko/databricks-bundle-template/issues"
 Documentation = "https://github.com/vmariiechko/databricks-bundle-template#readme"
 Changelog = "https://github.com/vmariiechko/databricks-bundle-template/blob/main/CHANGELOG.md"
 
+# Ruff settings for the project: https://docs.astral.sh/ruff/settings
 [tool.ruff]
+builtins = ["spark", "dbutils", "display"]
+line-length = 100
 src = ["src", "tests"]
+target-version = "py311"
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.ruff.lint]
+# E/W: pycodestyle, F: pyflakes, I: import sorting, B: bugbear, C4: comprehensions,
+# UP: pyupgrade, N: pep8-naming
+select = ["E", "W", "F", "I", "B", "C4", "UP", "N"]
+ignore = ["N812"]
+
+[tool.ruff.lint.per-file-ignores]
+# Apply these ignores ONLY to notebook-style scripts
+"sdp_reset_checkpoint_workspace.py" = ["E402", "E501"]
+
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"

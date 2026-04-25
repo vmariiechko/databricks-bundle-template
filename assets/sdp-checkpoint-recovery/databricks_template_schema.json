@@ -1,0 +1,19 @@
+{
+  "welcome_message": "\nLakeflow SDP Checkpoint Recovery: Asset Installer\n\nInstalls two Python scripts, a usage README, and a pinned\nrequirements.txt for recovering a Lakeflow Spark Declarative Pipeline\nfrom the DIFFERENT_DELTA_TABLE_READ_BY_STREAMING_SOURCE error by\nresetting its checkpoint selection without clearing target data.\n\nThe local script supports a --dry-run flag (validate_only) so you\ncan exercise auth and payload before mutating any pipeline.\n\nLet's pick the install path...\n",
+
+  "properties": {
+    "target_dir": {
+      "type": "string",
+      "default": "ops/sdp_checkpoint_recovery",
+      "description": "\nTarget directory for the recovery scripts (relative to your bundle root).\nThe asset creates this directory and installs four files inside it.\nPick a path that doesn't already exist in your project.\ntarget_dir",
+      "order": 1,
+      "pattern": "^[A-Za-z0-9_][A-Za-z0-9_./-]*$",
+      "pattern_match_failure_message": "Target directory must start with a letter, number, or underscore and contain only letters, numbers, underscores, slashes, hyphens, or dots."
+    }
+  },
+
+  "success_message": "\nSDP checkpoint recovery scripts installed under '{{.target_dir}}/'.\n\nNext steps:\n1. Open {{.target_dir}}/README.md for usage instructions.\n2. Install dependencies: pip install -r {{.target_dir}}/requirements.txt\n3. Run the local script with --dry-run first to validate the payload:\n   python {{.target_dir}}/sdp_reset_checkpoint_local.py --pipeline-id <id> --flows <fqn> --dry-run\n4. Note: a non-dry-run reset triggers a pipeline update. The pipeline will start running. Cancel from the UI if you want it stopped.\n",
+
+  "min_databricks_cli_version": "v0.296.0",
+  "version": 1
+}
