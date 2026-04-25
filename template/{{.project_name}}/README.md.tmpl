@@ -69,12 +69,12 @@ databricks bundle run {{.project_name}}_ingestion -t user
 ├── variables.yml               # Shared variables (catalogs, SPs{{- if eq .include_permissions "yes" }}, groups{{- end }})
 ├── resources/
 │   ├── {{.project_name}}_ingestion.job.yml       # ETL ingestion job
-│   ├── {{.project_name}}_pipeline.pipeline.yml   # LDP pipeline
+│   ├── {{.project_name}}_pipeline.pipeline.yml   # SDP pipeline
 │   ├── {{.project_name}}_pipeline_trigger.job.yml
 │   └── schemas.yml             # Unity Catalog schemas
 ├── src/
 │   ├── jobs/                   # Job Python scripts
-│   └── pipelines/              # LDP notebook code
+│   └── pipelines/              # SDP notebook code
 ├── tests/                      # Unit tests (run by CI pipeline)
 ├── templates/                  # Cluster config examples
 {{- if eq .include_cicd "yes" }}
@@ -207,8 +207,8 @@ The `src/` directory contains sample code demonstrating the medallion architectu
 
 - `src/jobs/ingest_to_raw.py` - Data ingestion
 - `src/jobs/transform_to_silver.py` - Transformations
-- `src/pipelines/bronze.py` - LDP bronze layer
-- `src/pipelines/silver.py` - LDP silver layer
+- `src/pipelines/bronze.py` - SDP bronze layer
+- `src/pipelines/silver.py` - SDP silver layer
 
 ### Add New Resources
 
@@ -295,14 +295,14 @@ Unit tests are located in the `tests/` directory{{- if eq .include_cicd "yes" }}
 
 ### Integration Tests
 
-For data quality validation, use SDP/LDP expectations in your pipeline code.
+For data quality validation, use SDP expectations in your pipeline code.
 See the pipeline notebooks in `src/pipelines/` for examples.
 
 ## Resources
 
 - [Unity Catalog](https://docs.databricks.com/aws/en/data-governance/unity-catalog)
 - [Declarative Automation Bundles](https://docs.databricks.com/aws/en/dev-tools/bundles)
-- [Lakeflow Declarative Pipelines](https://docs.databricks.com/aws/en/ldp/)
+- [Lakeflow Spark Declarative Pipelines](https://docs.databricks.com/aws/en/ldp/)
 {{- if eq .include_cicd "yes" }}
 - [CI/CD on Databricks](https://docs.databricks.com/aws/en/dev-tools/ci-cd)
 {{- end }}

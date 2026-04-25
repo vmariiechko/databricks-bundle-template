@@ -128,6 +128,32 @@ Key architectural decisions (environment structure, SP architecture, schema-per-
 
 User target has **no SP references** - works immediately. SP grants only exist in dev/stage/prod target schema overrides in `databricks.yml.tmpl`.
 
+## Documentation Conventions
+
+- **No hard line wrap** in Markdown. Write paragraphs as single long lines and let the editor soft-wrap. Do not reflow to 80/100/120 chars. This matches every doc in the repo.
+- **Avoid em dashes.** Prefer colons, commas, semicolons, or separate sentences.
+- **Pipeline terminology.** The official product name is "Lakeflow Spark Declarative Pipelines" (short form: "SDP" or "Lakeflow SDP"). Never use "LDP" or plain "Lakeflow Declarative Pipelines"; those are outdated.
+- **Docstring style: Google convention** (configured in `pyproject.toml` under `[tool.ruff.lint.pydocstyle]`). Do NOT use reStructuredText / Sphinx artifacts in docstrings or Markdown: never use double-backtick (`` ``foo`` ``); use single-backtick (`` `foo` ``) for inline code. Never use `::` to introduce a code block; use a single colon plus a fenced code block in Markdown, or the `Example:` section in Google-style docstrings.
+
+## Asset Library
+
+The repo also hosts an **asset library** under `assets/<name>/`: standalone sub-templates installed individually via `databricks bundle init <repo-url> --template-dir assets/<name>`.
+
+Key facts AI assistants must remember:
+
+- `assets/` is **NOT part of the core template's generated output**. The core template's generator only walks `template/`; `assets/` is invisible to `databricks bundle init .`.
+- Every asset is **self-contained**. Never reference `library/helpers.tmpl` from an asset; never import from other assets. Duplication across assets is accepted and intentional.
+- Assets install **additively**. The CLI errors on file collisions; assets never modify existing files (no patching `databricks.yml` etc.).
+- Framework rules: see [CONTRIBUTING.md — Adding an Asset](CONTRIBUTING.md#adding-an-asset).
+- Design rationale: [ARCHITECTURE.md §8](ARCHITECTURE.md#8-asset-library--plugins-layer) and [DEVELOPMENT.md Design Decision #15](DEVELOPMENT.md).
+- End-user catalog: [ASSETS.md](ASSETS.md).
+
+Tests:
+- `tests/assets/conftest.py` holds the shared `install_asset` helper.
+- `tests/assets/test_framework.py` runs framework-level smoke tests parametrized over every `assets/*/` automatically.
+- `tests/assets/test_<asset_name>.py` holds asset-specific deep tests (optional).
+- `tests/configs/assets/<asset_name>.json` is the default prompt-values config; variants use the pattern `<asset_name>_<variant>.json`.
+
 ## Testing
 
 Tests use pytest with parametrized fixtures across config files:

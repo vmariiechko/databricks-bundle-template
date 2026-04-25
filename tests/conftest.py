@@ -10,8 +10,9 @@ import os
 import shutil
 import subprocess
 import tempfile
+from collections.abc import Generator
 from pathlib import Path
-from typing import Any, Generator
+from typing import Any
 
 import pytest
 
@@ -31,16 +32,24 @@ CONFIGS_DIR = TESTS_DIR / "configs"
 
 
 @pytest.fixture(scope="session", autouse=True)
-def mock_databricks_auth():
+def mock_databricks_auth(tmp_path_factory):
     """Force mock Databricks auth env vars for tests.
 
     We override any local environment variables to ensure tests run in isolation
     and do not use real credentials. This prevents accidental connection to
     real workspaces during template generation tests.
+
+    DATABRICKS_CONFIG_FILE is pointed at an empty temp file so the Databricks
+    CLI cannot fall back to the user's real .databrickscfg. Without this, the
+    CLI reads the DEFAULT profile (if present), finds an OAuth token, tries to
+    refresh it against DATABRICKS_HOST, and fails with a DNS error locally even
+    though CI has no config file and succeeds fine.
     """
+    empty_cfg = tmp_path_factory.mktemp("databricks_cfg") / "databrickscfg"
+    empty_cfg.touch()
+    os.environ["DATABRICKS_CONFIG_FILE"] = str(empty_cfg)
     os.environ["DATABRICKS_HOST"] = "XXXXX"
     os.environ["DATABRICKS_TOKEN"] = "XXXXX"
-    # Prevent using a profile from .databrickscfg
     if "DATABRICKS_CONFIG_PROFILE" in os.environ:
         del os.environ["DATABRICKS_CONFIG_PROFILE"]
 

@@ -46,6 +46,25 @@ body:
       required: true
 
   - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of the repo does this bug affect?
+      options:
+        - Core Template
+        - Asset Library
+        - Both
+    validations:
+      required: true
+
+  - type: input
+    id: asset-name
+    attributes:
+      label: Asset Name (if Asset Library)
+      description: "Name of the asset under `assets/` (e.g. `sdp-checkpoint-recovery`). Leave blank if not applicable."
+      placeholder: "sdp-checkpoint-recovery"
+
+  - type: dropdown
     id: environment-setup
     attributes:
       label: Environment Setup

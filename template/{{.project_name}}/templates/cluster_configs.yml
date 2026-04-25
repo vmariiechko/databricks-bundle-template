@@ -99,14 +99,14 @@ job_clusters:
         ENVIRONMENT: ${bundle.target}
 
 # ==========================================
-# LAKEFLOW DECLARATIVE PIPELINES (LDP) CLUSTERS
+# LAKEFLOW SPARK DECLARATIVE PIPELINES (LAKEFLOW SDP) CLUSTERS
 # ==========================================
 # These are used in pipeline definitions under the 'clusters' key
-# Note: LDP have slightly different cluster syntax than jobs
+# Note: Lakeflow SDP have slightly different cluster syntax than jobs
 
 clusters:
   # Small pipeline cluster for development
-  # Use case: LDP development, testing, small datasets
+  # Use case: Lakeflow SDP development, testing, small datasets
   # Cost: Low (1 worker)
   - label: default
     num_workers: 1
@@ -116,7 +116,7 @@ clusters:
       environment: ${bundle.target}
 
   # Autoscaling pipeline cluster for production
-  # Use case: Production LDP pipelines with variable data volumes
+  # Use case: Production Lakeflow SDP pipelines with variable data volumes
   # Cost: Variable (scales based on workload)
   - label: default
     node_type_id: Standard_DS3_v2
