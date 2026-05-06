@@ -17,6 +17,8 @@ Downstream consequence: Bronze tables may contain duplicate events until your Si
 
 Resetting checkpoint selection requires running a pipeline update. The Pipelines API has no "reset only" mode: `reset_checkpoint_selection` is a parameter on `start_update`, so the call always starts an update. After this script returns the `update_id`, the pipeline transitions from IDLE to RUNNING and processes from the new checkpoint. If you want to keep the pipeline stopped after the reset, cancel the update from the Databricks UI immediately after the script prints the `update_id`. The dry-run path uses `validate_only=True` and does not start a real update; it returns an `update_id` for a validation-only update that completes immediately without mutating state.
 
+By default the fresh stream starts from version 0 of the new Delta table (all historical data). To skip historical data or avoid duplicate Bronze events, add `.option("startingVersion", "latest")` (or a specific version number) to the source `readStream` in your pipeline code before running the reset; `startingVersion` is only applied when no checkpoint exists, so the `reset_checkpoint_selection` call is what makes it take effect.
+
 ## Flow naming: Fully Qualified Names are required
 
 Flow names must be the **FQN in Unity Catalog**: `<catalog>.<schema>.<table_name>`. Short table names produce:
