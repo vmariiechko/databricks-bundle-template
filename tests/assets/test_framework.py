@@ -8,7 +8,8 @@ Rules enforced for every asset:
 - `databricks bundle init <asset_dir>` succeeds.
 - No `.tmpl` suffix leaks into the generated output.
 - The asset's `databricks_template_schema.json` is NOT copied to output.
-- The asset ships a README.md inside its installed tree.
+- The asset ships at least one Markdown documentation file (README.md
+  for human-facing assets, SKILL.md for agentskills.io-style skills).
 
 Per-asset test configs live at `tests/configs/assets/<asset_name>.json`.
 If an asset needs no prompt values, the config may be `{}`.
@@ -55,9 +56,12 @@ def test_schema_not_copied_to_output(installed_asset: Path):
     assert not leaked, f"schema leaked into output: {leaked}"
 
 
-def test_target_dir_has_readme(installed_asset: Path):
-    readmes = list(installed_asset.rglob("README.md"))
-    assert readmes, "asset did not install a README.md"
+def test_asset_ships_documentation(installed_asset: Path):
+    """Every asset must ship at least one Markdown doc file inside the
+    installed tree: README.md for human-facing assets, SKILL.md for
+    agentskills.io-style skill assets."""
+    docs = list(installed_asset.rglob("README.md")) + list(installed_asset.rglob("SKILL.md"))
+    assert docs, "asset did not install README.md or SKILL.md"
 
 
 def test_asset_schema_is_valid_json():

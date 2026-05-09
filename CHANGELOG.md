@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **Asset `dbx-ro-query`**: dependency-free Python wrapper around `databricks experimental aitools tools query` that gives LLM agents a guarded read-only SQL window into a Databricks workspace. Single file, no third-party dependencies.
+- **Asset guard rules**: allow-lists `SELECT` / `WITH` / `SHOW` / `DESCRIBE` / `DESC` / `EXPLAIN`; block-lists every destructive verb; strips block comments, line comments, and quoted strings before validation so smuggling attempts (`SELECT '/* DROP TABLE x */ 1'`, stacked statements like `SELECT 1; DROP TABLE foo`) are rejected.
+- **Asset output formats**: `auto` / `scalar` / `lines` / `csv` / `tsv` / `json`. The shape-aware `auto` mode collapses 1x1 results to a scalar value and Nx1 results to one-per-line, saving tokens in agent contexts.
+- **Asset layout**: follows the [agentskills.io](https://agentskills.io) canonical layout. `<target_dir>/skills/dbx-ro-query/SKILL.md` is the agent contract; `<target_dir>/skills/dbx-ro-query/scripts/dbx-ro-query.py` is the bundled runner. Default `target_dir` is `.agents` (vendor-neutral); override to `.claude` / `.codex` / `.cursor` / `.gemini` for single-agent auto-discovery. The post-install message prints the exact wiring one-liner per agent.
+
+### Changed
+- **Asset framework smoke test**: `tests/assets/test_framework.py` now accepts `SKILL.md` as installed-tree documentation in addition to `README.md`, so agentskills.io-style skill assets are not forced to ship a redundant README. Renamed `test_target_dir_has_readme` to `test_asset_ships_documentation`.
+
 ## [1.5.0] - 2026-04-25
 
 ### Added
