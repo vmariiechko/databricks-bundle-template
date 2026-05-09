@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-05-09
+
 ### Added
 - **Asset `dbx-ro-query`**: dependency-free Python wrapper around `databricks experimental aitools tools query` that gives LLM agents a guarded read-only SQL window into a Databricks workspace. Single file, no third-party dependencies.
 - **Asset guard rules**: allow-lists `SELECT` / `WITH` / `SHOW` / `DESCRIBE` / `DESC` / `EXPLAIN`; block-lists every destructive verb; strips block comments, line comments, and quoted strings before validation so smuggling attempts (`SELECT '/* DROP TABLE x */ 1'`, stacked statements like `SELECT 1; DROP TABLE foo`) are rejected.
@@ -14,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Asset layout**: follows the [agentskills.io](https://agentskills.io) canonical layout. `<target_dir>/skills/dbx-ro-query/SKILL.md` is the agent contract; `<target_dir>/skills/dbx-ro-query/scripts/dbx-ro-query.py` is the bundled runner. Default `target_dir` is `.agents` (vendor-neutral); override to `.claude` / `.codex` / `.cursor` / `.gemini` for single-agent auto-discovery. The post-install message prints the exact wiring one-liner per agent.
 
 ### Changed
+- **Asset `sdp-checkpoint-recovery` documentation**: clarified `startingVersion` behavior in the in-bundle README. After a checkpoint reset, the fresh stream defaults to version 0 of the new Delta table (all historical data); to skip historical data or avoid duplicate Bronze events, add `.option("startingVersion", "latest")` to the source `readStream` before running the reset, since `startingVersion` is only applied when no checkpoint exists.
 - **Asset framework smoke test**: `tests/assets/test_framework.py` now accepts `SKILL.md` as installed-tree documentation in addition to `README.md`, so agentskills.io-style skill assets are not forced to ship a redundant README. Renamed `test_target_dir_has_readme` to `test_asset_ships_documentation`.
 
 ## [1.5.0] - 2026-04-25
@@ -152,6 +155,7 @@ Initial public release.
 - L2 tests: YAML syntax, environment targets, content validation
 - CI/CD tests: pipeline generation, auth patterns, branch references
 
+[1.6.0]: https://github.com/vmariiechko/databricks-bundle-template/releases/tag/v1.6.0
 [1.5.0]: https://github.com/vmariiechko/databricks-bundle-template/releases/tag/v1.5.0
 [1.4.0]: https://github.com/vmariiechko/databricks-bundle-template/releases/tag/v1.4.0
 [1.3.0]: https://github.com/vmariiechko/databricks-bundle-template/releases/tag/v1.3.0

@@ -1,6 +1,6 @@
 [project]
 name = "databricks-bundle-template"
-version = "1.4.0"
+version = "1.6.0"
 description = "A custom Declarative Automation Bundles template for production-ready, multi-environment data pipeline projects"
 readme = "README.md"
 license = {text = "MIT"}
