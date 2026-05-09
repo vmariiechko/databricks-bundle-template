@@ -1,0 +1,19 @@
+{
+  "welcome_message": "\nRead-only Databricks SQL Skill: Asset Installer\n\nInstalls a single-file Python wrapper around\n`databricks experimental aitools tools query` that LLM agents can call\nsafely. Bundled as an agentskills.io-style skill: SKILL.md describes\nwhen to use it, scripts/dbx-ro-query.py runs the SQL.\n\nThe wrapper allow-lists SELECT / WITH / SHOW / DESCRIBE / DESC /\nEXPLAIN, blocks every destructive verb after stripping comments and\nquoted strings, and emits agent-friendly output (auto, scalar, lines,\ncsv, tsv, json).\n\nLet's pick the install path...\n",
+
+  "properties": {
+    "target_dir": {
+      "type": "string",
+      "default": ".agents",
+      "description": "\nTarget directory for the skill (relative to your bundle root).\nDefaults to `.agents`, which matches the convention used by Codex,\nthe Databricks AI Dev Kit, and any vendor-neutral multi-agent setup.\nFiles install at <target_dir>/skills/dbx-ro-query/SKILL.md and\n<target_dir>/skills/dbx-ro-query/scripts/dbx-ro-query.py.\n\nIf you only use one agent and want auto-discovery, override with the\nagent's native folder:\n  - Claude Code:  .claude\n  - Codex:        .codex\n  - Cursor:       .cursor\n  - Gemini CLI:   .gemini\n\nPick a path whose `skills/dbx-ro-query/` subfolder doesn't already\nexist in your project.\ntarget_dir",
+      "order": 1,
+      "pattern": "^[A-Za-z0-9_.][A-Za-z0-9_./-]*$",
+      "pattern_match_failure_message": "Target directory must start with a letter, number, underscore, or dot and contain only letters, numbers, underscores, slashes, hyphens, or dots."
+    }
+  },
+
+  "success_message": "\nSkill installed at '{{.target_dir}}/skills/dbx-ro-query/'.\n\nNext steps:\n\n1. Wire the skill into your agent. Pick the line that matches your setup:\n\n   Claude Code\n   - Auto-discovery folder is `.claude/skills/`. If you installed to `.claude` directly, you're done.\n   - Otherwise add to CLAUDE.md:\n     > Use the skill at {{.target_dir}}/skills/dbx-ro-query/SKILL.md when running read-only SQL against Databricks.\n\n   Codex\n   - Add to AGENTS.md:\n     > Use the skill at {{.target_dir}}/skills/dbx-ro-query/SKILL.md for read-only Databricks SQL. Invoke `python {{.target_dir}}/skills/dbx-ro-query/scripts/dbx-ro-query.py \"<sql>\" \"<profile>\" \"<format>\"`.\n\n   Cursor\n   - Add a rule under `.cursor/rules/` (or `.cursorrules`) referencing {{.target_dir}}/skills/dbx-ro-query/SKILL.md.\n\n   Gemini CLI\n   - Reference {{.target_dir}}/skills/dbx-ro-query/SKILL.md from your `.gemini/` configuration.\n\n   Other / multi-agent\n   - Point your agent at {{.target_dir}}/skills/dbx-ro-query/SKILL.md however your runtime expects.\n\n2. Smoke check the wrapper:\n   python {{.target_dir}}/skills/dbx-ro-query/scripts/dbx-ro-query.py \"SELECT 1\" <your-profile> scalar\n",
+
+  "min_databricks_cli_version": "v0.296.0",
+  "version": 1
+}
