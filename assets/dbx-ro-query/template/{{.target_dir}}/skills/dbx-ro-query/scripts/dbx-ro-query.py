@@ -27,7 +27,6 @@ import sys
 from collections.abc import Iterable
 from typing import Any
 
-
 ALLOWED_FORMATS = ("auto", "scalar", "lines", "csv", "tsv", "json")
 
 # Only statements that start with one of these tokens are allowed through.

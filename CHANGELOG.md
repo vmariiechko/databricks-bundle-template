@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **Asset `dbx-ro-query` per-agent references**: new `<target_dir>/skills/dbx-ro-query/references/` subfolder holding agent-runtime-specific operational tips. Files are loaded on demand by the parent `SKILL.md` when an agent hits a runtime quirk; this matches the [agentskills.io](https://agentskills.io) `references/` convention.
+  - `agent-claude-code.md`: 2-minute `Bash` tool default timeout (warehouse cold-start hint) plus an exit-code-echo pattern for parseable rejection evidence.
+  - `agent-codex.md`: sandbox `network_access = true` setting; `login: false` on `shell_command` for clean captured output; warning against `Measure-Command` PowerShell wrappers; warehouse env var note. Validated by a live Codex test session against the released v1.6.0 install.
+  - `agent-cursor.md`: ready-to-paste `.cursor/rules/dbx-ro-query.mdc` rule snippet (Cursor does NOT auto-discover `.cursor/skills/`); terminal runtime notes confirming exit codes are surfaced natively. Validated by a live Cursor 3.3.x / Composer 2 test session.
+- **Asset `dbx-ro-query` README troubleshooting**: documented two install-time pitfalls surfaced by independent Codex and Cursor test runs. The first is a generic Databricks CLI quirk: `bundle init` fails resolving a stale `DATABRICKS_CONFIG_PROFILE`; workaround is to re-point the env var at a valid profile. The second is Codex-specific: sandbox blocks the GitHub URL fetch unless `network_access = true` is set.
+
+### Changed
+- **Asset `dbx-ro-query` SKILL.md operational notes**: the runtime-specific bullet that named Codex inline has been replaced with a generic on-demand pointer to the new `references/` folder. The remaining operational notes are agent-agnostic. Keeps `SKILL.md` from drifting toward a multi-vendor compatibility matrix as more agents are documented.
+- **Asset `dbx-ro-query` `success_message`**: each per-agent section now points at its `references/agent-<name>.md` file rather than restating wiring inline. The Cursor section explicitly calls out that `.cursor/skills/` is not auto-discovered; users see this at install time, not after their first failed query.
+
 ## [1.6.0] - 2026-05-09
 
 ### Added

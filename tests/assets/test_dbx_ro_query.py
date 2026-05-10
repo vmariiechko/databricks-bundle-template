@@ -23,6 +23,9 @@ DEFAULT_TARGET = ".agents"
 EXPECTED_FILES = (
     "skills/dbx-ro-query/SKILL.md",
     "skills/dbx-ro-query/scripts/dbx-ro-query.py",
+    "skills/dbx-ro-query/references/agent-claude-code.md",
+    "skills/dbx-ro-query/references/agent-codex.md",
+    "skills/dbx-ro-query/references/agent-cursor.md",
 )
 
 
@@ -77,6 +80,26 @@ def test_skill_frontmatter_well_formed(installed: Path):
     front = text[4:end]
     assert "name: dbx-ro-query" in front, "SKILL.md frontmatter missing `name: dbx-ro-query`"
     assert "description:" in front, "SKILL.md frontmatter missing `description`"
+
+
+def test_skill_references_pointer_present(installed: Path):
+    """SKILL.md operational notes must point readers at the references/ folder.
+
+    The references/ subfolder holds per-agent runtime tips (loaded on demand).
+    SKILL.md needs to surface this discovery hint so agents know to look there
+    when they hit a runtime quirk."""
+    skill = installed / DEFAULT_TARGET / "skills" / "dbx-ro-query" / "SKILL.md"
+    text = skill.read_text(encoding="utf-8")
+    assert "references/" in text, "SKILL.md missing pointer to references/ folder"
+
+
+def test_references_files_have_headings(installed: Path):
+    """Every references file must start with a Markdown H1 so agents loading
+    it on demand see a clear scope title."""
+    refs_dir = installed / DEFAULT_TARGET / "skills" / "dbx-ro-query" / "references"
+    for ref in refs_dir.glob("agent-*.md"):
+        first_line = ref.read_text(encoding="utf-8").splitlines()[0]
+        assert first_line.startswith("# "), f"{ref.name} missing H1 heading on first line"
 
 
 @pytest.mark.parametrize(
