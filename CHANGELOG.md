@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-05-10
+
 ### Added
 - **Asset `dbx-ro-query` per-agent references**: new `<target_dir>/skills/dbx-ro-query/references/` subfolder holding agent-runtime-specific operational tips. Files are loaded on demand by the parent `SKILL.md` when an agent hits a runtime quirk; this matches the [agentskills.io](https://agentskills.io) `references/` convention.
   - `agent-claude-code.md`: 2-minute `Bash` tool default timeout (warehouse cold-start hint) plus an exit-code-echo pattern for parseable rejection evidence.
@@ -166,6 +168,7 @@ Initial public release.
 - L2 tests: YAML syntax, environment targets, content validation
 - CI/CD tests: pipeline generation, auth patterns, branch references
 
+[1.7.0]: https://github.com/vmariiechko/databricks-bundle-template/releases/tag/v1.7.0
 [1.6.0]: https://github.com/vmariiechko/databricks-bundle-template/releases/tag/v1.6.0
 [1.5.0]: https://github.com/vmariiechko/databricks-bundle-template/releases/tag/v1.5.0
 [1.4.0]: https://github.com/vmariiechko/databricks-bundle-template/releases/tag/v1.4.0
