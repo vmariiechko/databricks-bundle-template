@@ -43,6 +43,30 @@ python <target_dir>/skills/dbx-ro-query/scripts/dbx-ro-query.py \
 
 See `<target_dir>/skills/dbx-ro-query/SKILL.md` for the full argument reference, output formats, supported SQL prefixes, and the rejection list.
 
+## Troubleshooting
+
+### `databricks bundle init` fails with `has no <profile> profile configured`
+
+The CLI tries to resolve a Databricks profile during `bundle init` even though template installation does not need workspace auth. If your shell or IDE has `DATABRICKS_CONFIG_PROFILE` pointing at a profile that no longer exists in `~/.databrickscfg`, install fails with `Error: resolve: <path>/.databrickscfg has no <name> profile configured`.
+
+Workaround: run the install with the env var pointed at a valid profile (or `DEFAULT`):
+
+```bash
+DATABRICKS_CONFIG_PROFILE=DEFAULT databricks bundle init https://github.com/vmariiechko/databricks-bundle-template \
+  --template-dir assets/dbx-ro-query
+```
+
+### Codex sandbox blocks the GitHub URL fetch
+
+If `databricks bundle init <github url>` fails inside Codex with `connectex: An attempt was made to access a socket in a way forbidden by its access permissions`, the Codex sandbox is blocking outbound network. Enable network access in `~/.codex/config.toml`:
+
+```toml
+[sandbox_workspace_write]
+network_access = true
+```
+
+Then restart Codex. See `<target_dir>/skills/dbx-ro-query/references/agent-codex.md` for the full Codex runtime checklist.
+
 ## What this asset is
 
 A standalone sub-template in the [databricks-bundle-template](https://github.com/vmariiechko/databricks-bundle-template) asset library. It does not depend on the core template; it can be installed into any Databricks bundle, or any project at all that uses the Databricks CLI. See [ASSETS.md](../../ASSETS.md) for the full catalog.

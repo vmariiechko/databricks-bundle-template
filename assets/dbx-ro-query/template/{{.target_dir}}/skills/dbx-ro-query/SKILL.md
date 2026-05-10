@@ -72,7 +72,7 @@ python .agents/skills/dbx-ro-query/scripts/dbx-ro-query.py \
 ## Operational notes
 
 - Never call `databricks bundle deploy` or `databricks bundle run` from this skill. The skill's purpose is read-only evidence; deployment is out of scope.
-- If your shell runtime has a login/profile option, disable it for invocations of this script. In Codex, set `login: false` on `shell_command`. If output contains valid TSV/results followed by `oh-my-posh`, `Terminal-Icons`, `ResourceUnavailable`, or `Export-Clixml` errors, rerun with the parent shell's no-profile / non-login option.
+- For agent-runtime-specific quirks (login chains, command timeouts, captured-output noise, exit-code visibility, sandbox auth), load the file under `references/` matching your runtime: `references/agent-claude-code.md`, `references/agent-codex.md`, etc. The notes below this bullet are generic and apply regardless of runtime.
 - If Databricks auth, token cache, or profile access fails because of sandbox restrictions, rerun the same command with the runtime's elevated / outside-sandbox execution mechanism. Do not call raw `databricks experimental aitools tools query` to work around the wrapper.
 - Use `python3` on Unix hosts if `python` does not point to Python 3. The script is Python 3.9+, no third-party dependencies.
 - Exit code is 0 on success, non-zero on validation failure or upstream CLI error. Stderr carries the upstream error message; stdout carries the formatted result.
