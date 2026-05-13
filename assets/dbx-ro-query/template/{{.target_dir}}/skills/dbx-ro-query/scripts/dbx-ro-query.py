@@ -200,7 +200,15 @@ def run_query(sql: str, profile: str) -> list[dict[str, Any]]:
     return normalize_rows(load_json_from_lines(proc.stdout.splitlines()))
 
 
+def configure_text_streams() -> None:
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8", errors="replace")
+
+
 def main(argv: list[str] | None = None) -> int:
+    configure_text_streams()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("sql")
     parser.add_argument("profile")
