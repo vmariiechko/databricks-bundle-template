@@ -225,3 +225,23 @@ def test_format_rows_csv_quotes_embedded_delimiter(script_module):
 def test_format_rows_unknown_format_rejects(script_module):
     with pytest.raises(SystemExit):
         script_module.format_rows([{"a": 1}], "yaml")
+
+
+def test_configure_text_streams_runs_without_error(script_module):
+    """configure_text_streams must not raise even when stdout is a pytest capture object."""
+    script_module.configure_text_streams()
+
+
+def test_format_rows_non_ascii_scalar(script_module):
+    """format_rows returns non-ASCII characters correctly in scalar mode."""
+    out = script_module.format_rows([{"value": "αβγδ"}], "scalar")
+    assert out == "αβγδ"
+
+
+def test_format_rows_non_ascii_tsv(script_module):
+    """format_rows handles non-ASCII column values in TSV output."""
+    rows = [{"city": "Αθήνα", "code": "ATH"}, {"city": "Ηράκλειο", "code": "HER"}]
+    out = script_module.format_rows(rows, "tsv")
+    assert "city\tcode" in out
+    assert "Αθήνα" in out
+    assert "Ηράκλειο" in out

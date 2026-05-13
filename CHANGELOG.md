@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.7.1] - 2026-05-13
+
+### Fixed
+- **Asset `dbx-ro-query` stdout/stderr encoding**: `configure_text_streams()` reconfigures both output streams to UTF-8 with `errors="replace"` at startup, preventing `charmap` codec errors when query results contain non-ASCII characters (Greek, Cyrillic, emoji, etc.).
+
+### Changed
+- **Asset `dbx-ro-query` install message**: added a "Set your warehouse ID" step to the post-install `success_message`. First-time users now see the `databricks warehouses list` lookup command and the `DATABRICKS_WAREHOUSE_ID` export pattern immediately after wiring, before the smoke-check step.
+
 ## [1.7.0] - 2026-05-10
 
 ### Added
