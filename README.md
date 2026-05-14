@@ -7,7 +7,11 @@ A custom template for [Declarative Automation Bundles](https://docs.databricks.c
 
 ## Demo
 
-[![Watch: Spin Up a Databricks Project in Minutes: DABs Template Walkthrough](https://img.youtube.com/vi/-5PztHN3g70/hqdefault.jpg)](https://www.youtube.com/watch?v=-5PztHN3g70)
+<div align="center">
+  <a href="https://www.youtube.com/watch?v=-5PztHN3g70">
+    <img src="https://img.youtube.com/vi/-5PztHN3g70/maxresdefault.jpg" alt="Watch the video" style="width:100%; max-width:600px;">
+  </a>
+</div>
 
 ## Why This Template?
 
