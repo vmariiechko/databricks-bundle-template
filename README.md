@@ -5,6 +5,14 @@
 
 A custom template for [Declarative Automation Bundles](https://docs.databricks.com/aws/en/dev-tools/bundles/) that generates production-ready, multi-environment projects with configurable compute, permissions, and CI/CD pipelines.
 
+## Demo
+
+<div align="center">
+  <a href="https://www.youtube.com/watch?v=-5PztHN3g70">
+    <img src="https://img.youtube.com/vi/-5PztHN3g70/maxresdefault.jpg" alt="Watch the video" style="width:100%; max-width:600px;">
+  </a>
+</div>
+
 ## Why This Template?
 
 Setting up a production-grade Databricks project involves many decisions: environment isolation, compute configuration, RBAC permissions, service principal setup, CI/CD pipelines, and Unity Catalog schemas. This template encodes proven patterns for all of these so you can go from zero to a deployable bundle in minutes, not days.
