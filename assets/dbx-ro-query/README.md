@@ -70,3 +70,8 @@ Then restart Codex. See `<target_dir>/skills/dbx-ro-query/references/agent-codex
 ## What this asset is
 
 A standalone sub-template in the [databricks-bundle-template](https://github.com/vmariiechko/databricks-bundle-template) asset library. It does not depend on the core template; it can be installed into any Databricks bundle, or any project at all that uses the Databricks CLI. See [ASSETS.md](../../ASSETS.md) for the full catalog.
+
+## Background
+
+Read the design rationale: [Two Guardrails for Letting LLM Agents Query Your Databricks Tables](https://vmariiechko.com/short-bytes/two-guardrails-llm-agents-databricks-sql/)
+
