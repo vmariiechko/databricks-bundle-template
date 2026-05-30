@@ -1,0 +1,40 @@
+# Monitoring SQL Warehouse
+#
+# Small, dedicated serverless SQL warehouse tuned for bursty workloads:
+# scheduled Databricks Alerts, monitoring queries, ad-hoc health checks.
+#
+# Why a dedicated warehouse: a general-purpose warehouse on a long
+# auto-stop window stays warm for minutes after a sub-second Alert
+# query, and idle time dominates the bill. A 2X-Small serverless
+# warehouse with auto_stop_mins=1 keeps cost proportional to actual
+# query time.
+#
+# Reference this warehouse from other bundle resources via:
+#   ${resources.sql_warehouses.{{.warehouse_resource_key}}.id}
+#
+# See docs/monitoring-sql-warehouse/README.md for usage notes,
+# the auto_stop_mins=1 serverless nuance, and CLI/API alternatives
+# for warehouses created outside DABs.
+
+resources:
+  sql_warehouses:
+    {{.warehouse_resource_key}}:
+      name: {{.warehouse_name}}
+      cluster_size: {{.cluster_size}}
+      warehouse_type: PRO
+      enable_serverless_compute: true
+      auto_stop_mins: {{.auto_stop_mins}}
+      min_num_clusters: 1
+      max_num_clusters: 1
+      # Pin to the stable Databricks SQL channel. Prevents Preview-channel
+      # feature flags from changing query behavior under monitoring queries
+      # that are assumed-stable. Override to CHANNEL_NAME_PREVIEW only if
+      # you are intentionally validating an upcoming release.
+      channel:
+        name: CHANNEL_NAME_CURRENT
+      tags:
+        custom_tags:
+          - key: workload
+            value: monitoring-alerts
+          - key: created_by
+            value: dabs-asset/monitoring-sql-warehouse

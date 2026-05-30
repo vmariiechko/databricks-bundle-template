@@ -1,0 +1,7 @@
+{
+  "target_dir": "resources",
+  "warehouse_resource_key": "monitoring_sql_warehouse",
+  "warehouse_name": "Monitoring SQL Warehouse",
+  "cluster_size": "2X-Small",
+  "auto_stop_mins": "1"
+}

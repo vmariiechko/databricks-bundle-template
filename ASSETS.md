@@ -19,6 +19,7 @@ Run the command from the root of your bundle project. The CLI will prompt for an
 |---|---|---|---|
 | `sdp-checkpoint-recovery` | Reset checkpoint selection on a Lakeflow Spark Declarative Pipeline after a source table has been dropped and recreated. | Stable | [README](assets/sdp-checkpoint-recovery/README.md) |
 | `dbx-ro-query` | Dependency-free Python wrapper around `databricks experimental aitools tools query` that gives LLM agents a guarded read-only SQL window into a Databricks workspace. Ships a `SKILL.md` for agent integration. | Stable | [README](assets/dbx-ro-query/README.md) |
+| `monitoring-sql-warehouse` | Small, dedicated serverless SQL warehouse (2X-Small, `auto_stop_mins: 1`) for scheduled Databricks Alerts and monitoring queries. Keeps cost proportional to actual query time instead of idle warm-up. | Stable | [README](assets/monitoring-sql-warehouse/README.md) |
 
 ## What an asset is not
 
