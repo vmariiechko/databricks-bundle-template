@@ -47,6 +47,8 @@ Modular sub-templates installable via `databricks bundle init <repo-url> --templ
 
 **Shipped:**
 - `sdp-checkpoint-recovery`: Reset checkpoint selection on a Lakeflow Spark Declarative Pipeline after a source table has been dropped and recreated
+- `dbx-ro-query`: Dependency-free Python wrapper around `databricks experimental aitools tools query` that gives LLM agents a guarded read-only SQL window into a Databricks workspace
+- `monitoring-sql-warehouse`: Dedicated serverless SQL warehouse tuned for bursty workloads (scheduled Alerts, monitoring queries) with `auto_stop_mins: 1`
 
 **Possible future assets** (ideas for contributors, not commitments):
 - `etl-pipeline`: Medallion-layered Declarative Pipeline with Bronze/Silver layers and DLT expectations

@@ -1,0 +1,55 @@
+{
+  "welcome_message": "\nMonitoring SQL Warehouse: Asset Installer\n\nInstalls a single Declarative Automation Bundle resource file that\ndefines a small, dedicated serverless SQL warehouse tuned for bursty\nworkloads (scheduled Databricks Alerts, monitoring queries, ad-hoc\nhealth checks).\n\nWhy it exists: Alerts and monitoring queries are sub-second, but a\ngeneral-purpose warehouse on a long auto-stop window stays warm for\nminutes after each run. Idle time dominates the bill. A dedicated\n2X-Small serverless warehouse with auto_stop_mins=1 keeps the cost\nproportional to actual query time.\n\nThe asset is opinionated about serverless PRO: the 1-minute auto-stop\nis only valid on serverless. Pro/Classic stay at the 10-minute floor.\n\nLet's pick the install settings...\n",
+
+  "properties": {
+    "target_dir": {
+      "type": "string",
+      "default": "resources",
+      "description": "\nTarget directory for the warehouse resource file (relative to your bundle root).\nMost bundles already include `resources/*.yml` from databricks.yml, so the\ndefault `resources` lands the file where the bundle will auto-pick it up.\n\nIf your bundle uses a different convention (e.g., `resources/sql_warehouses/`),\nset that here. The directory will be created if it does not exist.\ntarget_dir",
+      "order": 1,
+      "pattern": "^[A-Za-z0-9_][A-Za-z0-9_./-]*$",
+      "pattern_match_failure_message": "Target directory must start with a letter, number, or underscore and contain only letters, numbers, underscores, slashes, hyphens, or dots."
+    },
+
+    "warehouse_resource_key": {
+      "type": "string",
+      "default": "monitoring_sql_warehouse",
+      "description": "\n========================================\n\nDABs resource key for the warehouse.\n\nThis key appears in the bundle as `resources.sql_warehouses.<key>` and is\nalso the filename: `<target_dir>/<key>.sql_warehouse.yml`. Other bundle\nresources reference this warehouse by `${resources.sql_warehouses.<key>.id}`.\n\nDefault `monitoring_sql_warehouse` is safe for most projects. Pick another\nname only if your bundle already defines a warehouse with this key.\nMust be lowercase snake_case (letters, numbers, underscores).\nwarehouse_resource_key",
+      "order": 2,
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "pattern_match_failure_message": "Resource key must be lowercase, start with a letter, and contain only letters, numbers, and underscores."
+    },
+
+    "warehouse_name": {
+      "type": "string",
+      "default": "Monitoring SQL Warehouse",
+      "description": "\n========================================\n\nDisplay name shown in the Databricks workspace SQL Warehouses list.\n\nThis is what users see in the UI when picking a warehouse for an Alert\nor query. Free-form; spaces and mixed case are fine.\nwarehouse_name",
+      "order": 3,
+      "pattern": "^.+$",
+      "pattern_match_failure_message": "Warehouse name cannot be empty."
+    },
+
+    "cluster_size": {
+      "type": "string",
+      "default": "2X-Small",
+      "description": "\n========================================\n\nCluster size for the warehouse.\n\nValid Databricks SQL warehouse sizes (smallest to largest):\n  2X-Small, X-Small, Small, Medium, Large, X-Large, 2X-Large, 3X-Large, 4X-Large, 5X-Large\n\nDefault `2X-Small` is the smallest and cheapest. It is sufficient for\nDatabricks Alerts and monitoring queries that complete in under a second.\nScale up only if your queries scan large tables.\ncluster_size",
+      "order": 4,
+      "pattern": "^(2X-Small|X-Small|Small|Medium|Large|X-Large|2X-Large|3X-Large|4X-Large|5X-Large)$",
+      "pattern_match_failure_message": "Cluster size must be one of: 2X-Small, X-Small, Small, Medium, Large, X-Large, 2X-Large, 3X-Large, 4X-Large, 5X-Large."
+    },
+
+    "auto_stop_mins": {
+      "type": "string",
+      "default": "1",
+      "description": "\n========================================\n\nIdle minutes before the warehouse auto-stops (integer).\n\nDefault `1` is the serverless minimum verified via DABs deploy: the UI\nshows 'After 1 minute of inactivity'. Sub-minute values are NOT supported\n(the field is modeled as an integer).\n\nSpecial values:\n  0  = disable auto-stop entirely (warehouse runs until manually stopped)\n  1  = serverless minimum (recommended for Alerts / bursty workloads)\n  10+ = required floor for Pro/Classic warehouses; safe upper bound for serverless too\n\nKeep at 1 unless you have a reason to override.\nauto_stop_mins",
+      "order": 5,
+      "pattern": "^(0|[1-9][0-9]*)$",
+      "pattern_match_failure_message": "auto_stop_mins must be a non-negative integer (0 to disable, 1 for serverless minimum, 10+ for Pro/Classic)."
+    }
+  },
+
+  "success_message": "\n========================================\n\nMonitoring SQL warehouse installed:\n  - Resource:  {{.target_dir}}/{{.warehouse_resource_key}}.sql_warehouse.yml\n  - Usage doc: docs/monitoring-sql-warehouse/README.md\n\nNext steps:\n\n1. Confirm your `databricks.yml` includes the resource file. Most bundles\n   already include `resources/*.yml` by default; verify:\n     include:\n       - resources/*.yml\n   If you installed to a custom subdirectory, add the matching glob.\n\n2. Validate and deploy:\n     databricks bundle validate -t <your-target>\n     databricks bundle deploy -t <your-target>\n\n3. After deploy, the warehouse appears in the workspace SQL Warehouses list\n   as '{{.warehouse_name}}'. Point your Alerts / monitoring queries at it.\n\n4. Reference the warehouse ID from other bundle resources via:\n     ${resources.sql_warehouses.{{.warehouse_resource_key}}.id}\n\nUsage notes, the auto_stop_mins=1 nuance, and the CLI/API paths for\nexisting warehouses live in 'docs/monitoring-sql-warehouse/README.md'.\n",
+
+  "min_databricks_cli_version": "v0.296.0",
+  "version": 1
+}

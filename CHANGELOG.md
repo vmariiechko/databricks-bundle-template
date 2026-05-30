@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-05-30
+
+### Added
+- **Asset `monitoring-sql-warehouse`**: Declarative Automation Bundle resource defining a small, dedicated serverless SQL warehouse tuned for bursty workloads (scheduled Databricks Alerts, monitoring queries, ad-hoc health checks).
+  - Defaults to `cluster_size: 2X-Small`, `warehouse_type: PRO`, `enable_serverless_compute: true`, and `auto_stop_mins: 1` (the serverless minimum verified end-to-end via DABs deploy; sub-minute values silently revert to the platform default).
+  - Channel pinned to `CHANNEL_NAME_CURRENT` so Databricks SQL Preview-channel rollouts cannot change query behavior under monitoring workloads. Cost-attribution tags `workload=monitoring-alerts` and `created_by=dabs-asset/monitoring-sql-warehouse` ship by default for traceability in usage reports.
+  - Five prompts (`target_dir`, `warehouse_resource_key`, `warehouse_name`, `cluster_size`, `auto_stop_mins`) with safe defaults; the resource file lands at `<target_dir>/<warehouse_resource_key>.sql_warehouse.yml` and is picked up by the conventional `resources/*.yml` include glob without any `databricks.yml` change.
+  - In-bundle usage doc at `docs/monitoring-sql-warehouse/README.md` covers the auto-stop nuance, cross-resource ID reference pattern, and `databricks warehouses edit --auto-stop-mins` / REST API paths for editing warehouses created outside DABs.
+
 ## [1.7.1] - 2026-05-13
 
 ### Fixed
@@ -176,6 +185,7 @@ Initial public release.
 - L2 tests: YAML syntax, environment targets, content validation
 - CI/CD tests: pipeline generation, auth patterns, branch references
 
+[1.8.0]: https://github.com/vmariiechko/databricks-bundle-template/releases/tag/v1.8.0
 [1.7.0]: https://github.com/vmariiechko/databricks-bundle-template/releases/tag/v1.7.0
 [1.6.0]: https://github.com/vmariiechko/databricks-bundle-template/releases/tag/v1.6.0
 [1.5.0]: https://github.com/vmariiechko/databricks-bundle-template/releases/tag/v1.5.0
