@@ -7,7 +7,7 @@ A small, dedicated serverless SQL warehouse for scheduled Databricks Alerts, mon
 Use a dedicated warehouse like this when:
 
 - You run scheduled Databricks Alerts (every minute, every five minutes, every hour) whose underlying SQL completes in well under a second.
-- The default warehouse those queries land on has a long auto-stop window (10 minutes is the platform default for Pro/Classic; serverless allows 1 minute).
+- The default warehouse has a long auto-stop window by default (you can lower it to 10 minutes on Pro/Classic, 1 minute on serverless).
 - You see the warehouse staying warm for the full auto-stop window after a single sub-second query, inflating monthly cost.
 
 A separate `2X-Small` serverless warehouse with `auto_stop_mins: 1` keeps cost proportional to actual query time: the warehouse starts on the Alert run, executes in under a second, and stops one minute after the last query.
