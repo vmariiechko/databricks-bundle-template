@@ -31,3 +31,7 @@ After install, open `docs/monitoring-sql-warehouse/README.md` in your project fo
 ## What this asset is
 
 A standalone sub-template in the [databricks-bundle-template](https://github.com/vmariiechko/databricks-bundle-template) asset library. It does not depend on the core template; it can be installed into any Databricks bundle. See [ASSETS.md](../../ASSETS.md) for the full catalog.
+
+## Background
+
+Read the story of how it came up: [The SQL Warehouse Cost Trap Behind Short Databricks Alert Jobs](https://vmariiechko.com/short-bytes/sql-warehouse-alert-cost-trap/)
