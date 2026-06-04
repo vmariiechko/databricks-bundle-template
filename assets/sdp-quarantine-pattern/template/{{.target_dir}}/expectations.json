@@ -1,0 +1,38 @@
+{
+  "drop": [
+    {
+      "name": "valid_fare",
+      "query": "fare_amount IS NOT NULL AND fare_amount > 0"
+    },
+    {
+      "name": "valid_distance",
+      "query": "trip_distance IS NOT NULL AND trip_distance > 0"
+    },
+    {
+      "name": "valid_pickup_ts",
+      "query": "tpep_pickup_datetime IS NOT NULL"
+    },
+    {
+      "name": "valid_dropoff_after_pickup",
+      "query": "tpep_dropoff_datetime IS NOT NULL AND tpep_dropoff_datetime > tpep_pickup_datetime"
+    },
+    {
+      "name": "valid_pickup_zip",
+      "query": "pickup_zip IS NOT NULL"
+    }
+  ],
+  "warn": [
+    {
+      "name": "fare_within_expected",
+      "query": "fare_amount < 500"
+    },
+    {
+      "name": "distance_within_expected",
+      "query": "trip_distance < 100"
+    },
+    {
+      "name": "dropoff_zip_present",
+      "query": "dropoff_zip IS NOT NULL"
+    }
+  ]
+}

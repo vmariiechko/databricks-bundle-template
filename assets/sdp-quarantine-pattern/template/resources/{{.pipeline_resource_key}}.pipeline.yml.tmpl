@@ -1,0 +1,41 @@
+# Lakeflow SDP pipeline: inverse-expectations quarantine pattern.
+#
+# bronze_trips lands in the bronze schema (the pipeline default); silver_trips
+# and quarantine_trips are fully qualified into the silver schema by the
+# pipeline source. The pipeline source is referenced relative to THIS file's
+# directory (DABs translates library paths relative to the resource file).
+#
+# Reference this pipeline from other resources via:
+#   ${resources.pipelines.{{.pipeline_resource_key}}.id}
+#
+# See docs/sdp-quarantine-pattern/README.md for the design and the NULL trap.
+
+resources:
+  pipelines:
+    {{.pipeline_resource_key}}:
+      name: {{.pipeline_name}}
+      catalog: {{.catalog}}
+      schema: {{.bronze_schema}}
+      serverless: true
+      channel: CURRENT
+
+      # Publish the pipeline event log to a queryable UC table. Expectation
+      # results (passed/failed records per rule) are parsed from here; see
+      # event_log_queries.sql.
+      event_log:
+        catalog: {{.catalog}}
+        schema: {{.bronze_schema}}
+        name: pipeline_event_log
+
+      libraries:
+        - notebook:
+            path: ../{{.target_dir}}/quarantine_pipeline.py
+
+      configuration:
+        quarantine.catalog: {{.catalog}}
+        quarantine.silver_schema: {{.silver_schema}}
+
+      # Traceability back to the originating asset (forwarded as cluster tags).
+      tags:
+        created_by: dabs-asset
+        asset: sdp-quarantine-pattern

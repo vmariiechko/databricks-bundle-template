@@ -1,0 +1,8 @@
+{
+  "target_dir": "src/sdp_quarantine_pattern",
+  "pipeline_resource_key": "sdp_quarantine_pattern",
+  "pipeline_name": "SDP Quarantine Pattern Demo",
+  "catalog": "main",
+  "bronze_schema": "bronze",
+  "silver_schema": "silver"
+}

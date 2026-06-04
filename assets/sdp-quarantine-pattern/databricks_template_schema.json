@@ -1,0 +1,64 @@
+{
+  "welcome_message": "\nLakeflow SDP Quarantine Pattern: Asset Installer\n\nInstalls one Lakeflow Spark Declarative Pipeline that demonstrates the\ninverse-expectations quarantine pattern on the public samples.nyctaxi.trips\ndataset.\n\nCritical (drop) expectations route violating rows into a separate quarantine\ntable; the valid rows flow to silver. Advisory (warn) expectations log to the\npipeline event log without dropping. Drop predicates are written NULL-safe so\nthe silver/quarantine split is a clean partition (see the README's NULL trap).\n\nThe public sample already contains some invalid rows, so the quarantine table\nis populated on the first run with no extra setup. Bronze tables land in your\nbronze schema; silver and quarantine land in your silver schema.\n\nLet's pick the install settings...\n",
+
+  "properties": {
+    "target_dir": {
+      "type": "string",
+      "default": "src/sdp_quarantine_pattern",
+      "description": "\nTarget directory for the pipeline source files (relative to your bundle root).\nThe asset installs the pipeline notebook, expectations.py, expectations.json,\nand event_log_queries.sql here. Pick a path that doesn't already exist.\ntarget_dir",
+      "order": 1,
+      "pattern": "^[A-Za-z0-9_][A-Za-z0-9_./-]*$",
+      "pattern_match_failure_message": "Target directory must start with a letter, number, or underscore and contain only letters, numbers, underscores, slashes, hyphens, or dots."
+    },
+
+    "pipeline_resource_key": {
+      "type": "string",
+      "default": "sdp_quarantine_pattern",
+      "description": "\n========================================\n\nDABs resource key for the pipeline.\n\nThis key appears in the bundle as `resources.pipelines.<key>` and is also the\nfilename: `resources/<key>.pipeline.yml`. Other resources reference the\npipeline by `${resources.pipelines.<key>.id}`.\n\nDefault `sdp_quarantine_pattern` is safe for most projects. Pick another name\nonly if your bundle already defines a pipeline with this key.\nMust be lowercase snake_case (letters, numbers, underscores).\npipeline_resource_key",
+      "order": 2,
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "pattern_match_failure_message": "Resource key must be lowercase, start with a letter, and contain only letters, numbers, and underscores."
+    },
+
+    "pipeline_name": {
+      "type": "string",
+      "default": "SDP Quarantine Pattern Demo",
+      "description": "\n========================================\n\nDisplay name shown in the Databricks workspace Pipelines list.\nFree-form; spaces and mixed case are fine.\npipeline_name",
+      "order": 3,
+      "pattern": "^.+$",
+      "pattern_match_failure_message": "Pipeline name cannot be empty."
+    },
+
+    "catalog": {
+      "type": "string",
+      "default": "main",
+      "description": "\n========================================\n\nUnity Catalog catalog the pipeline writes its tables into.\n\nYou need CREATE TABLE on this catalog and on both schemas below. The public\nsource (samples.nyctaxi.trips) is read-only and unaffected.\nMust be a valid lowercase identifier.\ncatalog",
+      "order": 4,
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "pattern_match_failure_message": "Catalog must be lowercase, start with a letter, and contain only letters, numbers, and underscores."
+    },
+
+    "bronze_schema": {
+      "type": "string",
+      "default": "bronze",
+      "description": "\n========================================\n\nBronze-layer schema. The raw ingest table (bronze_trips) and the pipeline\nevent log land here. This is the pipeline's default schema.\nMust be a valid lowercase identifier.\nbronze_schema",
+      "order": 5,
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "pattern_match_failure_message": "Schema must be lowercase, start with a letter, and contain only letters, numbers, and underscores."
+    },
+
+    "silver_schema": {
+      "type": "string",
+      "default": "silver",
+      "description": "\n========================================\n\nSilver-layer schema. The validated table (silver_trips) and the quarantine\ntable (quarantine_trips) land here, following medallion schema separation.\nMust be a valid lowercase identifier.\nsilver_schema",
+      "order": 6,
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "pattern_match_failure_message": "Schema must be lowercase, start with a letter, and contain only letters, numbers, and underscores."
+    }
+  },
+
+  "success_message": "\n========================================\n\nQuarantine pattern pipeline installed:\n  - Pipeline source: {{.target_dir}}/quarantine_pipeline.py (Databricks notebook)\n  - Expectations:    {{.target_dir}}/expectations.json (+ expectations.py helper)\n  - Event log SQL:   {{.target_dir}}/event_log_queries.sql\n  - Resource:        resources/{{.pipeline_resource_key}}.pipeline.yml\n  - Usage doc:       docs/sdp-quarantine-pattern/README.md\n\nNext steps:\n\n1. Confirm your `databricks.yml` includes the resource file. Most bundles\n   already include `resources/*.yml` by default; verify:\n     include:\n       - resources/*.yml\n\n2. Validate and deploy:\n     databricks bundle validate -t <your-target>\n     databricks bundle deploy -t <your-target>\n\n3. Run the pipeline ('{{.pipeline_name}}'). The public sample already contains\n   some invalid rows, so quarantine_trips is populated on the first run.\n\nTables land in {{.catalog}}: bronze_trips in {{.bronze_schema}}; silver_trips\nand quarantine_trips in {{.silver_schema}}. Inspect expectation results with the\nqueries in {{.target_dir}}/event_log_queries.sql. Design notes and the NULL-trap\nexplanation live in 'docs/sdp-quarantine-pattern/README.md'.\n",
+
+  "min_databricks_cli_version": "v0.296.0",
+  "version": 1
+}

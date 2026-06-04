@@ -1,0 +1,73 @@
+-- Inspect expectation results from the pipeline event log.
+--
+-- The pipeline publishes its event log to {{.catalog}}.{{.bronze_schema}}.pipeline_event_log
+-- (set by the `event_log` block in the pipeline resource). Data-quality results
+-- live in `flow_progress` events under details:flow_progress.data_quality.
+-- The parsing shape below is the one documented in the Databricks event log
+-- reference; adjust column paths if a future runtime changes the schema.
+
+-- ---------------------------------------------------------------------------
+-- Per-expectation passed/failed counts for the latest pipeline update.
+-- WARN rules show failed_records here while the rows still flow to silver;
+-- DROP rules show the rows routed to quarantine.
+-- ---------------------------------------------------------------------------
+WITH latest_update AS (
+  SELECT origin.update_id AS update_id
+  FROM {{.catalog}}.{{.bronze_schema}}.pipeline_event_log
+  WHERE event_type = 'create_update'
+  ORDER BY timestamp DESC
+  LIMIT 1
+),
+expectations_parsed AS (
+  SELECT
+    explode(
+      from_json(
+        details:flow_progress.data_quality.expectations,
+        "array<struct<name: string, dataset: string, passed_records: int, failed_records: int>>"
+      )
+    ) AS e
+  FROM {{.catalog}}.{{.bronze_schema}}.pipeline_event_log, latest_update
+  WHERE event_type = 'flow_progress'
+    AND origin.update_id = latest_update.update_id
+)
+SELECT
+  e.dataset,
+  e.name AS expectation,
+  SUM(e.passed_records) AS passing_records,
+  SUM(e.failed_records) AS failing_records
+FROM expectations_parsed
+GROUP BY e.dataset, e.name
+ORDER BY failing_records DESC, e.dataset, e.name;
+
+-- ---------------------------------------------------------------------------
+-- Only the WARN expectations that fired (rows kept in silver but flagged).
+-- These are advisory: they never route to quarantine, so the event log is the
+-- only place they surface.
+-- ---------------------------------------------------------------------------
+WITH latest_update AS (
+  SELECT origin.update_id AS update_id
+  FROM {{.catalog}}.{{.bronze_schema}}.pipeline_event_log
+  WHERE event_type = 'create_update'
+  ORDER BY timestamp DESC
+  LIMIT 1
+),
+expectations_parsed AS (
+  SELECT
+    explode(
+      from_json(
+        details:flow_progress.data_quality.expectations,
+        "array<struct<name: string, dataset: string, passed_records: int, failed_records: int>>"
+      )
+    ) AS e
+  FROM {{.catalog}}.{{.bronze_schema}}.pipeline_event_log, latest_update
+  WHERE event_type = 'flow_progress'
+    AND origin.update_id = latest_update.update_id
+)
+SELECT
+  e.name AS warn_expectation,
+  SUM(e.failed_records) AS flagged_records
+FROM expectations_parsed
+WHERE e.name IN ('fare_within_expected', 'distance_within_expected', 'dropoff_zip_present')
+GROUP BY e.name
+HAVING SUM(e.failed_records) > 0
+ORDER BY flagged_records DESC;

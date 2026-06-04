@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **Asset `sdp-quarantine-pattern`**: Lakeflow Spark Declarative Pipeline demonstrating the inverse-expectations quarantine pattern on the public `samples.nyctaxi.trips` dataset.
+  - `bronze_trips` ingests the read-only public sample as a streaming table (bronze schema). `silver_trips` applies the critical (drop) expectations; `quarantine_trips` applies their inverse, capturing exactly the rows silver drops; both land in the silver schema, following medallion schema separation. Advisory (warn) expectations log to the pipeline event log without dropping. The public sample contains naturally invalid rows, so quarantine is populated on the first run.
+  - Drop predicates are written NULL-safe (total) so `expect_all_or_drop(drop)` and `expect_all_or_drop(NOT(drop))` partition the input exactly once. The README documents the three-valued-logic trap that breaks naive inverse expectations. Validated live on serverless SDP: the partition invariant held exactly across all cases (21,847 silver + 85 quarantine = 21,932 bronze at baseline) and a NULL drop column routed to quarantine without leaking into silver.
+  - Rules live in a declarative `expectations.json`; a pure helper `expectations.py` (no pyspark import) loads them and derives the inverse predicate, and is unit-tested offline. The pipeline source is a Databricks notebook referenced from `resources/<pipeline_resource_key>.pipeline.yml` via a path relative to the resource file.
+  - The resource publishes a queryable event log (`event_log` block) and ships `event_log_queries.sql` to parse per-expectation passed/failed counts; cost/trace tags identify the pipeline as created by this asset. In-bundle usage doc at `docs/sdp-quarantine-pattern/README.md`. Six prompts (`target_dir`, `pipeline_resource_key`, `pipeline_name`, `catalog`, `bronze_schema`, `silver_schema`) with safe defaults.
+
 ## [1.8.0] - 2026-05-30
 
 ### Added

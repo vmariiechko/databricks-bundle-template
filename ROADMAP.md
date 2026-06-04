@@ -49,6 +49,7 @@ Modular sub-templates installable via `databricks bundle init <repo-url> --templ
 - `sdp-checkpoint-recovery`: Reset checkpoint selection on a Lakeflow Spark Declarative Pipeline after a source table has been dropped and recreated
 - `dbx-ro-query`: Dependency-free Python wrapper around `databricks experimental aitools tools query` that gives LLM agents a guarded read-only SQL window into a Databricks workspace
 - `monitoring-sql-warehouse`: Dedicated serverless SQL warehouse tuned for bursty workloads (scheduled Alerts, monitoring queries) with `auto_stop_mins: 1`
+- `sdp-quarantine-pattern`: Lakeflow SDP pipeline demonstrating the inverse-expectations quarantine pattern (drop expectations route bad rows to a separate quarantine table) on `samples.nyctaxi.trips`, with medallion schema separation, a queryable event log, and NULL-safe predicates
 
 **Possible future assets** (ideas for contributors, not commitments):
 - `etl-pipeline`: Medallion-layered Declarative Pipeline with Bronze/Silver layers and DLT expectations
@@ -78,6 +79,10 @@ Add metadata to generated resources so teams can track which template version wa
 ## Future Ideas
 
 These are larger features that require more design work and community input before committing to implementation.
+
+### Pre-commit Hooks
+
+<fill-in from `https://www.waitingforcode.com/databricks/pre-commit-hook-declarative-automation-bundles-example/read`>
 
 ### Advanced Permissions Profiles
 
