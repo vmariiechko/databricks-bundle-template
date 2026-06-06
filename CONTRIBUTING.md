@@ -143,6 +143,10 @@ All contributions must:
 - If your change affects generated output, include a sample of the before/after
 - Update documentation if behavior changes
 
+## Releasing
+
+Cutting a release (bumping the version, finalizing the changelog, tagging, and publishing a GitHub release) follows a dedicated checklist in [RELEASING.md](RELEASING.md). The short version: the version bump and the `[Unreleased]` to `[X.Y.Z] - <date>` rename happen inside the PR before merge, so `main` is always release-ready; the annotated tag and the GitHub release happen after merge. A guard test (`tests/test_release_metadata.py`) keeps the two version markers and the changelog in sync.
+
 ## Adding an Asset
 
 The repository also ships an **asset library**: standalone sub-templates under `assets/<asset-name>/` that install individual Databricks artifacts (pipelines, jobs, dashboards) via `databricks bundle init --template-dir`. See [ASSETS.md](ASSETS.md) for the end-user catalog and install pattern, and [ARCHITECTURE.md §8](ARCHITECTURE.md#8-asset-library--plugins-layer) for the design rationale.
@@ -167,7 +171,7 @@ Every asset must follow these seven rules:
      --template-dir assets/<asset-name>
    ```
 6. **Tests are per-asset.** Framework-level smoke checks (`tests/assets/test_framework.py`) run automatically for every `assets/*/`. Asset-specific deep tests live at `tests/assets/test_<asset_name>.py` and are added only when the asset has non-trivial structure to verify (exact file lists, YAML validity, Python parses, etc.). Both reuse the `install_asset` fixture from `tests/assets/conftest.py`.
-7. **Single repo-wide CHANGELOG.** No per-asset versioning for now. Changes are grouped under `[Unreleased]` → `### Added / ### Changed`.
+7. **Single repo-wide CHANGELOG.** No per-asset versioning for now. Changes are grouped under `[Unreleased]` → `### Added / ### Changed`. At release time the `[Unreleased]` heading is renamed to `[X.Y.Z] - <date>` and a fresh empty `[Unreleased]` is added above it; see [RELEASING.md](RELEASING.md).
 
 ### Authoring walkthrough
 
@@ -200,7 +204,7 @@ Every asset must follow these seven rules:
 
 4. Add a row to the catalog table in [ASSETS.md](ASSETS.md).
 
-5. Add an `[Unreleased]` entry in [CHANGELOG.md](CHANGELOG.md) under `### Added`.
+5. Add an entry under `## [Unreleased]` in [CHANGELOG.md](CHANGELOG.md) under `### Added`. The entry stays under `[Unreleased]` until a release finalizes it (see [RELEASING.md](RELEASING.md)); do not invent a version heading in your PR unless the PR itself cuts the release.
 
 6. Verify locally:
 
@@ -222,7 +226,7 @@ When opening a PR that introduces or modifies an asset:
 - [ ] Framework smoke tests pass (`pytest tests/assets/test_framework.py -v`)
 - [ ] Asset-specific tests pass (if added)
 - [ ] `ASSETS.md` catalog is updated
-- [ ] `CHANGELOG.md` has an `[Unreleased]` entry
+- [ ] `CHANGELOG.md` has an entry under `[Unreleased]` (or, if this PR cuts the release, a finalized `[X.Y.Z] - <date>` entry per [RELEASING.md](RELEASING.md))
 - [ ] No changes outside `assets/<asset-name>/`, `tests/assets/`, `tests/configs/assets/`, and the four cross-reference docs (`ASSETS.md`, `CHANGELOG.md`, `README.md`, and `ROADMAP.md` if status changes)
 
 ## Reporting Issues
