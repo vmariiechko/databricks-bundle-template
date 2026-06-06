@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [1.9.0] - 2026-06-04
+## [1.9.0] - 2026-06-06
 
 ### Added
 - **Asset `sdp-quarantine-pattern`**: Lakeflow Spark Declarative Pipeline demonstrating the inverse-expectations quarantine pattern on the public `samples.nyctaxi.trips` dataset.
