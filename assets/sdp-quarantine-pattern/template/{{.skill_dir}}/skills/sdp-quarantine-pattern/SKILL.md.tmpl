@@ -1,0 +1,103 @@
+---
+name: sdp-quarantine-pattern
+description: Use this skill to apply the inverse-expectations quarantine pattern to a Lakeflow Spark Declarative Pipeline on the user's own dataset. Critical (drop) checks route violating rows into a separate quarantine table while valid rows flow to a clean table; advisory (warn) checks are logged but not dropped. Use it whenever the user wants quarantine or dead-letter handling, expectation-based data-quality routing, or a "good rows here, bad rows there" split in an SDP pipeline. The skill adapts the shipped samples.nyctaxi.trips reference to the user's table, enforces NULL-safe drop predicates so clean and quarantine form a clean partition, wires the DABs pipeline resource into the bundle, and verifies the result (offline rule unit tests first, then live audits). It applies and verifies a pattern; it is not an auto-rewriter and does not guarantee correctness on arbitrary data.
+---
+
+# sdp-quarantine-pattern
+
+Apply the inverse-expectations quarantine pattern to the user's own Lakeflow Spark Declarative Pipeline (SDP), then prove it works.
+
+The pattern: critical data-quality rules ("drop" rules) decide which rows are valid. Valid rows flow to a clean table. The rows that fail at least one drop rule are captured in a separate quarantine table, which applies the **inverse** of the drop rules. Advisory rules ("warn" rules) annotate the pipeline event log but never drop or route anything.
+
+This asset shipped a validated reference implementation alongside this skill. Read it first; it is the worked example you adapt away from:
+
+- Pipeline source: `{{.target_dir}}/quarantine_pipeline.py` (a Databricks notebook: raw, clean, quarantine).
+- Rules: `{{.target_dir}}/expectations.json` (declarative drop/warn lists) and `{{.target_dir}}/expectations.py` (a pure helper that loads the rules and derives the clean and inverse predicates).
+- Unit tests: `{{.target_dir}}/tests/` (`test_expectations.py`, `conftest.py`, `requirements-test.txt`) - the offline proof of the pattern.
+- Event-log queries: `{{.target_dir}}/event_log_queries.sql`.
+- DABs resource: `resources/<pipeline_resource_key>.pipeline.yml`.
+
+Paths in this skill are relative to the bundle root.
+
+## The one rule you must not break: NULL-safe drop predicates
+
+`expect_all_or_drop` drops a row only when its predicate evaluates to `false`. A predicate that evaluates to SQL `NULL` (unknown) is treated as **passing**. So a naive drop rule like `amount > 0` lets a NULL `amount` through to the clean table, and the inverse `NOT(amount > 0)` is also `NULL`, so the row's fate is inconsistent: it can leak into both tables or neither.
+
+Every drop predicate you write or adapt MUST be total (NULL-safe): guard each column test with `IS NOT NULL`.
+
+```
+# wrong  (NULL amount leaks)
+amount > 0
+# right  (NULL amount is dropped, routes to quarantine)
+amount IS NOT NULL AND amount > 0
+```
+
+A total predicate never returns `NULL`, so the clean and quarantine tables partition the input exactly once: every raw row lands in exactly one of them. This is the property the Tier 1 unit tests prove. Do not relax it. If the user genuinely cannot guarantee total predicates (for example rules pulled from an external system), compute an explicit NULL-safe `_quarantined` boolean once and branch both tables on that flag instead; `references/adapt-the-pattern.md` covers this fallback.
+
+## Workflow
+
+The work splits at a trust boundary. **Phase A** is non-mutating: investigate, edit files, and run the offline unit tests. You can complete it and prove the core correctness without touching a workspace. **Phase B** deploys and runs the pipeline, which mutates state, so it is gated (see "Control model" below). Lean on `references/adapt-the-pattern.md` for the editing mechanics and `references/self-verify.md` for the verification tiers.
+
+### Phase A (autonomous, no workspace changes)
+
+1. **Understand the target.** Find out what the user wants quarantined and from which source (a table, a file feed, an existing pipeline). Inspect the source schema and sample a few rows so your rules match real column names and types. Use your runtime's read-only query capability (see below).
+2. **Decide the checks and classify them.** For each quality concern, decide whether it is a drop rule (a row that fails is invalid and must be quarantined) or a warn rule (advisory, stays in the clean table but is flagged in the event log). Default approach: investigate the data, propose an initial rule set with a one-line justification each, and confirm it with the user before wiring it in. Do not silently invent business rules.
+3. **Adapt the files.** Point the raw layer at the user's source, rewrite `expectations.json` for the user's columns (every drop rule NULL-safe), and set the catalog and bronze/silver schemas. Keep `expectations.py` as-is; it derives the predicates from whatever drop rules you supply.
+4. **Adapt and run the unit tests (Tier 1).** Update `{{.target_dir}}/tests/test_expectations.py` with the user's schema and edge rows (one per violation, a multi-violation row, a warn-only row, and a NULL-in-a-guarded-column row). Install the test dependencies into the project's virtual environment (use an existing `venv`/`.venv` if the project has one, otherwise create one; do not install into the global or system Python), then run `pytest {{.target_dir}}/tests/ -q`. Green means the rules partition correctly and the NULL trap is closed, proven offline. Fix any failure before going further.
+5. **Integrate the DABs resource.** Add the pipeline resource to the user's `databricks.yml`. Inspect it first: reuse existing variables where they exist (for example `catalog: ${var.catalog_name}` rather than a hardcoded catalog) and confirm an `include: resources/*.yml` glob (or equivalent) picks the resource up. Do not assume the default layout.
+
+### Phase B (gated: deploy, run, live-verify)
+
+6. **Deploy and run.** `databricks bundle validate`, then `deploy`, then run the pipeline. Use your runtime's own capability for this (see "Deploying and running" below).
+7. **Live-verify.** Run the Tier 2 read-only audits in `references/self-verify.md` (partition invariant + NULL-in-clean audit + event-log inspection). Offer Tier 3 (an integration test on a curated source via `quarantine.source`) if the user wants full end-to-end proof.
+8. **Confirm and hand back.** Tell the user what you changed, show the verification results, and state the tradeoffs (the source is processed twice; warn rules surface only in the event log) and the limits (verification proves behavior on the data tested, not on all future data).
+
+## Control model: who deploys and runs
+
+Phase B mutates workspace state, so do not assume you may deploy and run unattended. Default to **human-in-the-middle**: finish Phase A, then present the deploy/run commands and the verification queries and let the user run them, coming back to you with results to verify. Run the full closed loop yourself (deploy, run, full-refresh, verify) only when the user has explicitly granted that and your runtime can do it. Ask the user which mode they want rather than guessing. In either mode, Phase A still gives the user real, proven correctness (the offline unit tests) before anything is deployed.
+
+## Read-only query access (use what your runtime has)
+
+Investigation (step 1) and the Tier 2 audits need read-only SQL. Use whatever read-only query capability your runtime already provides; the queries are plain SQL and the skill mandates no tool:
+
+- On Databricks (for example Genie Code), use the platform's native query ability.
+- On a local machine, use the Databricks CLI or a SQL warehouse.
+- If a guarded read-only SQL skill is already installed in this project (for example `dbx-ro-query`), prefer it.
+
+Keep all verification SQL read-only. Never run destructive SQL to verify a pipeline.
+
+## Deploying and running (delegate the mechanics)
+
+This skill owns the pattern and the verification logic, not the deploy plumbing. For the actual deploy / run / full-refresh mechanics, use your runtime's own capability: on Databricks, Genie Code already knows how to manage pipelines; on a local machine, use the Databricks CLI directly, and if the Databricks ai-dev-kit agent skills (https://github.com/databricks-solutions/ai-dev-kit) are installed, use those for the CLI authentication, profile selection, and pipeline-management steps. Do not hardcode a CLI recipe here. If you are running locally without those skills and the user has not chosen a CLI profile, ask which profile to use rather than guessing.
+
+## Agent latitude
+
+These steps are deliberately high-level. The user's setup will have specifics you cannot anticipate: existing variables and naming conventions, an existing pipeline you are extending, compute or governance constraints, a source that is a view or a file feed. Investigate the user's repository and workspace, decide how best to fit the pattern, and confirm your plan with the user. Adapt the pattern; do not transplant the nyctaxi specifics.
+
+## Definition of done
+
+Do not report success until all of these hold:
+
+- [ ] Drop and warn rules reflect the user's dataset and the user has confirmed the classification.
+- [ ] Every drop predicate is NULL-safe (each column test guarded by `IS NOT NULL`).
+- [ ] The adapted Tier 1 unit tests pass (`pytest {{.target_dir}}/tests/ -q`).
+- [ ] The pipeline resource is integrated and `databricks bundle validate` is clean.
+- [ ] Either the pipeline ran and the Tier 2 audits pass, or (human-in-the-middle) you have handed the user the exact deploy/run commands and audit queries.
+- [ ] You have stated the tradeoffs and limits back to the user.
+
+## Limits
+
+This skill applies and verifies a pattern. It does not guarantee correctness on arbitrary data, and it is not a general data-quality framework. The verification proves the partition and NULL behavior on the rows actually tested; it does not prove the rules capture every real-world defect, nor that they will hold for data shapes you have not seen. The user owns the business meaning of the rules. For a fuller framework, point them at [DQX](https://databrickslabs.github.io/dqx/) (Databricks Labs).
+
+## References
+
+- `references/adapt-the-pattern.md`: the mechanics of adapting the rules, pipeline, and unit tests to a new dataset, the status-column fallback, and config dimensions.
+- `references/self-verify.md`: the three-tier verification ladder (offline unit tests, live read-only audits, optional integration test).
+
+Official Databricks docs:
+
+1. [Lakeflow SDP expectations](https://docs.databricks.com/aws/en/ldp/expectations)
+2. [Manage data quality with pipeline expectations](https://docs.databricks.com/aws/en/ldp/expectation-patterns)
+3. [Develop pipelines: create test datasets](https://docs.databricks.com/aws/en/ldp/develop)
+4. [Pipeline parameters (source parameterization)](https://docs.databricks.com/aws/en/ldp/parameters)
+5. [Monitor pipelines with the event log](https://docs.databricks.com/aws/en/ldp/monitor-event-logs)

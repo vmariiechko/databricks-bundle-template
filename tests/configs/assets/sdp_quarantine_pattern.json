@@ -4,5 +4,6 @@
   "pipeline_name": "SDP Quarantine Pattern Demo",
   "catalog": "main",
   "bronze_schema": "bronze",
-  "silver_schema": "silver"
+  "silver_schema": "silver",
+  "skill_dir": ".agents"
 }

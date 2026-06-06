@@ -1,6 +1,6 @@
 -- Inspect expectation results from the pipeline event log.
 --
--- The pipeline publishes its event log to {{.catalog}}.{{.bronze_schema}}.pipeline_event_log
+-- The pipeline publishes its event log to {{.catalog}}.{{.bronze_schema}}.quarantine_pipeline_event_log
 -- (set by the `event_log` block in the pipeline resource). Data-quality results
 -- live in `flow_progress` events under details:flow_progress.data_quality.
 -- The parsing shape below is the one documented in the Databricks event log
@@ -13,7 +13,7 @@
 -- ---------------------------------------------------------------------------
 WITH latest_update AS (
   SELECT origin.update_id AS update_id
-  FROM {{.catalog}}.{{.bronze_schema}}.pipeline_event_log
+  FROM {{.catalog}}.{{.bronze_schema}}.quarantine_pipeline_event_log
   WHERE event_type = 'create_update'
   ORDER BY timestamp DESC
   LIMIT 1
@@ -26,7 +26,7 @@ expectations_parsed AS (
         "array<struct<name: string, dataset: string, passed_records: int, failed_records: int>>"
       )
     ) AS e
-  FROM {{.catalog}}.{{.bronze_schema}}.pipeline_event_log, latest_update
+  FROM {{.catalog}}.{{.bronze_schema}}.quarantine_pipeline_event_log, latest_update
   WHERE event_type = 'flow_progress'
     AND origin.update_id = latest_update.update_id
 )
@@ -46,7 +46,7 @@ ORDER BY failing_records DESC, e.dataset, e.name;
 -- ---------------------------------------------------------------------------
 WITH latest_update AS (
   SELECT origin.update_id AS update_id
-  FROM {{.catalog}}.{{.bronze_schema}}.pipeline_event_log
+  FROM {{.catalog}}.{{.bronze_schema}}.quarantine_pipeline_event_log
   WHERE event_type = 'create_update'
   ORDER BY timestamp DESC
   LIMIT 1
@@ -59,7 +59,7 @@ expectations_parsed AS (
         "array<struct<name: string, dataset: string, passed_records: int, failed_records: int>>"
       )
     ) AS e
-  FROM {{.catalog}}.{{.bronze_schema}}.pipeline_event_log, latest_update
+  FROM {{.catalog}}.{{.bronze_schema}}.quarantine_pipeline_event_log, latest_update
   WHERE event_type = 'flow_progress'
     AND origin.update_id = latest_update.update_id
 )

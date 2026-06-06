@@ -1,6 +1,6 @@
 # Lakeflow SDP pipeline: inverse-expectations quarantine pattern.
 #
-# bronze_trips lands in the bronze schema (the pipeline default); silver_trips
+# raw_trips lands in the bronze schema (the pipeline default); clean_trips
 # and quarantine_trips are fully qualified into the silver schema by the
 # pipeline source. The pipeline source is referenced relative to THIS file's
 # directory (DABs translates library paths relative to the resource file).
@@ -21,11 +21,12 @@ resources:
 
       # Publish the pipeline event log to a queryable UC table. Expectation
       # results (passed/failed records per rule) are parsed from here; see
-      # event_log_queries.sql.
+      # event_log_queries.sql. The name is coupled to this pipeline so it does
+      # not collide with other pipelines publishing into the same schema.
       event_log:
         catalog: {{.catalog}}
         schema: {{.bronze_schema}}
-        name: pipeline_event_log
+        name: quarantine_pipeline_event_log
 
       libraries:
         - notebook:
@@ -33,7 +34,12 @@ resources:
 
       configuration:
         quarantine.catalog: {{.catalog}}
+        quarantine.bronze_schema: {{.bronze_schema}}
         quarantine.silver_schema: {{.silver_schema}}
+        # The source table the raw layer ingests. Point this at a curated test
+        # table to run the pipeline against known-good/known-bad rows; see the
+        # skill's self-verify reference (Tier 3 integration test).
+        quarantine.source: samples.nyctaxi.trips
 
       # Traceability back to the originating asset (forwarded as cluster tags).
       tags:

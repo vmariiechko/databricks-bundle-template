@@ -25,6 +25,31 @@ def load_rules(action: str, config_path: str = _CONFIG_PATH) -> dict[str, str]:
     return {rule["name"]: rule["query"] for rule in config[action]}
 
 
+def build_silver_expr(drop_rules: dict[str, str]) -> str:
+    """Build the all-drop-rules-pass predicate for the clean (silver) table.
+
+    Given `{name: predicate}`, returns `(p1) AND (p2) AND ...`, which is true
+    exactly for rows that pass every drop rule. This mirrors what
+    `expect_all_or_drop(drop_rules)` keeps (when every predicate is NULL-safe),
+    and is the inverse of `build_quarantine_expr`.
+
+    Args:
+        drop_rules: Mapping of drop expectation name to SQL predicate.
+
+    Returns:
+        The conjunction of drop predicates as a string.
+
+    Raises:
+        ValueError: If `drop_rules` is empty.
+    """
+    predicates = list(drop_rules.values())
+    if not predicates:
+        raise ValueError(
+            "at least one drop rule is required to build the silver expression"
+        )
+    return " AND ".join(f"({p})" for p in predicates)
+
+
 def build_quarantine_expr(drop_rules: dict[str, str]) -> str:
     """Build the inverse-of-all-drop-rules predicate for the quarantine table.
 
@@ -40,13 +65,7 @@ def build_quarantine_expr(drop_rules: dict[str, str]) -> str:
     Raises:
         ValueError: If `drop_rules` is empty.
     """
-    predicates = list(drop_rules.values())
-    if not predicates:
-        raise ValueError(
-            "at least one drop rule is required to build the quarantine expression"
-        )
-    joined = " AND ".join(f"({p})" for p in predicates)
-    return f"NOT({joined})"
+    return f"NOT({build_silver_expr(drop_rules)})"
 
 
 DROP_RULES = load_rules("drop")
