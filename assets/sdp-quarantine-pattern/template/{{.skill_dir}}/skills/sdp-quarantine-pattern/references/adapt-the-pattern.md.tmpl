@@ -1,0 +1,83 @@
+# Adapting the quarantine pattern to a new dataset
+
+Load this when you are editing the rules, pipeline, and tests for the user's data. It assumes you have read `SKILL.md` and the reference implementation under `{{.target_dir}}/`.
+
+## Anatomy of the reference
+
+Three datasets, all named with fully qualified `catalog.schema.table` identifiers so the source reads consistently and the in-pipeline dependencies resolve unambiguously. The schemas are the medallion layers; the table names describe content:
+
+- `raw_trips` (bronze schema): a streaming ingest of the source. No expectations; it captures everything.
+- `clean_trips` (silver schema): reads the raw table, applies `@dp.expect_all(WARN_RULES)` then `@dp.expect_all_or_drop(DROP_RULES)`. The drop decorator removes rows that fail any drop rule.
+- `quarantine_trips` (silver schema): reads the same raw table, applies `@dp.expect_all_or_drop({"is_quarantined": QUARANTINE_EXPR})` where `QUARANTINE_EXPR` is `NOT((rule1) AND (rule2) AND ...)`. It keeps exactly the rows the clean table dropped.
+
+`{{.target_dir}}/expectations.json` holds the two rule lists. `{{.target_dir}}/expectations.py` loads them and builds the predicates: `build_silver_expr` (all rules pass, used by the tests) and `build_quarantine_expr` (its inverse, used by the pipeline). You do not maintain the inverse by hand. The pipeline reads `quarantine.catalog`, `quarantine.bronze_schema`, `quarantine.silver_schema`, and `quarantine.source` from the DABs resource `configuration` block, so the source needs no per-deploy editing for those.
+
+## What to change for the user's dataset
+
+1. **Source.** In `{{.target_dir}}/quarantine_pipeline.py`, the raw layer reads `SOURCE_TABLE`, which comes from the `quarantine.source` config (default `samples.nyctaxi.trips`). For the user's data, set `quarantine.source` in the resource to their table. The reference does a streaming read of a table (`spark.readStream.table(...)`). If the user's source is a file feed, use the matching read (for example Auto Loader / `cloudFiles`); if it is batch, use `spark.read` and materialized views instead of streaming tables. Keep the three-table shape.
+2. **Columns.** Update `TRIP_COLUMNS` (or replace it with the user's projection) so the raw layer selects the columns the rules reference. Drop the `nyctaxi`-specific column list.
+3. **Rules.** Rewrite `{{.target_dir}}/expectations.json`. This is the real work; see the next section.
+4. **Names.** Rename the table constants (`RAW_*`, `CLEAN_*`, `QUARANTINE_*`) and the `@dp.table` comments to the user's domain. Keep them fully qualified.
+5. **Schemas and catalog.** Set these through the resource `configuration` block, reusing the user's bundle variables where they exist (see "Integrate the DABs resource" in `SKILL.md`).
+6. **Unit tests.** Update `{{.target_dir}}/tests/test_expectations.py` to match; see "Adapting the unit tests" below.
+
+## Writing the rules
+
+Each rule is `{"name": "...", "query": "<SQL predicate>"}`. Split them into `drop` and `warn`.
+
+- **drop**: a row that fails this is invalid and must be quarantined. Example concerns: a required field is missing, a number is out of its valid domain, a timestamp ordering is violated, a foreign key is absent.
+- **warn**: advisory. The row stays in the clean table but the failure count surfaces in the event log. Example concerns: a value is unusually large but not impossible, an optional field is missing.
+
+Classify with the user. Investigate the data first (sample rows, check null rates and value ranges with read-only SQL, and check the column's actual type rather than trusting how sample values look), propose a starting set of drop and warn rules with a one-line justification each, and let the user ratify or adjust before you wire them in. Do not invent business thresholds silently.
+
+The source does not need to contain violations today. A clean or synthetic source is fine: the rules guard against bad rows arriving in future micro-batches, and the Tier 1 unit tests prove the routing on crafted edge rows regardless of what the live source currently holds. Do not fabricate violations in the source to "see the pattern work"; that is what the unit tests are for.
+
+### Every drop predicate must be NULL-safe
+
+This is the rule from `SKILL.md`, restated because it is where adaptations go wrong. Guard every column reference in a drop rule with `IS NOT NULL`:
+
+```
+valid_amount:        amount IS NOT NULL AND amount > 0
+valid_window:        ends_at IS NOT NULL AND starts_at IS NOT NULL AND ends_at > starts_at
+required_key:        customer_id IS NOT NULL
+```
+
+A drop rule that references a column without an `IS NOT NULL` guard will let NULLs leak into the clean table and break the partition. The Tier 1 unit tests exist precisely to catch this; if they fail on the partition or NULL-routing assertions, a drop predicate is not total.
+
+Warn rules do not need to be NULL-safe, because they do not route anything; a NULL warn predicate simply does not flag the row.
+
+### The status-column fallback
+
+If the user cannot guarantee total drop predicates (rules arrive from an external system, or are too dynamic to audit), do not rely on raw inverse predicates. Instead compute one explicit NULL-safe boolean in the raw layer or a shared view, for example:
+
+```
+_quarantined = NOT ( (amount IS NOT NULL AND amount > 0) AND (customer_id IS NOT NULL) AND ... )
+```
+
+then define the clean table as the rows where `_quarantined` is false and quarantine as the rows where it is true. Both tables branch on the same precomputed flag, so they partition cleanly even if an individual predicate is not total. This trades the pure expectations-only form for robustness.
+
+## Adapting the unit tests
+
+`{{.target_dir}}/tests/test_expectations.py` is the offline proof. To retarget it:
+
+1. Replace `_SCHEMA` with the user's columns and types.
+2. Replace `_EDGE_ROWS` with rows that exercise the user's rules: a fully valid row, one row per single drop violation, a multi-violation row, a warn-only row (passes every drop rule), and a row with `NULL` in each column that a drop rule guards. Set each row's `expected` value to `"clean"` or `"quarantine"`.
+3. Leave the routing model alone: `CLEAN_KEEP_EXPR` and `QUARANTINE_KEEP_EXPR` use `(<predicate>) IS NOT FALSE` to reproduce `expect_all_or_drop`'s keep-on-NULL semantics. This is what makes the test catch a non-NULL-safe rule as a broken partition.
+4. Run `pytest {{.target_dir}}/tests/ -q`. The pure-Python config tests and the Spark routing tests should all pass.
+
+The tests need Java (for PySpark) and Python 3.10+ locally. They do not need a Databricks workspace.
+
+## Config dimensions to consider
+
+The reference resource is intentionally minimal (`serverless: true`, `channel: CURRENT`, an `event_log` block, `configuration`, and trace `tags`). Depending on the user's context, consider whether to extend it, but only with a reason:
+
+- **Photon / cluster sizing**: for classic compute, if throughput matters.
+- **`continuous: true`**: if the user needs always-on streaming rather than triggered runs.
+- **`edition`**: only if the user needs a feature tied to an edition; expectations work on serverless without setting it.
+- **`channel`**: keep `CURRENT` unless the user needs a preview feature.
+
+Keep the worked example minimal; add dimensions to the user's own resource as their needs require, not by default.
+
+## The streaming-source caveat
+
+A streaming table's set of input sources is fixed at its first run. If you later change the raw layer's source (for example switch `quarantine.source` or add a union), the existing streaming checkpoint can be incompatible and the run fails with a sources-count assertion. Plan the source before the first deploy, or run a full refresh when you change it. This is also why Tier 3 integration testing uses source parameterization on a separate test target rather than splicing a faults table into a running pipeline.

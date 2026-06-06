@@ -18,7 +18,7 @@ Changelog = "https://github.com/vmariiechko/databricks-bundle-template/blob/main
 [tool.ruff]
 builtins = ["spark", "dbutils", "display"]
 line-length = 100
-src = ["src", "tests"]
+src = ["src", "tests", "assets/sdp-quarantine-pattern/template/{{.target_dir}}"]
 target-version = "py311"
 
 [tool.ruff.format]
@@ -33,6 +33,9 @@ ignore = ["N812"]
 [tool.ruff.lint.per-file-ignores]
 # Apply these ignores ONLY to notebook-style scripts
 "sdp_reset_checkpoint_workspace.py" = ["E402", "E501"]
+"*/tests/test_expectations.py" = ["E501"]
+# PySpark TimestampType monkey-patch mirrors upstream mixedCase API (SPARK-25244).
+"**/conftest.py" = ["N802", "N816"]
 
 
 [tool.ruff.lint.isort]

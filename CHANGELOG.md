@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-06-06
+
+### Added
+- **Asset `sdp-quarantine-pattern`**: Lakeflow Spark Declarative Pipeline demonstrating the inverse-expectations quarantine pattern on the public `samples.nyctaxi.trips` dataset.
+  - `raw_trips` ingests the read-only public sample as a streaming table (bronze schema). `clean_trips` applies the critical (drop) expectations; `quarantine_trips` applies their inverse, capturing exactly the rows the clean table drops; both land in the silver schema, following medallion schema separation. The schemas are the medallion layers; the table names describe content. Advisory (warn) expectations log to the pipeline event log without dropping. The public sample contains naturally invalid rows, so quarantine is populated on the first run.
+  - Drop predicates are written NULL-safe (total) so `expect_all_or_drop(drop)` and `expect_all_or_drop(NOT(drop))` partition the input exactly once. The README documents the three-valued-logic trap that breaks naive inverse expectations. Validated live on serverless SDP: the partition invariant held exactly across all cases (21,847 clean + 85 quarantine = 21,932 raw at baseline) and a NULL drop column routed to quarantine without leaking into the clean table.
+  - Rules live in a declarative `expectations.json`; a pure helper `expectations.py` (no pyspark import) loads them and derives the clean predicate (`build_silver_expr`) and its inverse (`build_quarantine_expr`). The asset also ships an offline unit-test suite (`<target_dir>/tests/`: a real local-Spark `pytest` that proves the partition invariant and NULL routing on crafted edge rows, modeling `expect_all_or_drop` keep-on-NULL semantics with `IS NOT FALSE`). The pipeline source is a Databricks notebook referenced from `resources/<pipeline_resource_key>.pipeline.yml` via a path relative to the resource file.
+  - The resource publishes a queryable event log (`event_log` block, table `quarantine_pipeline_event_log`) and ships `event_log_queries.sql` to parse per-expectation passed/failed counts; cost/trace tags identify the pipeline as created by this asset. In-bundle usage doc at `docs/sdp-quarantine-pattern/README.md`. All three pipeline tables are named with fully qualified `catalog.schema.table` identifiers so the source reads consistently and the in-pipeline dependencies resolve unambiguously; catalog, both schemas, and the source table flow to the pipeline through the resource `configuration` block (`quarantine.source` parameterizes the ingest so a test run can point at a curated dataset).
+  - **Companion agent skill (dual-door asset).** Alongside the reference pipeline, the asset installs an agent skill at `<skill_dir>/skills/sdp-quarantine-pattern/` (`SKILL.md` + `references/adapt-the-pattern.md` + `references/self-verify.md`) that instructs a coding agent to apply the quarantine pattern to the user's own dataset and verify it. The skill enforces the NULL-safe drop-predicate rule, splits the work at a deploy/run trust boundary (Phase A adapt + run the offline unit tests with no workspace; Phase B deploy and live-verify, defaulting to human-in-the-middle and delegating deploy/run mechanics to the runtime), and ships a three-tier verification ladder: offline rule unit tests (primary), live read-only audits (partition invariant + a NULL-in-clean check per dropped column), and an optional integration test via source parameterization. It includes a kickoff prompt template, is runtime-neutral about read-only query access (it uses whatever capability the agent's runtime provides), and states its limits: it applies and verifies a pattern, it does not guarantee correctness on arbitrary data. Seven prompts (`target_dir`, `pipeline_resource_key`, `pipeline_name`, `catalog`, `bronze_schema`, `silver_schema`, `skill_dir`) with safe defaults.
+
 ## [1.8.0] - 2026-05-30
 
 ### Added
@@ -185,6 +195,7 @@ Initial public release.
 - L2 tests: YAML syntax, environment targets, content validation
 - CI/CD tests: pipeline generation, auth patterns, branch references
 
+[1.9.0]: https://github.com/vmariiechko/databricks-bundle-template/releases/tag/v1.9.0
 [1.8.0]: https://github.com/vmariiechko/databricks-bundle-template/releases/tag/v1.8.0
 [1.7.0]: https://github.com/vmariiechko/databricks-bundle-template/releases/tag/v1.7.0
 [1.6.0]: https://github.com/vmariiechko/databricks-bundle-template/releases/tag/v1.6.0

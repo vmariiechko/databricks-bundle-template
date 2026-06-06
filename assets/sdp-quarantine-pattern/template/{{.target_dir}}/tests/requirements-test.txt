@@ -1,0 +1,6 @@
+# Test-time dependencies for the quarantine-pattern unit tests.
+# These are NOT needed to run the pipeline on Databricks; they let you verify
+# the expectation rules locally (no workspace) with `pytest tests/`.
+# Requires Java (for PySpark) and Python 3.10+.
+pytest>=8.0
+pyspark>=3.5
