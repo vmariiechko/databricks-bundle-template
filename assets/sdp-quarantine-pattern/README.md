@@ -55,7 +55,7 @@ The quarantine predicate is derived automatically as `NOT((p1) AND (p2) AND ...)
 
 This is the point worth internalizing before you copy the pattern.
 
-`expect_all_or_drop` drops a row only when its predicate evaluates to `false`. A predicate that evaluates to SQL `NULL` (unknown) is treated as passing. So if you write a drop rule as `fare_amount > 0` and a row has a NULL fare, the predicate is `NULL`, the row is kept in the clean table, and the inverse `NOT(fare_amount > 0)` is also `NULL`, so the quarantine table's behavior on that row is inconsistent. The row can leak into both tables or neither.
+`expect_all_or_drop` drops a row only when its predicate evaluates to `false`; a predicate that evaluates to SQL `NULL` (unknown) is not `false`, so the row is kept (see the [`is false` operator](https://docs.databricks.com/aws/en/sql/language-manual/functions/isfalse): `NULL is false` is `false`). So if you write a drop rule as `fare_amount > 0` and a row has a NULL fare, the predicate is `NULL` and the row is kept in the clean table. The inverse `NOT(fare_amount > 0)` is also `NULL`, which is likewise not `false`, so the same row is kept in the quarantine table too. The one row lands in both tables, double-counted, and the clean/quarantine split is no longer a clean partition.
 
 The fix is to make every drop predicate total (NULL-safe): guard each column test with `IS NOT NULL`, as in `fare_amount IS NOT NULL AND fare_amount > 0`. A total predicate never returns `NULL`, so `expect_all_or_drop(drop_rules)` and `expect_all_or_drop(NOT(drop_rules))` partition the raw input exactly once: every row lands in exactly one of the clean or quarantine table. This asset writes all drop predicates this way.
 

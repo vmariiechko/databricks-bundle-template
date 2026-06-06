@@ -70,7 +70,7 @@ When the user wants a full end-to-end test on the workspace with known inputs, d
 This follows the Databricks guidance to create test datasets that include records which break expectations, and it keeps the run clean and repeatable (no streaming-checkpoint surgery):
 
 1. Create a small curated test table with the same columns the raw layer selects. Populate it with known-good rows and known-bad rows, one per scenario (single violation, multi-violation, warn-only, and a NULL in a guarded column), each with a value you can recognize afterward.
-2. Point the pipeline at it: set `quarantine.source` to the test table in a test target (or a copy of the resource), so production config is untouched.
+2. Point the pipeline at it: set `quarantine.source` to the test table in a test target (or a copy of the resource), so the live (main-target) config is untouched.
 3. Deploy to the test target and run the pipeline.
 4. Run the Tier 2 audits, plus assert the exact routing: each known-bad row is in `<quarantine>` and not in `<clean>`, each known-good row is in `<clean>`, the multi-violation row appears in quarantine exactly once, and the NULL row is in quarantine only.
 5. Tear down the test target when done.

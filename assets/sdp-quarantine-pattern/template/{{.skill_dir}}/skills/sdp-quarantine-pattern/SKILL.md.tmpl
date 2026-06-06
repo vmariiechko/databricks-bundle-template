@@ -21,7 +21,7 @@ Paths in this skill are relative to the bundle root.
 
 ## The one rule you must not break: NULL-safe drop predicates
 
-`expect_all_or_drop` drops a row only when its predicate evaluates to `false`. A predicate that evaluates to SQL `NULL` (unknown) is treated as **passing**. So a naive drop rule like `amount > 0` lets a NULL `amount` through to the clean table, and the inverse `NOT(amount > 0)` is also `NULL`, so the row's fate is inconsistent: it can leak into both tables or neither.
+`expect_all_or_drop` drops a row only when its predicate evaluates to `false`. A predicate that evaluates to SQL `NULL` (unknown) is not `false`, so the row is **kept**. So a naive drop rule like `amount > 0` lets a NULL `amount` through to the clean table, and the inverse `NOT(amount > 0)` is also `NULL`, so the same row is kept in the quarantine table too. The one row lands in both, double-counted, and the partition breaks.
 
 Every drop predicate you write or adapt MUST be total (NULL-safe): guard each column test with `IS NOT NULL`.
 
