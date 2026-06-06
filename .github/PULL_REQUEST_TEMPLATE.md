@@ -49,6 +49,14 @@ Closes #
 - [ ] `tests/configs/assets/<name>.json` added
 - [ ] Asset appears in [ASSETS.md](../ASSETS.md) catalog
 
+## Release (if this PR cuts a release)
+
+<!-- Leave unchecked / delete this section if the PR does not bump the version. See RELEASING.md. -->
+
+- [ ] `CHANGELOG.md` finalized: `[Unreleased]` renamed to `[X.Y.Z] - <date>`, fresh empty `[Unreleased]` added above
+- [ ] Both version markers bumped to `X.Y.Z` (`pyproject.toml` and `template/{{.project_name}}/bundle_init_config.json.tmpl`)
+- [ ] Version guard test passes (`tests/test_release_metadata.py`)
+
 ## Checklist
 
 - [ ] Go template syntax is valid (no unclosed `{{ }}` blocks)

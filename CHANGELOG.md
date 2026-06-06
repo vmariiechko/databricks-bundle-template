@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **`RELEASING.md`**: canonical release checklist. Documents the two version markers (`pyproject.toml` and the generated bundle's `_template_version`), the changelog finalization step (rename `[Unreleased]` to `[X.Y.Z] - <date>` in the PR before merge), the annotated-tag and GitHub-release steps after merge, and a fill-in release-notes template.
+- **`tests/test_release_metadata.py`**: version guard test. Asserts the two version markers and the latest finalized `CHANGELOG.md` version all agree, and that an `[Unreleased]` section is always present. Runs in CI on every pull request, so a partial or forgotten version bump fails before merge.
+
+### Changed
+- **`.github/PULL_REQUEST_TEMPLATE.md`**: added an optional "Release" block (changelog finalized, both version markers bumped, guard test passes) so release facts surface at review time instead of being buried in free-text.
+- **`CONTRIBUTING.md` and `AGENTS.md`**: clarified that changelog entries stay under `[Unreleased]` until a release finalizes them, and added pointers to `RELEASING.md`. `AGENTS.md` gained a Release Process subsection.
+
 ## [1.9.0] - 2026-06-06
 
 ### Added
