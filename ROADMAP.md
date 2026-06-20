@@ -50,6 +50,7 @@ Modular sub-templates installable via `databricks bundle init <repo-url> --templ
 - `dbx-ro-query`: Dependency-free Python wrapper around `databricks experimental aitools tools query` that gives LLM agents a guarded read-only SQL window into a Databricks workspace
 - `monitoring-sql-warehouse`: Dedicated serverless SQL warehouse tuned for bursty workloads (scheduled Alerts, monitoring queries) with `auto_stop_mins: 1`
 - `sdp-quarantine-pattern`: Lakeflow SDP pipeline demonstrating the inverse-expectations quarantine pattern (drop expectations route bad rows to a separate quarantine table) on `samples.nyctaxi.trips`, with medallion schema separation, a queryable event log, and NULL-safe predicates. Ships a companion agent skill that adapts the pattern to the user's own dataset and self-verifies it
+- `pyspark-test-runner`: Single-file Python wrapper around `pytest` for local PySpark suites that prints a bounded, agent-friendly digest (counts, runnable failing node ids, failures deduplicated by signature) and keeps full output in a log file, so a suite flooding with repetitive failures does not burn a coding agent's context window. Ships a `SKILL.md` for agent integration
 
 **Possible future assets** (ideas for contributors, not commitments):
 - `etl-pipeline`: Medallion-layered Declarative Pipeline with Bronze/Silver layers and DLT expectations
