@@ -95,3 +95,7 @@ Two lived findings worth carrying into your own pipelines:
 A standalone sub-template in the [databricks-bundle-template](https://github.com/vmariiechko/databricks-bundle-template) asset library. It does not depend on the core template; it can be installed into any Databricks bundle. See [ASSETS.md](../../ASSETS.md) for the full catalog.
 
 It is a demonstration of one specific pattern with its tradeoffs documented, not a general-purpose data-quality framework. For a fuller framework, look at [DQX](https://databrickslabs.github.io/dqx/) (Databricks Labs).
+
+## Background
+
+Read the post about it: [Quarantine Bad Rows in Lakeflow SDP Without Breaking Your Clean Table](https://vmariiechko.com/short-bytes/quarantine-bad-rows-lakeflow-sdp/)
