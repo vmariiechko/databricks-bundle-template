@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- **Asset `pyspark-test-runner` (docs only)**: reframed the SKILL and README default test strategy so the agent-facing guidance matches what the digest is built for. The broad grouped run (no `-x`) is now the default, since `-x` stops pytest at the first failure and leaves the signature dedup nothing to collapse; `-x` is documented as an opt-in for drilling on a single suspected failure. No wrapper behavior change: `-x` was already off by default and the script is untouched.
+
 ## [1.10.0] - 2026-06-20
 
 ### Added
