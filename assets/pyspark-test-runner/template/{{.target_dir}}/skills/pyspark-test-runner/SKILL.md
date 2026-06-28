@@ -1,6 +1,6 @@
 ---
 name: pyspark-test-runner
-description: Use this skill whenever you run or debug local PySpark pytest suites from the agent shell. Invoke `scripts/run-pyspark-tests.py` instead of calling `pytest` raw, so the full output goes to a log file and only a bounded digest reaches your context. The digest carries the exit code, counts, runnable failing node ids, and failures deduplicated by signature, so a suite where many tests fail with the same error collapses to one short block instead of flooding the window. Run the narrowest node first, stop on the first failure by default, and widen only when needed.
+description: Use this skill whenever you run or debug local PySpark pytest suites from the agent shell. Invoke `scripts/run-pyspark-tests.py` instead of calling `pytest` raw, so the full output goes to a log file and only a bounded digest reaches your context. The digest carries the exit code, counts, runnable failing node ids, and failures deduplicated by signature, so a suite where many tests fail with the same error collapses to one short block instead of flooding the window. Match the run to the suspected blast radius: when one change likely broke many tests, run the wider scope without `-x` so the digest groups the failures and you fix the shared cause in one pass; add `-x` only to drill on a single suspected failure.
 ---
 
 # PySpark Test Runner
@@ -10,28 +10,31 @@ Run local PySpark-backed pytest through this wrapper. It runs pytest for you, wr
 ## How to invoke
 
 ```bash
-python <skill-dir>/scripts/run-pyspark-tests.py "<pytest-node-id-or-path>" -x
+python <skill-dir>/scripts/run-pyspark-tests.py "<pytest-node-id-or-path>"
 ```
 
 Run it from your project root (the pytest working directory), or pass `--project-root`. The wrapper adds no dependencies of its own (Python 3.9+, standard library), but it runs your suite, so pytest and PySpark must be installed in the project interpreter.
 
 ## Default test strategy
 
-Start with the narrowest pytest node that covers the changed behavior, and use `-x` (stop on first failure) by default:
+Match the run to where the change probably broke things. The digest stays bounded either way, so let the suspected blast radius pick the scope, not a fear of long output.
+
+**Broad grouped run (the default).** When one change likely hit many tests (a shared fixture, a common util, a schema, a wide refactor), run the whole affected scope without `-x`. Every failure reaches the digest, the dedup collapses one shared cause into a single `SIGNATURE` block, and you fix the class in one pass instead of looping test by test:
+
+```bash
+python <skill-dir>/scripts/run-pyspark-tests.py "tests/test_cleaning_utils.py"
+```
+
+**Narrow drill (opt-in with `-x`).** When you suspect a single failure and want the fastest feedback, point at the narrowest node and add `-x` to stop at the first failure:
 
 ```bash
 python <skill-dir>/scripts/run-pyspark-tests.py \
   "tests/test_cleaning_utils.py::TestCleanStr::test_clean_str_logic" -x
 ```
 
-Widen only after the narrow run passes or clearly needs broader context:
+`-x` stops pytest at the first failure, so only that one failure reaches the digest and grouping has nothing to collapse. Reach for it when you already expect one failure, not when a shared cause may have broken many tests.
 
-1. single test case
-2. test class
-3. test file
-4. full suite (only when explicitly needed)
-
-The failing node ids in the digest are real pytest node ids, so you can copy one straight back as your next narrow target.
+The failing node ids in the digest are real pytest node ids, so you can copy one straight back as your next target, narrow or broad.
 
 ## What the wrapper does
 
@@ -72,7 +75,7 @@ Failures are grouped by a normalized signature. 23 tests failing with one root c
 | `--project-root PATH` | current dir | pytest working directory |
 | `--python PATH` | venv or current | interpreter for pytest and Spark workers |
 | `--timeout-sec N` | 900 | kill a hung run after N seconds |
-| `-x`, `--stop-on-first-fail` | off | stop at the first failure (use by default) |
+| `-x`, `--stop-on-first-fail` | off | stop at the first failure; opt-in for narrow drilling, since it leaves only one failure to group |
 | `-v`, `--verbose-pytest` | off | verbose pytest output (escape hatch) |
 | `--excerpt-lines N` | 40 | traceback lines per signature, head+tail trimmed |
 | `--max-failures-listed N` | 20 | failing node ids listed before collapsing |
@@ -80,7 +83,7 @@ Failures are grouped by a normalized signature. 23 tests failing with one root c
 ## Reading the result
 
 - `PASSED` (exit 0): done.
-- `FAILED` (exit 1): read the signatures; fix the root cause; rerun the narrowest failing node.
+- `FAILED` (exit 1): read the signatures; fix the shared cause; rerun the same scope to confirm the whole group clears.
 - `ERROR` (exit 2): usually a collection or import error, so no tests ran. Fix the import named in the digest, then rerun.
 - `NO TESTS` (exit 5): the target matched nothing. Check the path or node id.
 - `TIMEOUT`: the run exceeded `--timeout-sec` and was killed. Narrow the target or raise the timeout.

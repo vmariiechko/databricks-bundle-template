@@ -40,10 +40,10 @@ Run from your project root (the pytest working directory), or pass `--project-ro
 
 ```bash
 python <target_dir>/skills/pyspark-test-runner/scripts/run-pyspark-tests.py \
-  "tests/test_cleaning_utils.py::TestCleanStr::test_clean_str_logic" -x
+  "tests/test_cleaning_utils.py"
 ```
 
-Start with the narrowest node that covers the change and `-x` (stop on first failure). Widen only after the narrow run passes or clearly needs more context. The failing node ids in the digest are real pytest node ids, so you can copy one back as the next target. See `<target_dir>/skills/pyspark-test-runner/SKILL.md` for the full flag reference and workflow.
+Match the run to the suspected blast radius. When one change likely broke many tests, run the wider scope without `-x` so the digest groups the failures and you fix the shared cause in one pass; add `-x` (stop on first failure) only to drill on a single suspected failure. The failing node ids in the digest are real pytest node ids, so you can copy one back as the next target. See `<target_dir>/skills/pyspark-test-runner/SKILL.md` for the full flag reference and workflow.
 
 The wrapper writes logs to `<project-root>/.pyspark-test-logs/` by default (override with `PYSPARK_TEST_LOG_DIR`). Add that folder to `.gitignore`.
 
