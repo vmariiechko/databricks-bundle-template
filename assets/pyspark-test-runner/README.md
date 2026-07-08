@@ -103,3 +103,7 @@ One finding worth stating plainly: the runnable-node-id feature was initially wr
 ## What this asset is
 
 A standalone sub-template in the [databricks-bundle-template](https://github.com/vmariiechko/databricks-bundle-template) asset library. It does not depend on the core template; it can be installed into any Databricks bundle, or any Python project that runs PySpark tests with pytest. See [ASSETS.md](../../ASSETS.md) for the full catalog.
+
+## Background
+
+Read the post about it: [Keep a PySpark Test Flood Out of Your Agent's Context Window](https://vmariiechko.com/short-bytes/pyspark-test-flood-agent-context/)
