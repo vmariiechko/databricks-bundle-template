@@ -1,0 +1,52 @@
+# Backstop alert: the guaranteed sweep behind the best-effort event hook.
+#
+# One DABs-managed Alert v2 that aggregates expectation failures from the
+# published pipeline event log over a trailing time window. It exists because
+# event hook delivery is explicitly best-effort: there is no guarantee every
+# hook runs on every event before pipeline compute terminates. A scheduled
+# SQL alert either runs or visibly fails, so it closes that gap.
+#
+# The query aggregates over a past-time window (last 1 day), NOT just the
+# latest row: a latest-row read silently misses violations whenever the alert
+# cadence differs from the pipeline cadence. Keep the window at least as long
+# as the evaluation cadence; if you change the cron below, change the
+# INTERVAL to match.
+#
+# Placeholders: if warehouse_id or the subscription email below reads
+# *_PLACEHOLDER, replace it before deploying. The monitoring-sql-warehouse
+# asset from this same repo is a natural warehouse for this workload
+# (reference it via ${resources.sql_warehouses.monitoring_sql_warehouse.id}).
+
+resources:
+  alerts:
+    {{.pipeline_resource_key}}_backstop:
+      display_name: {{.pipeline_name}} Backstop
+      query_text: >-
+        SELECT COALESCE(SUM(CAST(exp.failed_records AS BIGINT)), 0) AS failed_records
+        FROM (
+          SELECT explode(
+            from_json(
+              details:flow_progress.data_quality.expectations,
+              'array<struct<name: string, dataset: string, passed_records: bigint, failed_records: bigint>>'
+            )
+          ) AS exp
+          FROM {{.catalog}}.{{.schema}}.dq_notifications_event_log
+          WHERE event_type = 'flow_progress'
+            AND timestamp >= current_timestamp() - INTERVAL 1 DAY
+        )
+      warehouse_id: {{.warehouse_id}}
+      evaluation:
+        comparison_operator: GREATER_THAN
+        source:
+          name: failed_records
+        threshold:
+          value:
+            double_value: 0
+        notification:
+          notify_on_ok: false
+          subscriptions:
+            - user_email: {{.notification_email}}
+      schedule:
+        pause_status: UNPAUSED
+        quartz_cron_schedule: '0 0 6 * * ?'
+        timezone_id: UTC
