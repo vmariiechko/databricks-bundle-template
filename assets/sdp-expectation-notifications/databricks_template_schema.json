@@ -1,0 +1,82 @@
+{
+  "welcome_message": "\nSDP Expectation Notifications: Asset Installer\n\nInstalls two things that ship together:\n  1. A reference Lakeflow Spark Declarative Pipeline demonstrating\n     per-expectation data-quality notification: a native event hook fires the\n     moment a WARN expectation result is logged, on the public\n     samples.nyctaxi.trips dataset (the worked example).\n  2. A companion agent skill that instructs a coding agent to wire the same\n     hook-plus-backstop pattern into YOUR own SDP pipeline.\n\nThe pattern is a pair, not a single mechanism: event hook delivery is\nexplicitly best-effort (the platform does not guarantee every hook runs\nbefore pipeline compute terminates), so the asset also installs exactly one\nDABs-managed Alert v2 that sweeps the published pipeline event log on a\nschedule as the guaranteed path. Hook = fast, alert = guaranteed.\n\nThe demo WARN expectation is a deliberate tripwire chosen to fail on the\nhealthy public sample, so the hook fires and the backstop alert triggers on\nthe first run with no extra setup.\n\nLet's pick the install settings...\n",
+
+  "properties": {
+    "target_dir": {
+      "type": "string",
+      "default": "src/sdp_expectation_notifications",
+      "description": "\nTarget directory for the pipeline source files (relative to your bundle root).\nThe asset installs the pipeline source (with the event hook) and the\nevent-log parsing queries here. Pick a path that doesn't already exist.\ntarget_dir",
+      "order": 1,
+      "pattern": "^[A-Za-z0-9_][A-Za-z0-9_./-]*$",
+      "pattern_match_failure_message": "Target directory must start with a letter, number, or underscore and contain only letters, numbers, underscores, slashes, hyphens, or dots."
+    },
+
+    "pipeline_resource_key": {
+      "type": "string",
+      "default": "sdp_expectation_notifications",
+      "description": "\n========================================\n\nDABs resource key for the pipeline.\n\nThis key appears in the bundle as `resources.pipelines.<key>` and is also the\nfilename: `resources/<key>.pipeline.yml`. The backstop alert resource is\nnamed after it too: `resources/<key>_backstop.alert.yml` with key\n`<key>_backstop`.\n\nDefault `sdp_expectation_notifications` is safe for most projects. Pick\nanother name only if your bundle already defines a pipeline with this key.\nMust be lowercase snake_case (letters, numbers, underscores).\npipeline_resource_key",
+      "order": 2,
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "pattern_match_failure_message": "Resource key must be lowercase, start with a letter, and contain only letters, numbers, and underscores."
+    },
+
+    "pipeline_name": {
+      "type": "string",
+      "default": "SDP Expectation Notifications Demo",
+      "description": "\n========================================\n\nDisplay name shown in the Databricks workspace Pipelines list.\nFree-form; spaces and mixed case are fine.\npipeline_name",
+      "order": 3,
+      "pattern": "^.+$",
+      "pattern_match_failure_message": "Pipeline name cannot be empty."
+    },
+
+    "catalog": {
+      "type": "string",
+      "default": "main",
+      "description": "\n========================================\n\nUnity Catalog catalog the pipeline writes its table and event log into.\n\nYou need CREATE TABLE on this catalog and on the schema below. The public\nsource (samples.nyctaxi.trips) is read-only and unaffected.\nMust be a valid lowercase identifier.\ncatalog",
+      "order": 4,
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "pattern_match_failure_message": "Catalog must be lowercase, start with a letter, and contain only letters, numbers, and underscores."
+    },
+
+    "schema": {
+      "type": "string",
+      "default": "dq_notifications",
+      "description": "\n========================================\n\nUnity Catalog schema for the demo table and the published pipeline event log\n(the table the backstop alert queries). Created by the pipeline if missing,\nprovided you have CREATE SCHEMA on the catalog.\nMust be a valid lowercase identifier.\nschema",
+      "order": 5,
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "pattern_match_failure_message": "Schema must be lowercase, start with a letter, and contain only letters, numbers, and underscores."
+    },
+
+    "warehouse_id": {
+      "type": "string",
+      "default": "WAREHOUSE_ID_PLACEHOLDER",
+      "description": "\n========================================\n\nSQL warehouse id the backstop alert runs its sweep query on.\n\nFind yours with: databricks warehouses list\nIf you installed the `monitoring-sql-warehouse` asset from this same repo\n(a 2X-Small serverless warehouse with auto_stop_mins=1, built exactly for\nthis workload shape), you can reference it instead:\n  ${resources.sql_warehouses.monitoring_sql_warehouse.id}\n\nKeep the default placeholder to defer the choice; replace it in\nresources/<pipeline_resource_key>_backstop.alert.yml before deploying.\nwarehouse_id",
+      "order": 6,
+      "pattern": "^\\S+$",
+      "pattern_match_failure_message": "Warehouse id cannot be empty or contain whitespace."
+    },
+
+    "notification_email": {
+      "type": "string",
+      "default": "EMAIL_PLACEHOLDER",
+      "description": "\n========================================\n\nEmail address the backstop alert notifies when the sweep finds expectation\nviolations. Must belong to a user in the workspace.\n\nKeep the default placeholder to defer the choice; replace it in\nresources/<pipeline_resource_key>_backstop.alert.yml before deploying.\nnotification_email",
+      "order": 7,
+      "pattern": "^\\S+$",
+      "pattern_match_failure_message": "Notification email cannot be empty or contain whitespace."
+    },
+
+    "skill_dir": {
+      "type": "string",
+      "default": ".agents",
+      "description": "\n========================================\n\nTarget directory for the companion agent skill (relative to your bundle root).\nThe skill installs at <skill_dir>/skills/sdp-expectation-notifications/ and\ninstructs a coding agent to wire the hook-plus-backstop pattern into your own\nSDP pipeline.\n\nDefault `.agents` is vendor-neutral. If you use one agent and want\nauto-discovery, override with its native folder:\n  - Claude Code:  .claude\n  - Codex:        .codex\n  - Cursor:       .cursor\n  - Gemini CLI:   .gemini\n\nPick a path whose `skills/sdp-expectation-notifications/` subfolder doesn't\nalready exist in your project.\nskill_dir",
+      "order": 8,
+      "pattern": "^[A-Za-z0-9_.][A-Za-z0-9_./-]*$",
+      "pattern_match_failure_message": "Skill directory must start with a letter, number, underscore, or dot and contain only letters, numbers, underscores, slashes, hyphens, or dots."
+    }
+  },
+
+  "success_message": "\n========================================\n\nExpectation notifications installed (reference pipeline + backstop alert + companion skill):\n  - Pipeline source: {{.target_dir}}/expectation_notifications_pipeline.py (event hook inside)\n  - Event log SQL:   {{.target_dir}}/event_log_queries.sql\n  - Pipeline:        resources/{{.pipeline_resource_key}}.pipeline.yml\n  - Backstop alert:  resources/{{.pipeline_resource_key}}_backstop.alert.yml\n  - Usage doc:       docs/sdp-expectation-notifications/README.md\n  - Agent skill:     {{.skill_dir}}/skills/sdp-expectation-notifications/SKILL.md\n\nRun the reference as-is:\n\n1. Confirm your `databricks.yml` includes the resource files. Most bundles\n   already include `resources/*.yml` by default; verify:\n     include:\n       - resources/*.yml\n\n2. If you kept a placeholder for the warehouse id or the notification email,\n   replace it in resources/{{.pipeline_resource_key}}_backstop.alert.yml.\n\n3. Validate, deploy, run:\n     databricks bundle validate -t <your-target>\n     databricks bundle deploy -t <your-target>\n     databricks bundle run {{.pipeline_resource_key}} -t <your-target>\n\n4. The demo WARN expectation fails on the healthy public sample by design, so\n   the hook prints its notification during the first update (visible in the\n   pipeline compute's driver log) and the backstop alert triggers on its next\n   scheduled sweep (daily 06:00 UTC by default; open the alert in the UI and\n   run it manually to see it immediately).\n\nThe demo table lands at {{.catalog}}.{{.schema}}.monitored_trips; the event\nlog publishes to {{.catalog}}.{{.schema}}.dq_notifications_event_log. Inspect\nper-expectation counts with {{.target_dir}}/event_log_queries.sql. Design\nnotes and the honest caveats (hook delivery is best-effort; that is why the\nbackstop exists) live in 'docs/sdp-expectation-notifications/README.md'.\n\nWire the pattern into YOUR pipeline with the companion skill:\n\n  Point your coding agent at the skill and ask it to add the hook-plus-backstop\n  pattern to your own SDP pipeline. Wire it the way your agent expects:\n    - Claude Code: auto-discovered if {{.skill_dir}} is `.claude`; otherwise\n      add to CLAUDE.md: 'Use the skill at\n      {{.skill_dir}}/skills/sdp-expectation-notifications/SKILL.md'.\n    - Codex: reference that SKILL.md path from AGENTS.md.\n    - Other / on Databricks (Genie): point the agent at the SKILL.md path.\n\n  A ready-to-paste kickoff prompt is in 'docs/sdp-expectation-notifications/README.md'.\n",
+
+  "min_databricks_cli_version": "v0.296.0",
+  "version": 1
+}

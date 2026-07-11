@@ -1,0 +1,76 @@
+-- Inspect expectation results and hook state from the pipeline event log.
+--
+-- The pipeline publishes its event log to {{.catalog}}.{{.schema}}.dq_notifications_event_log
+-- (set by the `event_log` block in the pipeline resource). Expectation results
+-- live in `flow_progress` events under details:flow_progress.data_quality.
+-- The parsing shape below is the one documented in the Databricks event log
+-- reference; adjust column paths if a future runtime changes the schema.
+
+-- ---------------------------------------------------------------------------
+-- Per-expectation passed/failed counts for the latest pipeline update.
+-- These are the same numbers the event hook prints the moment the
+-- flow_progress event is logged; use this to cross-check a hook notification
+-- against the durable record.
+-- ---------------------------------------------------------------------------
+WITH latest_update AS (
+  SELECT origin.update_id AS update_id
+  FROM {{.catalog}}.{{.schema}}.dq_notifications_event_log
+  WHERE event_type = 'create_update'
+  ORDER BY timestamp DESC
+  LIMIT 1
+),
+expectations_parsed AS (
+  SELECT
+    explode(
+      from_json(
+        details:flow_progress.data_quality.expectations,
+        "array<struct<name: string, dataset: string, passed_records: bigint, failed_records: bigint>>"
+      )
+    ) AS e
+  FROM {{.catalog}}.{{.schema}}.dq_notifications_event_log, latest_update
+  WHERE event_type = 'flow_progress'
+    AND origin.update_id = latest_update.update_id
+)
+SELECT
+  e.dataset,
+  e.name AS expectation,
+  SUM(e.passed_records) AS passing_records,
+  SUM(e.failed_records) AS failing_records
+FROM expectations_parsed
+GROUP BY e.dataset, e.name
+ORDER BY failing_records DESC, e.dataset, e.name;
+
+-- ---------------------------------------------------------------------------
+-- Hook registration state per update ("monitoring the monitor").
+-- hook_progress events record ONLY enable/disable state, one row per hook per
+-- update, logged at registration time. They do NOT record which events a hook
+-- processed, counts, timings, or failures; per-invocation output (the printed
+-- notifications) exists only in the pipeline compute's driver log.
+-- ---------------------------------------------------------------------------
+SELECT
+  timestamp,
+  origin.update_id,
+  details:hook_progress.hook_name AS hook_name,
+  details:hook_progress.state AS state,
+  message
+FROM {{.catalog}}.{{.schema}}.dq_notifications_event_log
+WHERE event_type = 'hook_progress'
+ORDER BY timestamp DESC;
+
+-- ---------------------------------------------------------------------------
+-- The backstop alert's exact sweep query: total failed records across ALL
+-- expectations and updates in the trailing 1-day window. Run it manually to
+-- see the value the alert compares against its threshold (> 0 triggers).
+-- ---------------------------------------------------------------------------
+SELECT COALESCE(SUM(CAST(exp.failed_records AS BIGINT)), 0) AS failed_records
+FROM (
+  SELECT explode(
+    from_json(
+      details:flow_progress.data_quality.expectations,
+      'array<struct<name: string, dataset: string, passed_records: bigint, failed_records: bigint>>'
+    )
+  ) AS exp
+  FROM {{.catalog}}.{{.schema}}.dq_notifications_event_log
+  WHERE event_type = 'flow_progress'
+    AND timestamp >= current_timestamp() - INTERVAL 1 DAY
+);

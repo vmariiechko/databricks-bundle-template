@@ -1,0 +1,51 @@
+# Lakeflow SDP pipeline: per-expectation notification via an event hook.
+#
+# The pipeline source (with the event hook inside) is referenced relative to
+# THIS file's directory (DABs translates library paths relative to the
+# resource file). The event_log block publishes the pipeline event log to a
+# queryable UC table; the companion backstop alert
+# ({{.pipeline_resource_key}}_backstop.alert.yml) sweeps that table on a
+# schedule, because hook delivery is best-effort.
+#
+# Reference this pipeline from other resources via:
+#   ${resources.pipelines.{{.pipeline_resource_key}}.id}
+#
+# See docs/sdp-expectation-notifications/README.md for the design and the
+# honest caveats.
+
+resources:
+  pipelines:
+    {{.pipeline_resource_key}}:
+      name: {{.pipeline_name}}
+      catalog: {{.catalog}}
+      schema: {{.schema}}
+      serverless: true
+      channel: CURRENT
+
+      # Publish the pipeline event log to a queryable UC table. This is the
+      # backstop alert's scan target and the durable record of every
+      # expectation result, whether or not the hook got to run. The name is
+      # coupled to this pipeline so it does not collide with other pipelines
+      # publishing into the same schema.
+      event_log:
+        catalog: {{.catalog}}
+        schema: {{.schema}}
+        name: dq_notifications_event_log
+
+      libraries:
+        - file:
+            path: ../{{.target_dir}}/expectation_notifications_pipeline.py
+
+      configuration:
+        # The source table the demo ingests. Point this at a curated test
+        # table to exercise the hook against known violation counts.
+        dq_notify.source: samples.nyctaxi.trips
+        # Optional webhook the hook posts violations to (Slack incoming
+        # webhook or similar). Empty disables it; the hook always prints to
+        # the driver log.
+        dq_notify.webhook_url: ""
+
+      # Traceability back to the originating asset (forwarded as cluster tags).
+      tags:
+        created_by: dabs-asset
+        asset: sdp-expectation-notifications

@@ -1,0 +1,10 @@
+{
+  "target_dir": "src/sdp_expectation_notifications",
+  "pipeline_resource_key": "sdp_expectation_notifications",
+  "pipeline_name": "SDP Expectation Notifications Demo",
+  "catalog": "main",
+  "schema": "dq_notifications",
+  "warehouse_id": "WAREHOUSE_ID_PLACEHOLDER",
+  "notification_email": "EMAIL_PLACEHOLDER",
+  "skill_dir": ".agents"
+}
