@@ -6,5 +6,6 @@
   "schema": "dq_notifications",
   "warehouse_id": "WAREHOUSE_ID_PLACEHOLDER",
   "notification_email": "EMAIL_PLACEHOLDER",
+  "state_volume_path": "VOLUME_PATH_PLACEHOLDER",
   "skill_dir": ".agents"
 }

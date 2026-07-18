@@ -43,9 +43,27 @@ resources:
           value:
             double_value: 0
         notification:
-          notify_on_ok: false
+          # One email per state transition (validated live 2026-07-18: nine
+          # consecutive TRIGGERED evaluations produced exactly one email).
+          # notify_on_ok adds exactly one recovery email on TRIGGERED -> OK,
+          # closing the loop after the masking window (while the alert stays
+          # TRIGGERED, new failures inside the sweep window send nothing).
+          notify_on_ok: true
+          # Deliberate re-nagging while the alert stays TRIGGERED: re-sends at
+          # the first evaluation past each window (validated live). Off by
+          # default; a real use is escalation on critical pipelines, for
+          # example 86400 for a daily "still broken" reminder.
+          # retrigger_seconds: 86400
           subscriptions:
             - user_email: {{.notification_email}}
+            # Slack / MS Teams / PagerDuty / webhook delivery: create a
+            # workspace notification destination (admin settings) and
+            # reference it here instead of, or alongside, the email:
+            # - destination_id: <notification-destination-id>
+        # Operational note (validated live): if this alert's query itself
+        # fails (dropped table, deleted warehouse), the alert flips to ERROR
+        # and emails on EVERY evaluation until fixed. It cannot die silently;
+        # treat an (ERROR) email as a page.
       schedule:
         pause_status: UNPAUSED
         quartz_cron_schedule: '0 0 6 * * ?'
