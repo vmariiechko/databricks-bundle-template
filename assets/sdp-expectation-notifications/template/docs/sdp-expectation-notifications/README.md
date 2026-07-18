@@ -1,6 +1,6 @@
 # SDP Expectation Notifications (in-bundle usage)
 
-This asset installs per-expectation data-quality notification for a Lakeflow Spark Declarative Pipeline as a pair: a native event hook fires the moment a WARN expectation result is logged (fast, best-effort), and one DABs-managed Alert v2 sweeps the published pipeline event log on a schedule (guaranteed). The demo pipeline runs on the public `samples.nyctaxi.trips` dataset with a deliberately tight WARN expectation, so both paths fire on the first run.
+This asset installs per-expectation data-quality notification for a Lakeflow Spark Declarative Pipeline as a pair: a native event hook fires the moment a WARN expectation result is logged (fast, best-effort, throttled to at most one notification per expectation per window), and one DABs-managed Alert v2 sweeps the published pipeline event log on a schedule (guaranteed, one email per state change). The demo pipeline runs on the public `samples.nyctaxi.trips` dataset with a deliberately tight WARN expectation, so both paths fire on the first run.
 
 The full design rationale, the validated facts, and the honest caveats live in the asset README in the [databricks-bundle-template repo](https://github.com/vmariiechko/databricks-bundle-template/tree/main/assets/sdp-expectation-notifications). This file covers what you do after install.
 
@@ -17,7 +17,7 @@ The full design rationale, the validated facts, and the honest caveats live in t
 
 ## Before you deploy
 
-1. **Placeholders.** If you kept the defaults for `warehouse_id` or `notification_email` at install, `resources/<pipeline_resource_key>_backstop.alert.yml` contains `WAREHOUSE_ID_PLACEHOLDER` or `EMAIL_PLACEHOLDER`. Replace them: find a warehouse id with `databricks warehouses list`, and use an email that belongs to a workspace user. If you installed the `monitoring-sql-warehouse` asset from the same repo, you can reference its warehouse instead: `${resources.sql_warehouses.monitoring_sql_warehouse.id}`.
+1. **Placeholders.** If you kept the defaults for `warehouse_id` or `notification_email` at install, `resources/<pipeline_resource_key>_backstop.alert.yml` contains `WAREHOUSE_ID_PLACEHOLDER` or `EMAIL_PLACEHOLDER`. Replace them: find a warehouse id with `databricks warehouses list`, and use an email that belongs to a workspace user. If you installed the `monitoring-sql-warehouse` asset from the same repo, you can reference its warehouse instead: `${resources.sql_warehouses.monitoring_sql_warehouse.id}`. If you kept the `state_volume_path` placeholder, the hook's throttle runs in-memory only (still removes per-microbatch repeats within an update); to add cross-update throttling, set `dq_notify.state_dir` in the pipeline resource to a path under an existing UC Volume.
 2. **Bundle integration.** Most bundles already include `resources/*.yml` from `databricks.yml`:
 
    ```yaml
@@ -41,12 +41,22 @@ The first update ingests the full sample table, so the demo WARN expectation (`d
 
 - **The hook's notification** is printed to the pipeline compute's driver log: open the pipeline in the workspace UI, go to the update's compute, open Logs, and search for `EXPECTATION VIOLATION`. There is no CLI or SQL surface for driver-log output; this is a UI observation.
 - **The durable record** is the published event log table `<catalog>.<schema>.dq_notifications_event_log`. Run the first query in `<target_dir>/event_log_queries.sql` to see per-expectation passed/failed counts for the latest update; they match the numbers in the hook's printed line.
-- **Hook registration state** is the second query (`hook_progress` events). Note what it does and does not tell you: one row per hook per update recording enable/disable state only, not per-invocation execution.
+- **Hook registration state** is the second query (`hook_progress` events). It records ENABLED, FAILED, and DISABLED transitions (so a failing hook is visible here), but not per-invocation execution.
+- **Throttle state** (when `dq_notify.state_dir` is set) is browsable: `<state_dir>/dq_notify_state/<pipeline>/`, one human-readable JSON marker per expectation with the last-notified time and counts, overwritten in place. Expect one notification per expectation per `dq_notify.throttle_seconds` window, not one per microbatch; a rerun inside the window notifies nothing, by design.
 - **The backstop alert** evaluates daily at 06:00 UTC by default. To see it immediately, open the alert in the workspace UI (SQL > Alerts) and run it manually, or temporarily tighten `quartz_cron_schedule`. On trigger it emails the configured subscription from `noreply@databricks.com`. The third query in `event_log_queries.sql` is the alert's exact sweep query, so you can preview the evaluated value.
 
-## Optional webhook
+## Optional webhook (Slack, Teams, or generic)
 
-Set `dq_notify.webhook_url` in the pipeline resource's `configuration` block to a webhook endpoint (a Slack incoming webhook or similar) and redeploy; the hook then posts each violation message as JSON (`{"text": ...}`) in addition to printing. Keep the endpoint fast: hooks run one at a time, and a slow call delays every other hook. For authenticated endpoints, resolve tokens from a Databricks secret scope at module level, the way the official event-hooks docs example does.
+The hook posts each due notification to a webhook when one is configured, in the format selected by `dq_notify.channel_format` (`slack`, `teams`, or `generic`). Route hook posts to chat-style channels; email belongs to the backstop alert.
+
+A webhook URL is a credential (it grants posting rights), so the real setup goes through a secret scope:
+
+```bash
+databricks secrets create-scope dq-notifications
+databricks secrets put-secret dq-notifications slack_webhook_url --string-value "<your webhook url>"
+```
+
+Then set `dq_notify.webhook_secret_scope: dq-notifications` in the pipeline resource's `configuration` and redeploy; the pipeline resolves the URL at startup and, if the scope is missing, prints a notice and runs print-only (your pipeline is never blocked by notification config). The plain `dq_notify.webhook_url` config exists as a demo-only shortcut. Do not use `{{secrets/scope/key}}` in pipeline configuration; it is not interpolated and the literal string arrives.
 
 ## Wire the pattern into your own pipeline (companion skill)
 
@@ -58,9 +68,12 @@ To start, paste a prompt like this into your agent and fill the placeholders:
 Use the sdp-expectation-notifications skill to add per-expectation notifications
 to my SDP pipeline.
 
-- Pipeline source file(s): <path(s) in this repo>
+- Pipeline source file(s): <path(s) in this repo; multiple pipelines welcome,
+  the hook and state layout support them without per-pipeline config>
 - Event log: <already published to a UC table at catalog.schema.table | not published yet>
-- Notify via: <driver-log print only | also webhook: <url or secret scope/key>>
+- Notify via: <driver-log print only | also webhook: secret scope/key, channel format slack|teams|generic>
+- Throttle: <window in seconds, default 3600; state path under an existing UC
+  Volume for cross-update throttling, or in-memory only>
 - Backstop alert: warehouse <id or resource reference>, recipient <email>,
   cadence <e.g. daily 06:00 UTC>
 - Deploy mode: <I will deploy and run myself | you may deploy and run>
@@ -72,7 +85,9 @@ then apply them and guide me through (or do) the deploy and verification.
 ## Adjusting the backstop
 
 - **Cadence and window are coupled.** The alert query aggregates the trailing `INTERVAL 1 DAY`; the schedule is daily. If you change the cron, change the interval to stay at least as long as the cadence, or violations can fall between sweeps.
-- **Recipients** live in `evaluation.notification.subscriptions` (add more `user_email` entries, or a `destination_id` for a workspace notification destination).
+- **Notification behavior (measured live):** one email per state transition, however many evaluations stay TRIGGERED; `notify_on_ok: true` (the shipped default) adds exactly one recovery email; the commented `retrigger_seconds` re-sends while TRIGGERED at most once per window, a deliberate escalation knob (for example 86400 for a daily reminder on a critical pipeline). While the alert stays TRIGGERED, new failures inside the window send nothing; the recovery email is what re-arms attention.
+- **If the sweep query itself breaks** (dropped table, deleted warehouse), the alert flips to ERROR and emails on every evaluation until fixed. It cannot die silently; treat an `(ERROR)` email as a page.
+- **Recipients** live in `evaluation.notification.subscriptions` (add more `user_email` entries, or a `destination_id` for a workspace notification destination, which is how Slack, MS Teams, PagerDuty, and generic webhooks attach to the backstop with zero code).
 - **Threshold** is `failed_records > 0`. Raise the threshold or filter the query to specific expectation names if the demo tripwire pattern is too chatty for your rules.
 
 ## References
