@@ -1,6 +1,6 @@
 # sdp-expectation-notifications
 
-Per-expectation data-quality notification for Lakeflow Spark Declarative Pipelines (SDP), as a pair: a scheduled DABs-managed **Alert v2** sweeps the published pipeline event log (the guaranteed path, throttled by the platform to one email per state change), and a native **event hook** posts the moment a WARN expectation result is logged (the fast path, throttled by this asset to one notification per expectation per window). The pair exists because the platform explicitly does not guarantee hook delivery; each half covers the other's gap.
+Per-expectation data-quality notification for Lakeflow Spark Declarative Pipelines (SDP), as a pair: a scheduled DABs-managed **Databricks SQL alert** sweeps the published pipeline event log (the guaranteed path, throttled by the platform to one email per state change), and a native **event hook** posts the moment an expectation result with failed records is logged, whether the expectation's action is `warn` or `drop` (the fast path, throttled by this asset to one notification per expectation per window). The pair exists because the platform explicitly does not guarantee hook delivery; each half covers the other's gap.
 
 ## Install
 
@@ -36,7 +36,7 @@ samples.nyctaxi.trips
         │
         └─► published event log (UC table: dq_notifications_event_log)
               ▲
-              └── backstop Alert v2           scheduled sweep over a trailing
+              └── backstop SQL alert          scheduled sweep over a trailing
                     email / destinations      1-day window; guaranteed
                     1 email per state change  evaluation; notify_on_ok closes
                                               the loop on recovery
@@ -61,8 +61,10 @@ An update that processes no new rows emits no expectation events at all (measure
 
 The two lanes get channels in two different ways:
 
-- **Backstop (email and beyond, zero code):** the alert subscribes an email by default. For Slack, MS Teams, PagerDuty, or a generic webhook, create a workspace notification destination (admin settings) and reference it via the commented `destination_id` line in the alert YAML. Platform feature, nothing to implement.
+- **Backstop (email and beyond, zero code):** the alert subscribes an email by default. Notification destinations can only be configured for Databricks SQL and jobs, so a destination is how Slack, MS Teams, PagerDuty, or a generic webhook attach to the backstop: create a workspace notification destination (admin settings) and reference it via the commented `destination_id` line in the alert YAML. A destination is a wrapper around a webhook, not a substitute for one: a Slack destination's config is a webhook URL plus an OAuth token and channel id, requiring app-install rights in the Slack workspace; a Teams destination needs a webhook URL, App ID, Auth Secret, Channel URL, and Tenant ID, requiring permissions in Microsoft Copilot Studio and Entra ID on top of Databricks workspace admin. EMAIL is the only destination type taking plain addresses with no webhook. The honest benefit is centralizing the credential once at workspace level instead of pasting it into every alert, not "Slack without a webhook." Also worth knowing (measured live 2026-07-26): a destination and a `user_email` pointing at the same address produce two independent, non-deduplicated sends per trigger, not a merged one.
 - **Hook (webhook formats):** `dq_notify.channel_format` selects the payload: `slack` (`{"text": ...}`, validated end to end: secret scope to channel message, HTTP 200), `teams` (Workflows Adaptive Card envelope, documented format, not live-tested by this asset), or `generic` (plain JSON with the violation fields). Route hook posts to chat-style channels that tolerate an occasional repeat; email belongs to the backstop, and a hook cannot send email anyway (no email surface exists inside a hook).
+
+**No webhook available? Deploy the backstop alone.** Without a delivery surface, print-only hook output has no advantage over the published event log the backstop already sweeps; the hook's only edge is latency, and that's worthless with nowhere to deliver it. If you have no Slack, Teams, or webhook target, skip the hook and ship just the backstop alert.
 
 **Webhook URLs are credentials** (a Slack incoming webhook grants posting rights). Real setups put the URL in a secret scope and set `dq_notify.webhook_secret_scope`/`dq_notify.webhook_secret_key`; the pipeline resolves it via `dbutils.secrets.get` at startup, which works at module level in serverless SDP Python (validated live), and degrades to print-only if the scope is missing (also validated). Two things that do NOT work, so you do not have to rediscover them: `{{secrets/scope/key}}` in pipeline configuration is not interpolated (the literal string arrives), and the plain `dq_notify.webhook_url` config is a demo-only convenience.
 
@@ -73,11 +75,12 @@ Established on live serverless SDP runs (2026-07-11 and 2026-07-17/18, CLI v0.29
 - **Do not write Delta from inside a hook.** `spark.sql()` in SDP pipeline Python is restricted to a read allowlist: `INSERT INTO` fails with `UNSUPPORTED_SPARK_SQL_COMMAND` (the error lists the allowlist: SELECT, DESCRIBE, SHOW variants, USE), `CREATE TABLE` fails the same way, and the SDP-patched `spark.sql()` rejects the parameterized-query `args=` kwarg. All three write paths are closed; this is definitive.
 - **Durable state goes through UC Volume file I/O instead.** Plain Python `open()` against `/Volumes/...` works from inside a hook: create, overwrite, read, `os.path.exists`, `os.listdir`, `os.stat`, `os.makedirs` all validated live. The one gap: append to an existing file fails (`OSError [Errno 29] Illegal seek`), which is why the markers are overwrite-only.
 - **Reads are fine.** `spark.sql("SELECT ...").collect()` works reliably from a hook (validated across many invocations), so a hook can consult a small gate table if you need a manual mute switch.
-- **Keep the hook fast; the grace budget is seconds.** Hooks run serialized, and after an update completes the platform terminates compute within roughly 20 seconds. A hook needing about 1s per event drained 5 queued events with zero loss; a hook needing 20s per event lost **6 of 6** notifications under normal, non-forced teardown. No retries, tight webhook timeout (5s), marker I/O only (~100ms).
+- **Keep the hook fast; the grace budget is seconds.** Hooks run serialized, and compute is torn down shortly after an update completes. A hook needing about 1s per event drained 5 queued events with zero loss, all within about 8 seconds of completion. A hook needing 20s per event had its first event start 3 seconds after completion, never finish, and lost **6 of 6** notifications under normal, non-forced teardown. Keep total hook work in single-digit seconds. No retries, tight webhook timeout (5s), marker I/O only (~100ms). The exact platform timer is not documented and we have not established it.
 - **`hook_progress` records ENABLED, FAILED, and DISABLED transitions** (correcting v1.11.0, which claimed enable-state only). Hook health is event-log-observable and alertable. It still does not record per-invocation output; the printed notifications exist only in the pipeline compute's driver log, which has no CLI or SQL surface.
 - **`max_allowable_consecutive_failures` is a tradeoff.** A finite value disables a flaky hook until the next restart (visible as `DISABLED` in `hook_progress`, but notifications silently stop); `None` (this asset's choice) lets a broken hook fail forever, which is why every failure path in the shipped hook prints instead of raising.
 - **`mode: development` masks the teardown behavior.** A DABs development-mode target keeps pipeline compute warm across updates, hiding both the delivery gap and the fresh-process-per-update behavior (in non-dev mode each update gets a new Python process; measured via per-process ids).
 - **Inside the hook, `event["details"]` arrives as a native Python dict**, and `event["origin"]` carries `pipeline_name` and `pipeline_id` (the basis for zero-config multi-pipeline state scoping).
+- **The hook covers `warn` and `drop` identically, not just `warn`.** It filters purely on `failed_records > 0` inside the expectations array and never inspects the expectation's action type, so `@dp.expect` and `@dp.expect_or_drop` rules notify the same way. The demo ships one `warn` rule because `warn` keeps every row flowing, which makes the demo repeatable; it is not a limit of the hook itself. `details.flow_progress.data_quality.dropped_records` is DROP-only (0 on a WARN row) and is how you tell from the event log alone that rows were discarded rather than merely flagged. Databricks' own docs exclude `fail` from this metrics recording entirely, because a `fail` action stops the update instead of letting it complete.
 
 ## The backstop's notification behavior (measured)
 
@@ -85,6 +88,7 @@ Established on live serverless SDP runs (2026-07-11 and 2026-07-17/18, CLI v0.29
 - **`retrigger_seconds` is deliberate re-nagging:** re-sends at the first evaluation past each window (measured with 120s: gaps of 120s, 180s, 179s, aligned to evaluation ticks). Off by default; the commented block suggests 86400 as a daily "still broken" escalation for critical pipelines.
 - **ERROR does not throttle.** If the sweep query itself fails, the alert flips to ERROR and emails on **every evaluation** until fixed (measured: 5 emails in 4 minutes). The backstop cannot die silently; treat an `(ERROR)` email as a page.
 - The sweep query aggregates over a past-time window (trailing 1 day), not just the latest row; keep the window at least as long as the cadence if you change the cron.
+- **Cron cadence should match the pipeline's mode.** The shipped daily 06:00 UTC cron, paired with a 1-day window, fits a triggered pipeline on a daily-or-slower cadence. A continuous pipeline is a different shape: Databricks positions continuous mode for freshness requirements between 10 seconds and a few minutes, so a daily sweep adds a full day of latency on top of that. Tighten both the cron and the `INTERVAL` together if the pipeline runs continuously, but tightening costs more warehouse wake-ups; the `monitoring-sql-warehouse` asset in this repo (2X-Small serverless, `auto_stop_mins: 1`) is sized for exactly that tradeoff.
 
 ## Validation results
 
@@ -94,7 +98,8 @@ v1.11.0's pattern was validated end to end on 2026-07-11 (hook fires with exact 
 - Two-layer throttle: 12 raw events across two consecutive full refreshes reduced to 2 notifications; cross-update suppression through marker files after a process restart; multi-pipeline isolation with two pipelines sharing one state root.
 - Continuous mode with Auto Loader: notify, suppress inside the window, re-notify after it, in one long-lived process; continuous pipelines auto-start on `bundle deploy`.
 - Slack end to end: secret scope, `dbutils.secrets.get` at module level, throttled hook, two channel messages with HTTP 200 and counts matching the hook records exactly; missing secret scope degraded to print-only with the pipeline unaffected.
-- Alerts v2: one email per state transition (9 TRIGGERED evaluations, 1 email), `retrigger_seconds` re-send alignment, exactly one `notify_on_ok` recovery email, ERROR emailing every evaluation.
+- Databricks SQL alerts: one email per state transition (9 TRIGGERED evaluations, 1 email), `retrigger_seconds` re-send alignment, exactly one `notify_on_ok` recovery email, ERROR emailing every evaluation.
+- Drop-expectation coverage, live 2026-07-26: a `drop` expectation on the same source and tripwire condition produced the same passed/failed shape as the WARN row (18929 passed / 3003 failed on 21,932 total rows), the hook fired with an exact-matching driver-log line, the update reported `COMPLETED` while discarding 3,003 of 21,932 rows (13.7%), `dropped_records` read 3003 on the DROP row versus 0 on the WARN row, and the backstop's sweep query summed both expectations with no special-casing (6,006 = 3,003 + 3,003).
 
 ## Honest limits and open questions
 
@@ -102,7 +107,7 @@ v1.11.0's pattern was validated end to end on 2026-07-11 (hook fires with exact 
 - The two lanes de-duplicate independently and share no state: one violation can produce one hook message and one backstop email. Different audiences, different guarantees; by design.
 - The hook cannot notice "the pipeline has not run at all": no update, no events, no hook. Pair with a freshness check (for example Unity Catalog data quality monitoring's anomaly detection) if that failure mode matters.
 - The backstop inherits scheduled-scan limits: latency bounded by its cron cadence, and a SQL warehouse in the loop. The `monitoring-sql-warehouse` asset (2X-Small serverless, `auto_stop_mins: 1`) exists for exactly this workload shape.
-- Still open: the Teams payload ships doc-confirmed, not live-tested; concurrent marker writes from two simultaneously running pipelines are untested (the per-pipeline folders give them no shared file to race on, but Free Edition cannot run two updates at once to prove it); the exact numeric grace period (bounded to roughly 8 to 20-plus seconds of post-update hook budget by measurement).
+- Still open: the Teams payload ships doc-confirmed, not live-tested; concurrent marker writes from two simultaneously running pipelines are untested (the per-pipeline folders give them no shared file to race on, but Free Edition cannot run two updates at once to prove it); the exact numeric grace period remains unestablished, two runs bound it loosely (one showed compute still alive at ~8s, one showed it dead before ~23s), but neither run was designed to measure the timer itself.
 
 ## Inspecting the results
 
@@ -124,5 +129,5 @@ It demonstrates one notification pattern with its tradeoffs documented, not a ge
 2. [Lakeflow SDP expectations](https://docs.databricks.com/aws/en/ldp/expectations)
 3. [Monitor pipelines with the event log](https://docs.databricks.com/aws/en/ldp/monitor-event-logs)
 4. [`event_log` table-valued function](https://docs.databricks.com/aws/en/sql/language-manual/functions/event_log)
-5. [DABs alert resource (Alerts v2)](https://docs.databricks.com/aws/en/dev-tools/bundles/resources)
+5. [DABs alert resource](https://docs.databricks.com/aws/en/dev-tools/bundles/resources)
 6. [Notification destinations](https://docs.databricks.com/aws/en/admin/workspace-settings/notification-destinations)
