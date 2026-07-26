@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.12.1] - 2026-07-26
+
+### Changed
+- **Asset `sdp-expectation-notifications` (docs only)**: seven corrections grounded in two live verification sessions (2026-07-26 drop/destination testing and the 2026-07-17/18 hygiene build), none changing behavior.
+  - **Drop coverage documented.** The hook filters purely on `failed_records > 0` and never inspects the expectation's action type, so `warn` and `drop` rules notify identically; the README previously framed the pattern as WARN-only. Live 2026-07-26: a `drop` expectation on the same source and tripwire produced the same passed/failed shape as the shipped WARN row (18929/3003 on 21,932 rows), the hook fired with a matching driver-log line, the update reported `COMPLETED` while discarding 13.7% of rows, `dropped_records` (DROP-only) read 3003 vs 0 on WARN, and the backstop's sweep summed both expectations additively (6,006).
+  - **Naming corrected.** "Alert v2" and "Alerts v2" replaced with "Databricks SQL alert(s)" throughout the README, in-bundle doc, skill files, and install prompt text, matching current Databricks docs (legacy alerts is the prior version); `alerts-v2` is kept only where it names an actual CLI command.
+  - **Notification destinations clarified.** Destinations serve only Databricks SQL and jobs, not the event hook, and a destination is a wrapper around a webhook, not a substitute for one (Slack needs a webhook URL, OAuth token, and channel id plus Slack app-install rights; Teams needs a webhook URL, App ID, Auth Secret, Channel URL, and Tenant ID plus Microsoft Copilot Studio and Entra ID permissions). Measured live: a destination alongside `user_email` on the same address sends two independent, non-deduplicated notifications.
+  - **No-webhook guidance added.** Readers and the companion skill are now steered to deploy the backstop alone when there is no Slack, Teams, or webhook target, since print-only hook output has no advantage over the event log the backstop already sweeps.
+  - **Backstop cron tied to pipeline mode.** The shipped daily cron fits a triggered pipeline; guidance now flags that a continuous pipeline (10-seconds-to-a-few-minutes freshness) needs a tighter cron and window, at the cost of more warehouse wake-ups, pointing at the `monitoring-sql-warehouse` asset.
+  - **Grace-period claim softened.** "Terminates compute within roughly 20 seconds" overclaimed precision two runs never measured; replaced with the honest bound (compute alive at ~8s in one run, dead before ~23s in another, neither designed to measure the timer) and the actionable rule: keep hook work in single-digit seconds.
+  - **Skill gains a CLI gotcha.** `databricks notification-destinations create` prints a spurious `unknown field` warning and echoes back a config that looks empty even though the destination was created correctly; documented in `adapt-the-pattern.md` since the skill is what would run this command.
+
 ## [1.12.0] - 2026-07-18
 
 ### Changed

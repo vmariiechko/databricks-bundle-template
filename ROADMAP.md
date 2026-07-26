@@ -51,7 +51,7 @@ Modular sub-templates installable via `databricks bundle init <repo-url> --templ
 - `monitoring-sql-warehouse`: Dedicated serverless SQL warehouse tuned for bursty workloads (scheduled Alerts, monitoring queries) with `auto_stop_mins: 1`
 - `sdp-quarantine-pattern`: Lakeflow SDP pipeline demonstrating the inverse-expectations quarantine pattern (drop expectations route bad rows to a separate quarantine table) on `samples.nyctaxi.trips`, with medallion schema separation, a queryable event log, and NULL-safe predicates. Ships a companion agent skill that adapts the pattern to the user's own dataset and self-verifies it
 - `pyspark-test-runner`: Single-file Python wrapper around `pytest` for local PySpark suites that prints a bounded, agent-friendly digest (counts, runnable failing node ids, failures deduplicated by signature) and keeps full output in a log file, so a suite flooding with repetitive failures does not burn a coding agent's context window. Ships a `SKILL.md` for agent integration
-- `sdp-expectation-notifications`: Per-expectation data-quality notification for Lakeflow SDP as a pair: an in-pipeline event hook fires the moment a WARN expectation result is logged (since v1.12.0 throttled to at most one notification per expectation per window via a two-layer time-aware de-dup with optional UC Volume marker state, with Slack/Teams/generic webhook formats and secret-scope URL resolution), backed by one DABs-managed Alert v2 sweeping the published event log on a schedule (hook delivery is best-effort by platform design; the alert is the guarantee, one email per state change). Ships a companion agent skill that wires the pattern into the user's own pipelines
+- `sdp-expectation-notifications`: Per-expectation data-quality notification for Lakeflow SDP as a pair: an in-pipeline event hook fires the moment an expectation result with failed records is logged, covering `warn` and `drop` alike (since v1.12.0 throttled to at most one notification per expectation per window via a two-layer time-aware de-dup with optional UC Volume marker state, with Slack/Teams/generic webhook formats and secret-scope URL resolution), backed by one DABs-managed Databricks SQL alert sweeping the published event log on a schedule (hook delivery is best-effort by platform design; the alert is the guarantee, one email per state change). Ships a companion agent skill that wires the pattern into the user's own pipelines
 
 **Possible future assets** (ideas for contributors, not commitments):
 - `etl-pipeline`: Medallion-layered Declarative Pipeline with Bronze/Silver layers and DLT expectations
@@ -85,7 +85,40 @@ These are larger features that require more design work and community input befo
 
 ### Pre-commit Hooks
 
-<fill-in from `https://www.waitingforcode.com/databricks/pre-commit-hook-declarative-automation-bundles-example/read`>
+**Status**: Proposed
+**Target**: v2.0
+
+Optional git pre-commit hook that runs `databricks bundle validate` locally before a commit, catching DAB syntax and configuration errors before they reach CI/CD. Off by default: it requires a local Databricks CLI profile with workspace auth already configured, and like any pre-commit hook it can be bypassed with `--no-verify`, so it complements the CI/CD pipeline's validation step rather than replacing it.
+
+**Scope:**
+- New `include_pre_commit_hook` prompt (`yes` / `no`, default `no`)
+- Generates `.pre-commit-config.yaml` wiring a hook that runs `databricks bundle validate -t <target>` and fails the commit on validation errors
+- Documentation note on installing the `pre-commit` framework and running `pre-commit install`
+
+**Open questions:**
+- Which target does the local validate run against by default: `user`, or whichever the developer has authenticated to?
+- Does the hook need a dependency on `pre-commit` (plus a task runner like Poe) in the generated project, or can it ship as a lighter shell-script hook with no extra Python framework?
+- How should the hook behave when a developer has no local CLI auth configured yet: skip gracefully, or hard fail?
+
+Inspired by: [Pre-commit hook for Declarative Automation Bundles](https://www.waitingforcode.com/databricks/pre-commit-hook-declarative-automation-bundles-example/read)
+
+### Shared Bundles Support
+
+**Status**: Proposed
+**Target**: v2.0
+
+Scaffold a generated project to consume an existing external "shared" bundle path, a separate repo or directory holding common libraries, compute configs, or variables reused across multiple bundles, using Databricks' native `sync.paths` / `include` mechanism rather than anything template-specific. Useful for organizations running several bundles that want centralized cluster configs, shared code, or shared variable definitions instead of duplicating them per bundle.
+
+**Scope:**
+- New `shared_bundle_path` prompt (optional; blank by default, no change to current single-bundle behavior)
+- When set, wires the path into `sync.paths` and `include` in `databricks.yml.tmpl` (for example `../shared/*.yml`, `../shared` as a sync path)
+- Documentation on the prerequisites (DBR 14+ or serverless for certain shared Python path operations; permissions must be configured at both bundle and target level for all consumers) and on running `databricks bundle validate` to confirm inheritance before deploying
+
+**Open questions:**
+- Should the template scaffold the shared bundle itself as a second generated project, or only wire an existing one in?
+- How does this interact with the existing service-principal and permissions model per environment target?
+
+Reference: [Share code and configuration between bundles](https://docs.databricks.com/aws/en/dev-tools/bundles/sharing)
 
 ### Advanced Permissions Profiles
 

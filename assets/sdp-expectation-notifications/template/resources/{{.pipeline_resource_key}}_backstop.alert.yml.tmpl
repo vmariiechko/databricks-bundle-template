@@ -1,16 +1,19 @@
 # Backstop alert: the guaranteed sweep behind the best-effort event hook.
 #
-# One DABs-managed Alert v2 that aggregates expectation failures from the
-# published pipeline event log over a trailing time window. It exists because
-# event hook delivery is explicitly best-effort: there is no guarantee every
-# hook runs on every event before pipeline compute terminates. A scheduled
-# SQL alert either runs or visibly fails, so it closes that gap.
+# One DABs-managed Databricks SQL alert that aggregates expectation failures
+# from the published pipeline event log over a trailing time window. It
+# exists because event hook delivery is explicitly best-effort: there is no
+# guarantee every hook runs on every event before pipeline compute
+# terminates. A scheduled SQL alert either runs or visibly fails, so it
+# closes that gap.
 #
 # The query aggregates over a past-time window (last 1 day), NOT just the
 # latest row: a latest-row read silently misses violations whenever the alert
 # cadence differs from the pipeline cadence. Keep the window at least as long
 # as the evaluation cadence; if you change the cron below, change the
-# INTERVAL to match.
+# INTERVAL to match. The shipped daily cadence fits a triggered pipeline; a
+# continuous pipeline needs both tightened to match its faster freshness
+# (see the asset README's backstop notification-behavior section).
 #
 # Placeholders: if warehouse_id or the subscription email below reads
 # *_PLACEHOLDER, replace it before deploying. The monitoring-sql-warehouse
@@ -58,7 +61,17 @@ resources:
             - user_email: {{.notification_email}}
             # Slack / MS Teams / PagerDuty / webhook delivery: create a
             # workspace notification destination (admin settings) and
-            # reference it here instead of, or alongside, the email:
+            # reference it here instead of, or alongside, the email. A
+            # destination is a wrapper around a webhook, not a substitute for
+            # one: Slack needs a webhook URL, an OAuth token, and a channel
+            # id, plus app-install rights in Slack; Teams needs a webhook
+            # URL, App ID, Auth Secret, Channel URL, and Tenant ID, plus
+            # permissions in Microsoft Copilot Studio and Entra ID, on top of
+            # Databricks workspace admin. EMAIL is the only type taking plain
+            # addresses with no webhook. The benefit is centralizing the
+            # credential once at workspace level instead of per-alert. Note
+            # (measured live): a destination alongside user_email on the same
+            # address sends two independent, non-deduplicated notifications.
             # - destination_id: <notification-destination-id>
         # Operational note (validated live): if this alert's query itself
         # fails (dropped table, deleted warehouse), the alert flips to ERROR

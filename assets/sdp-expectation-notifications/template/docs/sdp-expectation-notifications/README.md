@@ -1,6 +1,6 @@
 # SDP Expectation Notifications (in-bundle usage)
 
-This asset installs per-expectation data-quality notification for a Lakeflow Spark Declarative Pipeline as a pair: a native event hook fires the moment a WARN expectation result is logged (fast, best-effort, throttled to at most one notification per expectation per window), and one DABs-managed Alert v2 sweeps the published pipeline event log on a schedule (guaranteed, one email per state change). The demo pipeline runs on the public `samples.nyctaxi.trips` dataset with a deliberately tight WARN expectation, so both paths fire on the first run.
+This asset installs per-expectation data-quality notification for a Lakeflow Spark Declarative Pipeline as a pair: a native event hook fires the moment an expectation result with failed records is logged, whether the expectation's action is `warn` or `drop` (fast, best-effort, throttled to at most one notification per expectation per window), and one DABs-managed Databricks SQL alert sweeps the published pipeline event log on a schedule (guaranteed, one email per state change). The demo pipeline runs on the public `samples.nyctaxi.trips` dataset with a deliberately tight WARN expectation, so both paths fire on the first run.
 
 The full design rationale, the validated facts, and the honest caveats live in the asset README in the [databricks-bundle-template repo](https://github.com/vmariiechko/databricks-bundle-template/tree/main/assets/sdp-expectation-notifications). This file covers what you do after install.
 
@@ -11,7 +11,7 @@ The full design rationale, the validated facts, and the honest caveats live in t
 | `<target_dir>/expectation_notifications_pipeline.py` | The SDP pipeline source: demo table, WARN expectation, and the notifier event hook. |
 | `<target_dir>/event_log_queries.sql` | Queries for expectation counts, `hook_progress` states, and the backstop's sweep. |
 | `resources/<pipeline_resource_key>.pipeline.yml` | The DABs pipeline resource (publishes the event log to a UC table). |
-| `resources/<pipeline_resource_key>_backstop.alert.yml` | The backstop Alert v2 resource (scheduled sweep + email subscription). |
+| `resources/<pipeline_resource_key>_backstop.alert.yml` | The backstop alert resource (a Databricks SQL alert; scheduled sweep + email subscription). |
 | `<skill_dir>/skills/sdp-expectation-notifications/SKILL.md` | Companion agent skill: wire the pattern into your own pipeline. |
 | `docs/sdp-expectation-notifications/README.md` | This file. |
 
@@ -49,6 +49,8 @@ The first update ingests the full sample table, so the demo WARN expectation (`d
 
 The hook posts each due notification to a webhook when one is configured, in the format selected by `dq_notify.channel_format` (`slack`, `teams`, or `generic`). Route hook posts to chat-style channels; email belongs to the backstop alert.
 
+No Slack, Teams, or generic webhook target available? Skip this section and the hook's webhook config entirely: print-only output has no advantage over the event log the backstop already sweeps, so the backstop alone covers you (see the asset README's "Notification channels" section for the full reasoning).
+
 A webhook URL is a credential (it grants posting rights), so the real setup goes through a secret scope:
 
 ```bash
@@ -84,7 +86,7 @@ then apply them and guide me through (or do) the deploy and verification.
 
 ## Adjusting the backstop
 
-- **Cadence and window are coupled.** The alert query aggregates the trailing `INTERVAL 1 DAY`; the schedule is daily. If you change the cron, change the interval to stay at least as long as the cadence, or violations can fall between sweeps.
+- **Cadence and window are coupled, and cadence should match your pipeline's mode.** The alert query aggregates the trailing `INTERVAL 1 DAY`; the schedule is daily. If you change the cron, change the interval to stay at least as long as the cadence, or violations can fall between sweeps. The shipped daily cadence fits a triggered pipeline; a continuous pipeline needs a tighter cron and window (Databricks positions continuous mode for freshness between 10 seconds and a few minutes, so a daily sweep would add a full day of latency on top of that), but a tighter cron means more warehouse wake-ups: the `monitoring-sql-warehouse` asset (2X-Small serverless, `auto_stop_mins: 1`) is sized for that tradeoff.
 - **Notification behavior (measured live):** one email per state transition, however many evaluations stay TRIGGERED; `notify_on_ok: true` (the shipped default) adds exactly one recovery email; the commented `retrigger_seconds` re-sends while TRIGGERED at most once per window, a deliberate escalation knob (for example 86400 for a daily reminder on a critical pipeline). While the alert stays TRIGGERED, new failures inside the window send nothing; the recovery email is what re-arms attention.
 - **If the sweep query itself breaks** (dropped table, deleted warehouse), the alert flips to ERROR and emails on every evaluation until fixed. It cannot die silently; treat an `(ERROR)` email as a page.
 - **Recipients** live in `evaluation.notification.subscriptions` (add more `user_email` entries, or a `destination_id` for a workspace notification destination, which is how Slack, MS Teams, PagerDuty, and generic webhooks attach to the backstop with zero code).
@@ -95,5 +97,5 @@ then apply them and guide me through (or do) the deploy and verification.
 1. [Lakeflow SDP event hooks](https://docs.databricks.com/aws/en/ldp/event-hooks)
 2. [Lakeflow SDP expectations](https://docs.databricks.com/aws/en/ldp/expectations)
 3. [Monitor pipelines with the event log](https://docs.databricks.com/aws/en/ldp/monitor-event-logs)
-4. [DABs alert resource (Alerts v2)](https://docs.databricks.com/aws/en/dev-tools/bundles/resources)
+4. [DABs alert resource](https://docs.databricks.com/aws/en/dev-tools/bundles/resources)
 5. [Databricks sample datasets (`samples.nyctaxi.trips`)](https://docs.databricks.com/aws/en/discover/databricks-datasets)
