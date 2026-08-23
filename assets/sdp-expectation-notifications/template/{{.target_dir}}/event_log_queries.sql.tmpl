@@ -42,10 +42,11 @@ ORDER BY failing_records DESC, e.dataset, e.name;
 
 -- ---------------------------------------------------------------------------
 -- Hook registration state per update ("monitoring the monitor").
--- hook_progress events record ONLY enable/disable state, one row per hook per
--- update, logged at registration time. They do NOT record which events a hook
--- processed, counts, timings, or failures; per-invocation output (the printed
--- notifications) exists only in the pipeline compute's driver log.
+-- hook_progress events record the hook's ENABLED, FAILED, and DISABLED
+-- transitions (observed live), so a failing hook is visible here. They do NOT
+-- record which events a hook processed, counts, or timings; per-invocation
+-- output (the printed notifications) exists only in the pipeline compute's
+-- driver log.
 -- ---------------------------------------------------------------------------
 SELECT
   timestamp,
