@@ -49,7 +49,7 @@ The first update ingests the full sample table, so the demo WARN expectation (`d
 
 The hook posts each due notification to a webhook when one is configured, in the format selected by `dq_notify.channel_format` (`slack`, `teams`, or `generic`). Route hook posts to chat-style channels; email belongs to the backstop alert.
 
-No Slack, Teams, or generic webhook target available? Skip this section and the hook's webhook config entirely: print-only output has no advantage over the event log the backstop already sweeps, so the backstop alone covers you (see the asset README's "Notification channels" section for the full reasoning).
+No endpoint for the hook to post to (a Slack or Teams webhook, a receiver you control, any reachable HTTPS service)? Skip this section and the hook's webhook config entirely: print-only output has no advantage over the event log the backstop already sweeps, so the backstop alone covers you (see the asset README's "Notification channels" section for the full reasoning).
 
 A webhook URL is a credential (it grants posting rights), so the real setup goes through a secret scope:
 
