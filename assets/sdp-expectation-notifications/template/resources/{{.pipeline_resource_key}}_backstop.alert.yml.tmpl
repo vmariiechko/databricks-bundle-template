@@ -15,6 +15,14 @@
 # continuous pipeline needs both tightened to match its faster freshness
 # (see the asset README's backstop notification-behavior section).
 #
+# The aggregate is wrapped in COALESCE(SUM(...), 0) on purpose: an alert
+# deployed from this file reads `Empty result state: Error` in its Advanced
+# panel (nothing here sets it), so a query returning no rows flips the
+# alert to ERROR, and ERROR emails on EVERY evaluation until fixed.
+# COALESCE guarantees exactly one row, always. If you edit the query, keep
+# that property: a GROUP BY, a HAVING, or a filter that can match nothing
+# turns this backstop into a per-evaluation ERROR emailer.
+#
 # Placeholders: if warehouse_id or the subscription email below reads
 # *_PLACEHOLDER, replace it before deploying. The monitoring-sql-warehouse
 # asset from this same repo is a natural warehouse for this workload
@@ -60,18 +68,25 @@ resources:
           subscriptions:
             - user_email: {{.notification_email}}
             # Slack / MS Teams / PagerDuty / webhook delivery: create a
-            # workspace notification destination (admin settings) and
+            # workspace notification destination (Settings > Notifications;
+            # the docs state managing them requires workspace admin) and
             # reference it here instead of, or alongside, the email. A
             # destination is a wrapper around a webhook, not a substitute for
-            # one: Slack needs a webhook URL, an OAuth token, and a channel
-            # id, plus app-install rights in Slack; Teams needs a webhook
-            # URL, App ID, Auth Secret, Channel URL, and Tenant ID, plus
-            # permissions in Microsoft Copilot Studio and Entra ID, on top of
-            # Databricks workspace admin. EMAIL is the only type taking plain
-            # addresses with no webhook. The benefit is centralizing the
-            # credential once at workspace level instead of per-alert. Note
-            # (measured live): a destination alongside user_email on the same
-            # address sends two independent, non-deduplicated notifications.
+            # one, but a thin one for an alert: Slack takes the incoming
+            # webhook URL and nothing else, and so does Teams. The OAuth
+            # token, channel id, App ID, Auth Secret, Channel URL, and Tenant
+            # ID fields are marked optional on the form and scoped by its own
+            # heading to dashboard subscriptions, a different feature
+            # (verified live on a delivering Slack destination: url_set true,
+            # oauth_token_set false, channel_id_set false). EMAIL is the only
+            # type taking plain addresses with no webhook. The benefit is
+            # centralizing the credential once at workspace level instead of
+            # per-alert. Two things measured live: a destination alongside
+            # user_email on the same address sends two independent,
+            # non-deduplicated notifications, and a Slack destination's
+            # message carries only a state-change title and two links, no
+            # counts, where the email carries the evaluated metric against
+            # its threshold.
             # - destination_id: <notification-destination-id>
         # Operational note (validated live): if this alert's query itself
         # fails (dropped table, deleted warehouse), the alert flips to ERROR

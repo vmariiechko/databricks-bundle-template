@@ -42,6 +42,9 @@ level in serverless SDP pipeline Python (validated live; `{{secrets/...}}`
 interpolation in pipeline configuration does NOT resolve and arrives as the
 literal string). The plain `dq_notify.webhook_url` config is the demo-only
 fallback. A missing scope is caught and the hook degrades to print-only.
+The POST sends JSON with no `headers` argument, so the shipped hook targets
+incoming-webhook URLs, where the URL itself is the credential; an endpoint
+needing an Authorization header requires editing that call.
 """
 
 import json
@@ -65,7 +68,8 @@ STATE_DIR = spark.conf.get("dq_notify.state_dir", "").rstrip("/")
 
 # Webhook payload format: "slack" (validated live), "teams" (documented
 # Workflows Adaptive Card envelope, not live-tested), or "generic" (plain JSON
-# with the violation fields, for webhook receivers you control).
+# with the violation fields, for webhook receivers you control; live-tested
+# 2026-08-22: all six fields arrived verbatim, the two counts as JSON numbers).
 CHANNEL_FORMAT = spark.conf.get("dq_notify.channel_format", "slack")
 
 # Webhook resolution: secret scope first (real setups), plain config second
