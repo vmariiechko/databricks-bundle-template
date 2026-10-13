@@ -54,10 +54,10 @@ PASS when the printed counts match check 2's counts for the same `update_id` (ex
 
 ```bash
 databricks fs ls dbfs:<state_dir>/dq_notify_state/
-databricks fs cat "dbfs:<state_dir>/dq_notify_state/<pipeline folder>/<dataset>__<expectation>.json"
+databricks fs cat "dbfs:<state_dir>/dq_notify_state/<pipeline name>__<pipeline id>/<dataset>__<expectation>.json"
 ```
 
-PASS when a folder named after the pipeline exists and each notified expectation has one marker whose `last_notified_at` matches the run and whose counts match check 2. A second run inside the throttle window must NOT advance `last_notified_at` (suppression proof); a run after the window must. Marker files are state, not history: one file per expectation, overwritten in place.
+PASS when a folder named `<pipeline name>__<pipeline id>` exists (sanitized: characters other than letters, digits, `.`, `_`, `-` become `_`) and each notified expectation has one marker whose `last_notified_at` matches the run and whose counts match check 2. A second run inside the throttle window must NOT advance `last_notified_at` (suppression proof); a run after the window must. Marker files are state, not history: one file per expectation, overwritten in place.
 
 If the log shows nothing despite check 2 showing failures: first suspect timing (delivery is best-effort; events emitted just before compute termination can be lost, which is exactly why the backstop exists), then the hook's filter logic. A `mode: development` target keeps compute warm and its log long-lived, which makes this check easier to run and the loss scenario less likely to occur; see the development-mode caveat in `references/adapt-the-pattern.md`.
 

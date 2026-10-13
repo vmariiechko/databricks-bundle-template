@@ -15,11 +15,13 @@ Noise control is a two-layer, time-aware throttle (validated live 2026-07-18):
   Time-aware on purpose: continuous pipelines keep one Python process alive
   for days, so a notify-once-per-process set would go silent forever.
 - Durable marker layer (optional): JSON marker files under
-  `<state_dir>/dq_notify_state/<pipeline>/<dataset>__<expectation>.json` in a
-  UC Volume, carrying the throttle across updates and compute restarts. Point
-  `dq_notify.state_dir` at a path under an EXISTING volume to enable; leave
-  empty for in-memory only. One file per expectation, overwritten on notify,
-  never growing. Fail-open: any state error means notify, never stay silent.
+  `<state_dir>/dq_notify_state/<pipeline name>__<pipeline id>/<dataset>__<expectation>.json`
+  in a UC Volume, carrying the throttle across updates and compute restarts.
+  The name keeps the folder recognizable; the id keeps two pipelines that
+  share a display name apart. Point `dq_notify.state_dir` at a path under an
+  EXISTING volume to enable; leave empty for in-memory only. One file per
+  expectation, overwritten on notify, never growing. Fail-open: any state
+  error means notify, never stay silent.
 
 The hook is the fast path only. Event hook delivery is best-effort: the
 platform waits only seconds after an update completes before terminating
@@ -40,11 +42,13 @@ Resolve them from a secret scope: set `dq_notify.webhook_secret_scope` (and
 key) and the module resolves via `dbutils.secrets.get`, which works at module
 level in serverless SDP pipeline Python (validated live; `{{secrets/...}}`
 interpolation in pipeline configuration does NOT resolve and arrives as the
-literal string). The plain `dq_notify.webhook_url` config is the demo-only
-fallback. A missing scope is caught and the hook degrades to print-only.
-The POST sends JSON with no `headers` argument, so the shipped hook targets
-incoming-webhook URLs, where the URL itself is the credential; an endpoint
-needing an Authorization header requires editing that call.
+literal string). The secret scope is the only source of the URL: with no
+scope configured the hook is print-only, and a configured scope that cannot
+be read is caught, reported as `DQ_NOTIFY_SECRET_UNAVAILABLE`, and the hook
+degrades to print-only. The POST sends JSON with no `headers` argument, so
+the shipped hook targets incoming-webhook URLs, where the URL itself is the
+credential; an endpoint needing an Authorization header requires editing that
+call.
 """
 
 import json
@@ -72,11 +76,11 @@ STATE_DIR = spark.conf.get("dq_notify.state_dir", "").rstrip("/")
 # 2026-08-22: all six fields arrived verbatim, the two counts as JSON numbers).
 CHANNEL_FORMAT = spark.conf.get("dq_notify.channel_format", "slack")
 
-# Webhook resolution: secret scope first (real setups), plain config second
-# (demo), empty means print-only. Never log the resolved URL.
+# Webhook resolution: the URL is a credential, so it comes only from a secret
+# scope; no scope configured means print-only. Never log the resolved URL.
 WEBHOOK_SECRET_SCOPE = spark.conf.get("dq_notify.webhook_secret_scope", "")
 WEBHOOK_SECRET_KEY = spark.conf.get("dq_notify.webhook_secret_key", "slack_webhook_url")
-WEBHOOK_URL = spark.conf.get("dq_notify.webhook_url", "")
+WEBHOOK_URL = ""
 if WEBHOOK_SECRET_SCOPE:
     try:
         WEBHOOK_URL = dbutils.secrets.get(WEBHOOK_SECRET_SCOPE, WEBHOOK_SECRET_KEY)  # noqa: F821
@@ -87,7 +91,7 @@ if WEBHOOK_SECRET_SCOPE:
         )
         WEBHOOK_URL = ""
 
-_MEM_LAST = {}  # (pipeline, dataset, expectation) -> epoch of last notification
+_MEM_LAST = {}  # (state scope, dataset, expectation) -> epoch of last notification
 
 
 @dp.table(comment="NYC taxi trips with one deliberately tight warn expectation.")
@@ -124,25 +128,41 @@ def _sanitize(name):
     return "".join(c if (c.isalnum() or c in "._-") else "_" for c in str(name))
 
 
-def _should_notify(pipeline, dataset, expectation, failed, passed, now):
+def _state_scope(pipeline, pipeline_id):
+    """Return the identity that scopes one pipeline's throttle state.
+
+    `<name>__<id>`: the display name keeps the marker folder recognizable on
+    the Volume, and the id keeps two pipelines that share a display name
+    apart. Fallbacks: without an id, the name alone (the pre-1.13 layout, so
+    same-named pipelines share state again in that case); without a name,
+    `pipeline` already carries the id (or `unknown_pipeline`) and is used alone.
+    """
+    if pipeline_id and pipeline != pipeline_id:
+        return f"{_sanitize(pipeline)}__{_sanitize(pipeline_id)}"
+    return _sanitize(pipeline)
+
+
+def _should_notify(pipeline, pipeline_id, dataset, expectation, failed, passed, now):
     """Two-layer time-aware throttle. Returns True when a notification is due.
 
     Layer 1 (memory) covers repeats within one Python process: later
     microbatches of the same update, and a continuous pipeline's whole run.
     Layer 2 (marker files, only when STATE_DIR is set) covers repeats across
-    updates and compute restarts. Both layers fail open: a state error must
-    produce a notification, never silence.
+    updates and compute restarts. Both layers key on the same identity
+    (`_state_scope`). Both fail open: a state error must produce a
+    notification, never silence.
     """
     if THROTTLE_SECONDS <= 0:
         return True
-    key = (pipeline, dataset, expectation)
+    scope = _state_scope(pipeline, pipeline_id)
+    key = (scope, dataset, expectation)
     last = _MEM_LAST.get(key)
     if last is not None and (now - last) < THROTTLE_SECONDS:
         return False
     marker = None
     if STATE_DIR:
         marker = (
-            f"{STATE_DIR}/dq_notify_state/{_sanitize(pipeline)}/"
+            f"{STATE_DIR}/dq_notify_state/{scope}/"
             f"{_sanitize(dataset)}__{_sanitize(expectation)}.json"
         )
         try:
@@ -161,6 +181,7 @@ def _should_notify(pipeline, dataset, expectation, failed, passed, now):
                 json.dump(
                     {
                         "pipeline": pipeline,
+                        "pipeline_id": pipeline_id,
                         "dataset": dataset,
                         "expectation": expectation,
                         "last_notified_at": time.strftime(
@@ -219,7 +240,8 @@ def notify_on_expectation_violation(event):
     per batch). The pipeline identity comes from the event's own `origin`
     (observed live: `origin.pipeline_name` and `origin.pipeline_id` are
     present in hook events), so this same code runs unchanged in any number of
-    pipelines, each throttling in its own state folder.
+    pipelines, each throttling in its own `<name>__<id>` state folder. The
+    message shows the name; the id only scopes state.
 
     Hooks run serialized and the post-update grace budget is seconds: keep
     this fast (marker I/O ~100ms, webhook timeout 5s, no retries).
@@ -242,13 +264,14 @@ def notify_on_expectation_violation(event):
             return
         origin = event.get("origin") or {}
         pipeline = origin.get("pipeline_name") or origin.get("pipeline_id") or "unknown_pipeline"
+        pipeline_id = origin.get("pipeline_id")
         for exp in failing:
             now = time.time()
             dataset = exp.get("dataset")
             expectation = exp.get("name")
             failed = exp.get("failed_records") or 0
             passed = exp.get("passed_records") or 0
-            if not _should_notify(pipeline, dataset, expectation, failed, passed, now):
+            if not _should_notify(pipeline, pipeline_id, dataset, expectation, failed, passed, now):
                 continue
             msg = (
                 "EXPECTATION VIOLATION"

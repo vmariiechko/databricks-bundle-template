@@ -45,23 +45,23 @@ resources:
         # set) across updates. 0 restores unthrottled per-microbatch firing.
         dq_notify.throttle_seconds: "3600"
         # Durable throttle state root: a path under an EXISTING UC Volume
-        # (markers land in <state_dir>/dq_notify_state/<pipeline>/). Empty
+        # (markers land in
+        # <state_dir>/dq_notify_state/<pipeline name>__<pipeline id>/). Empty
         # keeps the throttle in-memory only (still kills per-microbatch
         # repeats within an update and within a continuous run).
         dq_notify.state_dir: {{if eq .state_volume_path "VOLUME_PATH_PLACEHOLDER"}}""{{else}}{{.state_volume_path}}{{end}}
         # Webhook payload format: slack | teams | generic.
         dq_notify.channel_format: slack
-        # Real setups: put the webhook URL in a secret scope (it is a
-        # credential) and name the scope/key here; the pipeline resolves it
-        # via dbutils.secrets.get at startup and degrades to print-only if
-        # the scope is missing. Create it with:
+        # Webhook: the URL is a credential, so the pipeline reads it only
+        # from a secret scope. Name the scope/key here; the pipeline resolves
+        # it via dbutils.secrets.get at startup. Empty scope keeps the hook
+        # print-only (it always prints to the driver log); a scope that
+        # cannot be read prints DQ_NOTIFY_SECRET_UNAVAILABLE and stays
+        # print-only. Create it with:
         #   databricks secrets create-scope dq-notifications
         #   databricks secrets put-secret dq-notifications slack_webhook_url --string-value "<url>"
         dq_notify.webhook_secret_scope: ""
         dq_notify.webhook_secret_key: slack_webhook_url
-        # Demo-only fallback: a plain webhook URL. Empty disables posting;
-        # the hook always prints to the driver log.
-        dq_notify.webhook_url: ""
 
       # Traceability back to the originating asset (forwarded as cluster tags).
       tags:

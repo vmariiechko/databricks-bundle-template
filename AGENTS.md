@@ -15,15 +15,15 @@ When implementing features, fixes, or changes, follow this workflow:
 1. **Branch**: Create a feature branch from `main` before making changes:
    - `feature/<name>` for features and fixes
    - `docs/<name>` for documentation-only changes
-2. **Implement**: Make changes, add/update tests. Run `pytest tests/ -V` and ensure all tests pass.
+2. **Implement**: Make changes, add/update tests. Run `pytest tests/ -V` and ensure all tests pass. If the change alters runtime behavior that only a workspace can confirm (an asset's pipeline, hook, or alert), verify it live from the working tree before opening the PR, not after a release.
 3. **Update metadata** (as applicable):
-   - `CHANGELOG.md` — add entry under `[Unreleased]` following [Keep a Changelog](https://keepachangelog.com/) format; entries stay under `[Unreleased]` until a release finalizes them (the release renames the heading to `[X.Y.Z] - <date>` and adds a fresh `[Unreleased]`; see [RELEASING.md](RELEASING.md))
-   - `ROADMAP.md` — update feature status if the change relates to a tracked item
-   - `DEVELOPMENT.md` — add/update design decisions if architectural choices were made
-   - `ARCHITECTURE.md` — update if the change affects project structure or architecture
-   - `tests/configs/` — add new test configurations if new configuration axes are introduced
-4. **Propose commit message** — output a suggested commit message (imperative mood, free-form, no conventional commit prefixes). Do **not** stage or commit; the maintainer reviews and commits manually.
-5. **PR** (on request) — create a pull request via `gh pr create` following `.github/PULL_REQUEST_TEMPLATE.md`.
+   - `CHANGELOG.md`: add entry under `[Unreleased]` following [Keep a Changelog](https://keepachangelog.com/) format; entries stay under `[Unreleased]` until a release finalizes them (the release renames the heading to `[X.Y.Z] - <date>` and adds a fresh `[Unreleased]`; see [RELEASING.md](RELEASING.md))
+   - `ROADMAP.md`: update feature status if the change relates to a tracked item
+   - `DEVELOPMENT.md`: add/update design decisions if architectural choices were made
+   - `ARCHITECTURE.md`: update if the change affects project structure or architecture
+   - `tests/configs/`: add new test configurations if new configuration axes are introduced
+4. **Checkpoint, then commit**: show the maintainer the proposed commit message and a diff summary and wait for an explicit go-ahead (use the AskUserQuestion tool when available). Then commit on the feature branch. Commit messages use imperative mood, free-form, no conventional commit prefixes, and no AI attribution lines (no `Co-Authored-By` trailers, no "Generated with" footers).
+5. **Checkpoint, then PR**: show the PR title and body and wait for a go-ahead, then push the branch and create the pull request via `gh pr create` following `.github/PULL_REQUEST_TEMPLATE.md` (no AI attribution lines in the body either). The maintainer reviews and merges; never merge yourself.
 
 ### Release Process
 

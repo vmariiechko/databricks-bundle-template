@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.13.0] - 2026-10-13
+
+### Changed
+- **Asset `sdp-expectation-notifications`**:
+  - **The webhook URL is read only from a secret scope.** The plain `dq_notify.webhook_url` pipeline setting is removed from the pipeline source, the pipeline resource, and the docs. With no scope configured the hook is print-only; a configured scope that cannot be read still prints `DQ_NOTIFY_SECRET_UNAVAILABLE` and continues print-only, as before.
+  - **Throttle state is keyed on pipeline name plus id.** Marker folders are now `<state_dir>/dq_notify_state/<pipeline name>__<pipeline id>/`, so two pipelines sharing a display name, including a pipeline deleted and recreated under the same name, never share a marker. The in-memory throttle uses the same identity, and markers gain a `pipeline_id` field. If an event's `origin` lacks the id, the folder falls back to the name alone; lacking the name, to the id alone. The notification text and the `generic` webhook payload are unchanged.
+  - **README corrections.** The notification-destinations paragraph now matches the current Databricks docs page, including its Beta Genie app option for Slack and Microsoft Teams, and claims that every non-email destination wraps a webhook are narrowed to webhook-based destinations (also in the alert resource comment and the companion skill). The `max_allowable_consecutive_failures` bullet now gives both reasons the shipped hook prints instead of raising.
+  - **Upgrading from 1.12.x:** if you set `dq_notify.webhook_url`, move the URL into a secret scope and set `dq_notify.webhook_secret_scope` (and `dq_notify.webhook_secret_key` if not `slack_webhook_url`). Markers written by earlier versions sit at the old `<pipeline name>/` path and are ignored, so the first violation per rule after upgrading notifies once; delete the old folders by hand.
+- **`AGENTS.md`**: the development workflow now has AI assistants commit and open pull requests themselves behind explicit maintainer checkpoints (no AI attribution lines), and verify workspace-only behavior live before opening a PR.
+
 ## [1.12.2] - 2026-08-23
 
 ### Changed

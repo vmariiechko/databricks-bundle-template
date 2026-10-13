@@ -71,15 +71,19 @@ resources:
             # workspace notification destination (Settings > Notifications;
             # the docs state managing them requires workspace admin) and
             # reference it here instead of, or alongside, the email. A
-            # destination is a wrapper around a webhook, not a substitute for
-            # one, but a thin one for an alert: Slack takes the incoming
-            # webhook URL and nothing else, and so does Teams. The OAuth
-            # token, channel id, App ID, Auth Secret, Channel URL, and Tenant
-            # ID fields are marked optional on the form and scoped by its own
-            # heading to dashboard subscriptions, a different feature
+            # webhook-based destination is a wrapper around a webhook, not a
+            # substitute for one, but a thin one for an alert: on the form's
+            # "Using Webhook" path, Slack takes the incoming webhook URL and
+            # nothing else, and so does Teams. The
+            # OAuth token, channel id, App ID, Auth Secret, Channel URL, and
+            # Tenant ID fields are marked optional on the form and scoped by
+            # its own heading to dashboard subscriptions, a different feature
             # (verified live on a delivering Slack destination: url_set true,
             # oauth_token_set false, channel_id_set false). EMAIL is the only
-            # type taking plain addresses with no webhook. The benefit is
+            # type taking plain addresses with no webhook; the form's other
+            # Slack/Teams path, "Using Databricks App" (pre-selected),
+            # connects through the installed Databricks Genie app instead
+            # (Beta per the docs; not tested by this asset). The benefit is
             # centralizing the credential once at workspace level instead of
             # per-alert. Two things measured live: a destination alongside
             # user_email on the same address sends two independent,

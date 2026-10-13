@@ -119,10 +119,13 @@ def test_hook_stays_on_supported_surface(installed: Path):
 
 
 def test_webhook_is_optional_and_guarded(installed: Path):
-    """The webhook is off by default (empty config) and its failure is caught
-    and printed, so a broken endpoint never counts as a hook failure."""
+    """The webhook is off by default (no secret scope, empty URL) and its
+    failure is caught and printed, so a broken endpoint never counts as a
+    hook failure. There is no plain-config URL: the secret scope is the only
+    source."""
     src = (installed / DEFAULT_TARGET_DIR / PIPELINE_SOURCE).read_text(encoding="utf-8")
-    assert 'spark.conf.get("dq_notify.webhook_url", "")' in src
+    assert "dq_notify.webhook_url" not in src
+    assert 'WEBHOOK_URL = ""' in src
     assert "if WEBHOOK_URL:" in src
     assert "WEBHOOK_DELIVERY_FAILED" in src
     assert "timeout=5" in src
@@ -139,11 +142,108 @@ def test_webhook_secret_resolution_is_guarded(installed: Path):
     assert "DQ_NOTIFY_SECRET_UNAVAILABLE" in src
 
 
+def test_no_installed_file_mentions_plain_webhook_url(installed: Path):
+    """The removed plain-config key must not survive anywhere in the install:
+    code, resource YAML, docs, or the companion skill."""
+    offenders = [
+        p.relative_to(installed).as_posix()
+        for p in installed.rglob("*")
+        if p.is_file() and "dq_notify.webhook_url" in p.read_text(encoding="utf-8")
+    ]
+    assert not offenders, f"dq_notify.webhook_url still mentioned in: {offenders}"
+
+
+class _Conf:
+    def __init__(self, values: dict):
+        self._values = values
+
+    def get(self, key, default=None):
+        return self._values.get(key, default)
+
+
+class _Spark:
+    def __init__(self, values: dict):
+        self.conf = _Conf(values)
+
+
+class _SecretsUnavailableError(Exception):
+    """Stand-in for the platform's exception on an unreadable scope."""
+
+
+class _Dbutils:
+    def __init__(self, url=None, error=None):
+        self.calls = []
+        self._url = url
+        self._error = error
+        self.secrets = self
+
+    def get(self, scope, key):
+        self.calls.append((scope, key))
+        if self._error is not None:
+            raise self._error
+        return self._url
+
+
+def _resolve_webhook(src: str, conf: dict, dbutils: _Dbutils) -> tuple[dict, list[str]]:
+    """Exec only the module-level webhook resolution (the WEBHOOK_* assignments
+    and the `if WEBHOOK_SECRET_SCOPE:` block) against stubbed spark/dbutils."""
+    tree = ast.parse(src)
+
+    def is_webhook_node(node):
+        if isinstance(node, ast.Assign):
+            names = [t.id for t in node.targets if isinstance(t, ast.Name)]
+            return any(name.startswith("WEBHOOK_") for name in names)
+        return (
+            isinstance(node, ast.If)
+            and isinstance(node.test, ast.Name)
+            and node.test.id == "WEBHOOK_SECRET_SCOPE"
+        )
+
+    subset = ast.Module(body=[n for n in tree.body if is_webhook_node(n)], type_ignores=[])
+    printed: list[str] = []
+    ns = {
+        "spark": _Spark(conf),
+        "dbutils": dbutils,
+        "print": lambda *a, **k: printed.append(" ".join(str(x) for x in a)),
+    }
+    exec(compile(subset, "<webhook>", "exec"), ns)  # noqa: S102 (test-only)
+    return ns, printed
+
+
+def test_secret_resolution_fail_open(installed: Path):
+    """No scope: print-only and dbutils untouched. Scope readable: URL
+    resolved. Scope unreadable: the exact DQ_NOTIFY_SECRET_UNAVAILABLE line,
+    then print-only (fail-open, the pipeline is never blocked)."""
+    src = (installed / DEFAULT_TARGET_DIR / PIPELINE_SOURCE).read_text(encoding="utf-8")
+
+    no_scope = _Dbutils(url="https://hooks.example/never")
+    ns, printed = _resolve_webhook(src, {}, no_scope)
+    assert ns["WEBHOOK_URL"] == ""
+    assert no_scope.calls == [] and printed == []
+
+    ok = _Dbutils(url="https://hooks.example/secret")
+    ns, printed = _resolve_webhook(src, {"dq_notify.webhook_secret_scope": "dq-notifications"}, ok)
+    assert ns["WEBHOOK_URL"] == "https://hooks.example/secret"
+    assert ok.calls == [("dq-notifications", "slack_webhook_url")] and printed == []
+
+    broken = _Dbutils(error=_SecretsUnavailableError("no such scope"))
+    ns, printed = _resolve_webhook(
+        src,
+        {"dq_notify.webhook_secret_scope": "missing-scope", "dq_notify.webhook_secret_key": "k"},
+        broken,
+    )
+    assert ns["WEBHOOK_URL"] == ""
+    assert printed == [
+        "DQ_NOTIFY_SECRET_UNAVAILABLE: scope=missing-scope key=k (_SecretsUnavailableError); "
+        "webhook disabled, print-only."
+    ]
+
+
 def _throttle_ns(src: str, state_dir: str, throttle_seconds: int) -> dict:
     """Exec only the pure throttle helpers from the installed source with
     stubbed module globals, so the decision logic is testable offline."""
     tree = ast.parse(src)
-    wanted = {"_sanitize", "_should_notify"}
+    wanted = {"_sanitize", "_state_scope", "_should_notify"}
     subset = ast.Module(
         body=[n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name in wanted],
         type_ignores=[],
@@ -161,13 +261,29 @@ def _throttle_ns(src: str, state_dir: str, throttle_seconds: int) -> dict:
     return ns
 
 
+PIPE_ID = "0f1e2d3c-aaaa-bbbb-cccc-000000000001"
+OTHER_PIPE_ID = "0f1e2d3c-aaaa-bbbb-cccc-000000000002"
+MARKER_FIELDS = {
+    "pipeline",
+    "pipeline_id",
+    "dataset",
+    "expectation",
+    "last_notified_at",
+    "last_notified_epoch",
+    "last_failed_records",
+    "last_passed_records",
+    "throttle_seconds",
+}
+
+
 def test_throttle_suppresses_within_window_in_memory(installed: Path, tmp_path: Path):
     src = (installed / DEFAULT_TARGET_DIR / PIPELINE_SOURCE).read_text(encoding="utf-8")
     ns = _throttle_ns(src, str(tmp_path), 3600)
+    notify = ns["_should_notify"]
     t0 = 1_000_000.0
-    assert ns["_should_notify"]("pipe", "cat.sch.tbl", "rule", 5, 95, t0) is True
-    assert ns["_should_notify"]("pipe", "cat.sch.tbl", "rule", 5, 95, t0 + 10) is False
-    assert ns["_should_notify"]("pipe", "cat.sch.tbl", "rule", 5, 95, t0 + 3601) is True
+    assert notify("pipe", PIPE_ID, "cat.sch.tbl", "rule", 5, 95, t0) is True
+    assert notify("pipe", PIPE_ID, "cat.sch.tbl", "rule", 5, 95, t0 + 10) is False
+    assert notify("pipe", PIPE_ID, "cat.sch.tbl", "rule", 5, 95, t0 + 3601) is True
 
 
 def test_throttle_is_durable_across_processes_and_scoped_per_pipeline(
@@ -178,27 +294,58 @@ def test_throttle_is_durable_across_processes_and_scoped_per_pipeline(
     suppression across, and a different pipeline scope must not be suppressed."""
     src = (installed / DEFAULT_TARGET_DIR / PIPELINE_SOURCE).read_text(encoding="utf-8")
     t0 = 1_000_000.0
-    ns1 = _throttle_ns(src, str(tmp_path), 3600)
-    assert ns1["_should_notify"]("pipe_a", "cat.sch.tbl", "rule", 5, 95, t0) is True
-    ns2 = _throttle_ns(src, str(tmp_path), 3600)  # fresh process, same state dir
-    assert ns2["_should_notify"]("pipe_a", "cat.sch.tbl", "rule", 5, 95, t0 + 10) is False
-    assert ns2["_should_notify"]("pipe_b", "cat.sch.tbl", "rule", 5, 95, t0 + 10) is True
+    first = _throttle_ns(src, str(tmp_path), 3600)["_should_notify"]
+    assert first("pipe_a", PIPE_ID, "cat.sch.tbl", "rule", 5, 95, t0) is True
+    fresh = _throttle_ns(src, str(tmp_path), 3600)["_should_notify"]  # same state dir
+    assert fresh("pipe_a", PIPE_ID, "cat.sch.tbl", "rule", 5, 95, t0 + 10) is False
+    assert fresh("pipe_b", OTHER_PIPE_ID, "cat.sch.tbl", "rule", 5, 95, t0 + 10) is True
+
+
+def test_same_name_different_ids_never_share_state(installed: Path, tmp_path: Path):
+    """Two pipelines with one display name, one dataset, and one expectation
+    (for example a pipeline deleted and recreated under the same name) must
+    each notify, keep separate marker folders, and throttle independently."""
+    src = (installed / DEFAULT_TARGET_DIR / PIPELINE_SOURCE).read_text(encoding="utf-8")
+    t0 = 1_000_000.0
+    notify = _throttle_ns(src, str(tmp_path), 3600)["_should_notify"]
+    assert notify("Same Name", PIPE_ID, "cat.sch.tbl", "rule", 5, 95, t0) is True
+    assert notify("Same Name", OTHER_PIPE_ID, "cat.sch.tbl", "rule", 6, 94, t0 + 5) is True, (
+        "same display name with a different id must not be suppressed"
+    )
+    folders = sorted(p.name for p in (tmp_path / "dq_notify_state").iterdir())
+    assert folders == [f"Same_Name__{PIPE_ID}", f"Same_Name__{OTHER_PIPE_ID}"]
+    fresh = _throttle_ns(src, str(tmp_path), 3600)["_should_notify"]  # markers decide
+    assert fresh("Same Name", PIPE_ID, "cat.sch.tbl", "rule", 5, 95, t0 + 60) is False
+    assert fresh("Same Name", OTHER_PIPE_ID, "cat.sch.tbl", "rule", 5, 95, t0 + 60) is False
+
+
+def test_state_scope_fallbacks(installed: Path):
+    """Name plus id when both exist; the hook's display fallback chain
+    (name, else id, else unknown_pipeline) decides the folder otherwise."""
+    src = (installed / DEFAULT_TARGET_DIR / PIPELINE_SOURCE).read_text(encoding="utf-8")
+    scope = _throttle_ns(src, "", 3600)["_state_scope"]
+    assert scope("My Pipeline", PIPE_ID) == f"My_Pipeline__{PIPE_ID}"
+    assert scope("My Pipeline", None) == "My_Pipeline"  # no id: the pre-1.13 layout
+    assert scope(PIPE_ID, PIPE_ID) == PIPE_ID  # no name: display already fell back to id
+    assert scope("unknown_pipeline", None) == "unknown_pipeline"
 
 
 def test_throttle_marker_is_human_readable_and_overwritten(installed: Path, tmp_path: Path):
     src = (installed / DEFAULT_TARGET_DIR / PIPELINE_SOURCE).read_text(encoding="utf-8")
-    ns = _throttle_ns(src, str(tmp_path), 3600)
+    notify = _throttle_ns(src, str(tmp_path), 3600)["_should_notify"]
     t0 = 1_000_000.0
-    ns["_should_notify"]("My Pipeline", "cat.sch.tbl", "rule", 7, 93, t0)
-    marker_dir = tmp_path / "dq_notify_state" / "My_Pipeline"
+    notify("My Pipeline", PIPE_ID, "cat.sch.tbl", "rule", 7, 93, t0)
+    marker_dir = tmp_path / "dq_notify_state" / f"My_Pipeline__{PIPE_ID}"
     markers = list(marker_dir.glob("*.json"))
     assert [m.name for m in markers] == ["cat.sch.tbl__rule.json"]
     body = json.loads(markers[0].read_text(encoding="utf-8"))
+    assert set(body) == MARKER_FIELDS, "marker keeps every pre-1.13 field and adds pipeline_id"
     assert body["pipeline"] == "My Pipeline"
+    assert body["pipeline_id"] == PIPE_ID
     assert body["last_failed_records"] == 7
     assert body["last_notified_epoch"] == t0
-    assert "last_notified_at" in body and body["throttle_seconds"] == 3600
-    ns["_should_notify"]("My Pipeline", "cat.sch.tbl", "rule", 9, 91, t0 + 4000)
+    assert body["throttle_seconds"] == 3600
+    notify("My Pipeline", PIPE_ID, "cat.sch.tbl", "rule", 9, 91, t0 + 4000)
     assert len(list(marker_dir.glob("*.json"))) == 1, "marker must be overwritten, not accumulated"
     assert json.loads(markers[0].read_text(encoding="utf-8"))["last_failed_records"] == 9
 
@@ -207,14 +354,123 @@ def test_throttle_zero_disables_and_empty_state_dir_stays_in_memory(
     installed: Path, tmp_path: Path
 ):
     src = (installed / DEFAULT_TARGET_DIR / PIPELINE_SOURCE).read_text(encoding="utf-8")
-    ns0 = _throttle_ns(src, str(tmp_path), 0)
+    unthrottled = _throttle_ns(src, str(tmp_path), 0)["_should_notify"]
     t0 = 1_000_000.0
-    assert ns0["_should_notify"]("p", "d", "r", 1, 1, t0) is True
-    assert ns0["_should_notify"]("p", "d", "r", 1, 1, t0 + 1) is True
-    ns_mem = _throttle_ns(src, "", 3600)
-    assert ns_mem["_should_notify"]("p", "d", "r", 1, 1, t0) is True
-    assert ns_mem["_should_notify"]("p", "d", "r", 1, 1, t0 + 10) is False
+    assert unthrottled("p", PIPE_ID, "d", "r", 1, 1, t0) is True
+    assert unthrottled("p", PIPE_ID, "d", "r", 1, 1, t0 + 1) is True
+    in_memory = _throttle_ns(src, "", 3600)["_should_notify"]
+    assert in_memory("p", PIPE_ID, "d", "r", 1, 1, t0) is True
+    assert in_memory("p", PIPE_ID, "d", "r", 1, 1, t0 + 10) is False
     assert not list(tmp_path.rglob("*.json")), "empty state dir must write no markers"
+
+
+class _HookStubDp:
+    @staticmethod
+    def on_event_hook(**_kwargs):
+        return lambda fn: fn
+
+
+class _RecordingRequests:
+    def __init__(self):
+        self.posts = []
+
+    def post(self, url, json=None, timeout=None):
+        self.posts.append({"url": url, "json": json, "timeout": timeout})
+
+
+def _hook_ns(src: str, state_dir: str, webhook_url: str, channel_format: str) -> dict:
+    """Exec the hook and every helper it calls, with stubbed module globals."""
+    tree = ast.parse(src)
+    wanted = {
+        "_event_details",
+        "_sanitize",
+        "_state_scope",
+        "_should_notify",
+        "_payload",
+        "notify_on_expectation_violation",
+    }
+    subset = ast.Module(
+        body=[n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name in wanted],
+        type_ignores=[],
+    )
+    printed: list[str] = []
+    ns = {
+        "os": os,
+        "json": json,
+        "time": time,
+        "dp": _HookStubDp,
+        "requests": _RecordingRequests(),
+        "THROTTLE_SECONDS": 3600,
+        "STATE_DIR": state_dir,
+        "CHANNEL_FORMAT": channel_format,
+        "WEBHOOK_URL": webhook_url,
+        "_MEM_LAST": {},
+        "print": lambda *a, **k: printed.append(" ".join(str(x) for x in a)),
+        "_printed": printed,
+    }
+    exec(compile(subset, "<hook>", "exec"), ns)  # noqa: S102 (test-only)
+    return ns
+
+
+def _flow_progress_event(origin: dict) -> dict:
+    expectation = {
+        "name": "demo_short_trip",
+        "dataset": "main.dq.monitored_trips",
+        "passed_records": 18929,
+        "failed_records": 3003,
+    }
+    return {
+        "event_type": "flow_progress",
+        "origin": origin,
+        "details": {"flow_progress": {"data_quality": {"expectations": [expectation]}}},
+    }
+
+
+def test_hook_message_and_generic_payload_unchanged(installed: Path, tmp_path: Path):
+    """The id scopes state only: the printed line and the `generic` payload
+    carry the display name and exactly the pre-1.13 shape, byte for byte."""
+    src = (installed / DEFAULT_TARGET_DIR / PIPELINE_SOURCE).read_text(encoding="utf-8")
+    ns = _hook_ns(src, str(tmp_path), "https://hooks.example/x", "generic")
+    event = _flow_progress_event({"pipeline_name": "My Pipeline", "pipeline_id": PIPE_ID})
+    ns["notify_on_expectation_violation"](event)
+    expected_line = (
+        "EXPECTATION VIOLATION | pipeline=My Pipeline | dataset=main.dq.monitored_trips"
+        " | expectation=demo_short_trip | failed=3003 | passed=18929"
+    )
+    assert ns["_printed"] == [expected_line]
+    assert ns["requests"].posts == [
+        {
+            "url": "https://hooks.example/x",
+            "json": {
+                "text": expected_line,
+                "pipeline": "My Pipeline",
+                "dataset": "main.dq.monitored_trips",
+                "expectation": "demo_short_trip",
+                "failed_records": 3003,
+                "passed_records": 18929,
+            },
+            "timeout": 5,
+        }
+    ]
+    marker_dir = tmp_path / "dq_notify_state" / f"My_Pipeline__{PIPE_ID}"
+    assert (marker_dir / "main.dq.monitored_trips__demo_short_trip.json").is_file()
+    # A second event in the same process is throttled: nothing printed or posted.
+    ns["notify_on_expectation_violation"](event)
+    assert len(ns["_printed"]) == 1 and len(ns["requests"].posts) == 1
+
+
+def test_hook_without_name_shows_id_and_without_both_stays_safe(installed: Path, tmp_path: Path):
+    src = (installed / DEFAULT_TARGET_DIR / PIPELINE_SOURCE).read_text(encoding="utf-8")
+    ns = _hook_ns(src, str(tmp_path), "", "slack")
+    ns["notify_on_expectation_violation"](_flow_progress_event({"pipeline_id": PIPE_ID}))
+    ns["notify_on_expectation_violation"](_flow_progress_event({}))
+    assert [line.split(" | ")[1] for line in ns["_printed"]] == [
+        f"pipeline={PIPE_ID}",
+        "pipeline=unknown_pipeline",
+    ]
+    folders = sorted(p.name for p in (tmp_path / "dq_notify_state").iterdir())
+    assert folders == [PIPE_ID, "unknown_pipeline"]
+    assert ns["requests"].posts == [], "no secret scope means print-only"
 
 
 def test_payload_formats_cover_all_channels(installed: Path):
@@ -283,7 +539,8 @@ def test_resource_config_and_tags(installed: Path):
     assert config["dq_notify.channel_format"] == "slack"
     assert config["dq_notify.webhook_secret_scope"] == ""
     assert config["dq_notify.webhook_secret_key"] == "slack_webhook_url"
-    assert config["dq_notify.webhook_url"] == ""
+    # The secret scope is the only webhook source; the plain-config key is gone.
+    assert "dq_notify.webhook_url" not in config
     assert pipe["tags"]["created_by"] == "dabs-asset"
     assert pipe["tags"]["asset"] == "sdp-expectation-notifications"
 
