@@ -379,8 +379,10 @@ class _RecordingRequests:
     def __init__(self):
         self.posts = []
 
-    def post(self, url, json=None, timeout=None):
-        self.posts.append({"url": url, "json": json, "timeout": timeout})
+    def post(self, url, json=None, timeout=None, allow_redirects=True):
+        self.posts.append(
+            {"url": url, "json": json, "timeout": timeout, "allow_redirects": allow_redirects}
+        )
         return _Reply(200)
 
 
@@ -456,6 +458,7 @@ def test_hook_message_and_generic_payload_unchanged(installed: Path, tmp_path: P
                 "passed_records": 18929,
             },
             "timeout": 5,
+            "allow_redirects": False,
         }
     ]
     marker_dir = tmp_path / "dq_notify_state" / f"My_Pipeline__{PIPE_ID}"
@@ -545,7 +548,7 @@ def test_any_raising_post_prints_the_class_only(installed: Path, tmp_path: Path)
 
     class _Raising:
         @staticmethod
-        def post(post_url, json=None, timeout=None):
+        def post(post_url, **_kwargs):
             raise ValueError(f"No connection adapters were found for {post_url!r}")
 
     src = (installed / DEFAULT_TARGET_DIR / PIPELINE_SOURCE).read_text(encoding="utf-8")
@@ -558,24 +561,33 @@ def test_any_raising_post_prints_the_class_only(installed: Path, tmp_path: Path)
 
 def _reply_server(status: int):
     """A local HTTP server answering every POST with `status` and a body that
-    echoes the request path, standing in for a receiver that echoes requests."""
+    echoes the request path, standing in for a receiver that echoes requests.
+    A 3xx reply carries a `Location` to `/final`, which answers any method with
+    200; `server.seen` records every request the server receives."""
     import http.server
     import threading
 
     class _Handler(http.server.BaseHTTPRequestHandler):
         def do_POST(self):  # noqa: N802 (http.server API)
             self.rfile.read(int(self.headers.get("Content-Length") or 0))
+            server.seen.append((self.command, self.path))
+            code = 200 if self.path == "/final" else status
             body = f"echo {self.path}".encode()
-            self.send_response(status)
+            self.send_response(code)
+            if 300 <= code < 400:
+                self.send_header("Location", "/final")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
-            if status != 204:
+            if code != 204:
                 self.wfile.write(body)
+
+        do_GET = do_POST  # noqa: N815 (http.server API)
 
         def log_message(self, *_args):
             pass
 
     server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
+    server.seen = []
     threading.Thread(target=server.serve_forever, daemon=True).start()
     return server
 
@@ -585,6 +597,9 @@ def _reply_server(status: int):
     [
         (200, []),
         (204, []),
+        (301, ["WEBHOOK_DELIVERY_FAILED: HTTP 301"]),
+        (302, ["WEBHOOK_DELIVERY_FAILED: HTTP 302"]),
+        (307, ["WEBHOOK_DELIVERY_FAILED: HTTP 307"]),
         (400, ["WEBHOOK_DELIVERY_FAILED: HTTP 400"]),
         (403, ["WEBHOOK_DELIVERY_FAILED: HTTP 403"]),
         (404, ["WEBHOOK_DELIVERY_FAILED: HTTP 404"]),
@@ -595,7 +610,8 @@ def test_http_reply_status_is_reported_without_url_or_body(
     installed: Path, tmp_path: Path, no_proxy_env, status: int, expected: list[str]
 ):
     """A real POST to a local receiver: 2xx prints nothing extra; any other
-    status prints one line naming it, with no URL part and no reply body."""
+    status, 3xx included, prints one line naming it, with no URL part and no
+    reply body. Redirects are never followed: exactly one request is sent."""
     import requests
 
     server = _reply_server(status)
@@ -612,6 +628,7 @@ def test_http_reply_status_is_reported_without_url_or_body(
     assert ns["_printed"][1:] == expected
     _assert_no_url_part(ns["_printed"])
     assert not any("echo" in line for line in ns["_printed"]), "reply body must not print"
+    assert server.seen == [("POST", _SECRET_PATH + "?" + _SECRET_QUERY)], "one POST, no redirect"
 
 
 def test_payload_formats_cover_all_channels(installed: Path):

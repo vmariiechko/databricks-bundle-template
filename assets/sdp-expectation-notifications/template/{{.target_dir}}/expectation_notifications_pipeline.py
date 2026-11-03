@@ -287,11 +287,15 @@ def notify_on_expectation_violation(event):
                 # `requests` exception text quotes the request URL, and for
                 # an incoming webhook the URL is the credential. The reply
                 # body is never printed either (a receiver may echo the URL).
+                # Redirects are not followed: on 301/302/303 `requests` would
+                # resend as a GET without the payload, so a 3xx is reported
+                # like any other non-2xx reply.
                 try:
                     resp = requests.post(
                         WEBHOOK_URL,
                         json=_payload(msg, pipeline, dataset, expectation, failed, passed),
                         timeout=5,
+                        allow_redirects=False,
                     )
                     if not 200 <= resp.status_code < 300:
                         print(f"WEBHOOK_DELIVERY_FAILED: HTTP {resp.status_code}")

@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Asset `sdp-expectation-notifications`**:
   - **Webhook delivery failures no longer print the URL.** A transport failure printed the exception text, which quotes the request URL (host, path, and query), and for an incoming webhook the URL is the credential. The line now names only the exception class and its underlying cause, for example `WEBHOOK_DELIVERY_FAILED: ConnectionError (NameResolutionError)`. If an earlier version printed `WEBHOOK_DELIVERY_FAILED` lines in your driver logs, treat that webhook as exposed to anyone who can read those logs, and rotate it.
   - **Webhook error replies are reported.** A reply outside 2xx, such as Slack's 404 for a webhook path that does not exist, passed silently. It now prints `WEBHOOK_DELIVERY_FAILED: HTTP <status>`, without the reply body.
+  - **Redirects are no longer followed.** On a 301, 302, or 303, `requests` resent the POST as a GET without the payload, so a receiver that answered that GET with 2xx lost the notification silently. The hook now posts only to the exact URL in the secret and reports any 3xx as `WEBHOOK_DELIVERY_FAILED: HTTP <status>`, so store the final `https://` URL.
   - Nothing else in the hook changed: still no retries, the same 5-second timeout, violation line, and payloads, and the throttle still records before the POST.
 
 ### Changed
