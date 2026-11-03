@@ -1,6 +1,6 @@
 # sdp-checkpoint-recovery
 
-Reset checkpoint selection on a Lakeflow Spark Declarative Pipeline after a source table has been dropped and recreated (`DIFFERENT_DELTA_TABLE_READ_BY_STREAMING_SOURCE`). Note: resetting checkpoints triggers a pipeline update; the pipeline will run after the call. Use the dry-run path first.
+Reset checkpoint selection on a Lakeflow pipeline after a source table has been dropped and recreated (`DIFFERENT_DELTA_TABLE_READ_BY_STREAMING_SOURCE`). Note: resetting checkpoints triggers a pipeline update; the pipeline will run after the call. Use the dry-run path first.
 
 ## Install
 

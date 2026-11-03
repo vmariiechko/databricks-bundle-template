@@ -13,7 +13,7 @@ Two layers, both offline (no Databricks workspace):
 
 The pipeline drops rows with `@dp.expect_all_or_drop`, which keeps a row unless a
 predicate evaluates to `false` (a `NULL` predicate is treated as passing). The
-SDP pipelines runtime is not importable offline, so these tests reproduce that
+Lakeflow pipelines runtime is not importable offline, so these tests reproduce that
 keep-on-NULL semantics with `<predicate> IS NOT FALSE`. For NULL-safe predicates
 this is identical to the pipeline; for a predicate that is NOT NULL-safe it
 exposes the leak as a broken partition, which is exactly what we want to catch.
@@ -77,7 +77,7 @@ class TestExpectationsConfig:
 # --- Routing semantics (real local Spark) -----------------------------------
 
 # A row is kept unless a predicate is false; a NULL predicate passes. This
-# mirrors @dp.expect_all_or_drop without the SDP runtime.
+# mirrors @dp.expect_all_or_drop without the Lakeflow pipelines runtime.
 CLEAN_KEEP_EXPR = f"({build_silver_expr(DROP_RULES)}) IS NOT FALSE"
 QUARANTINE_KEEP_EXPR = f"({build_quarantine_expr(DROP_RULES)}) IS NOT FALSE"
 
@@ -116,7 +116,7 @@ _EDGE_ROWS = [
 
 
 class TestQuarantineRouting:
-    """The clean/quarantine split is a clean partition under SDP keep-on-NULL."""
+    """The clean/quarantine split is a clean partition under keep-on-NULL."""
 
     @pytest.fixture(scope="class")
     def routed(self, spark):

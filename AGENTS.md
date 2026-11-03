@@ -139,7 +139,7 @@ User target has **no SP references** - works immediately. SP grants only exist i
 
 - **No hard line wrap** in Markdown. Write paragraphs as single long lines and let the editor soft-wrap. Do not reflow to 80/100/120 chars. This matches every doc in the repo.
 - **Avoid em dashes.** Prefer colons, commas, semicolons, or separate sentences.
-- **Pipeline terminology.** The official product name is "Lakeflow Spark Declarative Pipelines" (short form: "SDP" or "Lakeflow SDP"). Never use "LDP" or plain "Lakeflow Declarative Pipelines"; those are outdated.
+- **Pipeline terminology.** Per the Databricks naming note (`ldp/developer/python-ref`, Oct 25, 2026), the Databricks product is "Lakeflow pipelines" ("a Lakeflow pipeline"), and "Apache Spark Declarative Pipelines" (SDP) is the open-source Spark project it extends. Use "SDP" only for that Spark project or its `pyspark.pipelines` API. Keep existing identifiers that contain `sdp` (asset names such as `sdp-quarantine-pattern`, file names, default pipeline names, quoted titles of published posts). In new prose never use "Lakeflow Spark Declarative Pipelines", "Lakeflow SDP", "Lakeflow Declarative Pipelines", "LDP", or "DLT"; `CHANGELOG.md` entries for past releases stay as written.
 - **Docstring style: Google convention** (configured in `pyproject.toml` under `[tool.ruff.lint.pydocstyle]`). Do NOT use reStructuredText / Sphinx artifacts in docstrings or Markdown: never use double-backtick (`` ``foo`` ``); use single-backtick (`` `foo` ``) for inline code. Never use `::` to introduce a code block; use a single colon plus a fenced code block in Markdown, or the `Example:` section in Google-style docstrings.
 
 ## Asset Library

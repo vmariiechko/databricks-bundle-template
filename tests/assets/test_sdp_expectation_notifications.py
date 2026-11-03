@@ -133,7 +133,7 @@ def test_webhook_is_optional_and_guarded(installed: Path):
 
 def test_webhook_secret_resolution_is_guarded(installed: Path):
     """Secret-scope resolution goes through dbutils.secrets.get (config
-    interpolation of {{secrets/...}} does not resolve in SDP pipeline
+    interpolation of {{secrets/...}} does not resolve in Lakeflow pipeline
     configuration, observed live) and a missing scope degrades to print-only
     instead of failing the pipeline."""
     src = (installed / DEFAULT_TARGET_DIR / PIPELINE_SOURCE).read_text(encoding="utf-8")
@@ -370,12 +370,20 @@ class _HookStubDp:
         return lambda fn: fn
 
 
+class _Reply:
+    def __init__(self, status_code: int):
+        self.status_code = status_code
+
+
 class _RecordingRequests:
     def __init__(self):
         self.posts = []
 
-    def post(self, url, json=None, timeout=None):
-        self.posts.append({"url": url, "json": json, "timeout": timeout})
+    def post(self, url, json=None, timeout=None, allow_redirects=True):
+        self.posts.append(
+            {"url": url, "json": json, "timeout": timeout, "allow_redirects": allow_redirects}
+        )
+        return _Reply(200)
 
 
 def _hook_ns(src: str, state_dir: str, webhook_url: str, channel_format: str) -> dict:
@@ -450,6 +458,7 @@ def test_hook_message_and_generic_payload_unchanged(installed: Path, tmp_path: P
                 "passed_records": 18929,
             },
             "timeout": 5,
+            "allow_redirects": False,
         }
     ]
     marker_dir = tmp_path / "dq_notify_state" / f"My_Pipeline__{PIPE_ID}"
@@ -471,6 +480,155 @@ def test_hook_without_name_shows_id_and_without_both_stays_safe(installed: Path,
     folders = sorted(p.name for p in (tmp_path / "dq_notify_state").iterdir())
     assert folders == [PIPE_ID, "unknown_pipeline"]
     assert ns["requests"].posts == [], "no secret scope means print-only"
+
+
+# A fake webhook URL whose every part is recognizable, so a test can prove
+# that no part of it (scheme, host, path, or query) reaches the printed output.
+_SECRET_PATH = "/services/T0SECRETTEAM/B0SECRETHOOK/SECRETPATHtoken1131"
+_SECRET_QUERY = "sig=QUERYSECRET1131"
+_SECRET_PARTS = ("SECRET", "https://", "http://", "dq-notify-test.invalid", "127.0.0.1")
+
+
+@pytest.fixture
+def no_proxy_env(monkeypatch):
+    """Keep `requests` off any proxy: environment, Windows registry, or macOS."""
+    import requests
+
+    for var in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy"):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setattr(requests.utils, "getproxies", lambda: {})
+
+
+def _assert_no_url_part(lines: list[str]) -> None:
+    for line in lines:
+        for part in _SECRET_PARTS:
+            assert part not in line, f"URL fragment {part!r} leaked into: {line!r}"
+
+
+def test_transport_failure_never_prints_the_url(
+    installed: Path, tmp_path: Path, monkeypatch, no_proxy_env
+):
+    """A real `requests` name-resolution failure, offline: the exception text
+    quotes the URL path (the old line printed it), the new line prints only
+    the class names, and the hook neither raises nor un-records the throttle."""
+    import socket
+
+    import requests
+
+    def _unresolvable(*_args, **_kwargs):
+        raise socket.gaierror(-2, "Name or service not known")
+
+    monkeypatch.setattr(socket, "getaddrinfo", _unresolvable)
+    url = f"https://dq-notify-test.invalid{_SECRET_PATH}?{_SECRET_QUERY}"
+
+    # Precondition: the exception text really carries the secret path, so the
+    # pre-1.13.1 line (`{type(e).__name__}: {e}`) would have leaked it.
+    with pytest.raises(requests.exceptions.ConnectionError) as raised:
+        requests.post(url, json={}, timeout=5)
+    assert "SECRETPATHtoken1131" in str(raised.value)
+
+    src = (installed / DEFAULT_TARGET_DIR / PIPELINE_SOURCE).read_text(encoding="utf-8")
+    ns = _hook_ns(src, str(tmp_path), url, "slack")
+    ns["requests"] = requests
+    event = _flow_progress_event({"pipeline_name": "My Pipeline", "pipeline_id": PIPE_ID})
+    ns["notify_on_expectation_violation"](event)
+
+    assert ns["_printed"][0].startswith("EXPECTATION VIOLATION | pipeline=My Pipeline")
+    assert ns["_printed"][1:] == ["WEBHOOK_DELIVERY_FAILED: ConnectionError (NameResolutionError)"]
+    _assert_no_url_part(ns["_printed"])
+    # The throttle recorded before the POST, unchanged: a repeat stays quiet.
+    ns["notify_on_expectation_violation"](event)
+    assert len(ns["_printed"]) == 2
+
+
+def test_any_raising_post_prints_the_class_only(installed: Path, tmp_path: Path):
+    """Whatever `requests.post` raises, its message (which may quote the URL)
+    is never printed; only the class name is."""
+    url = f"https://dq-notify-test.invalid{_SECRET_PATH}?{_SECRET_QUERY}"
+
+    class _Raising:
+        @staticmethod
+        def post(post_url, **_kwargs):
+            raise ValueError(f"No connection adapters were found for {post_url!r}")
+
+    src = (installed / DEFAULT_TARGET_DIR / PIPELINE_SOURCE).read_text(encoding="utf-8")
+    ns = _hook_ns(src, str(tmp_path), url, "slack")
+    ns["requests"] = _Raising
+    ns["notify_on_expectation_violation"](_flow_progress_event({"pipeline_name": "p"}))
+    assert ns["_printed"][1:] == ["WEBHOOK_DELIVERY_FAILED: ValueError"]
+    _assert_no_url_part(ns["_printed"])
+
+
+def _reply_server(status: int):
+    """A local HTTP server answering every POST with `status` and a body that
+    echoes the request path, standing in for a receiver that echoes requests.
+    A 3xx reply carries a `Location` to `/final`, which answers any method with
+    200; `server.seen` records every request the server receives."""
+    import http.server
+    import threading
+
+    class _Handler(http.server.BaseHTTPRequestHandler):
+        def do_POST(self):  # noqa: N802 (http.server API)
+            self.rfile.read(int(self.headers.get("Content-Length") or 0))
+            server.seen.append((self.command, self.path))
+            code = 200 if self.path == "/final" else status
+            body = f"echo {self.path}".encode()
+            self.send_response(code)
+            if 300 <= code < 400:
+                self.send_header("Location", "/final")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            if code != 204:
+                self.wfile.write(body)
+
+        do_GET = do_POST  # noqa: N815 (http.server API)
+
+        def log_message(self, *_args):
+            pass
+
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
+    server.seen = []
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    return server
+
+
+@pytest.mark.parametrize(
+    ("status", "expected"),
+    [
+        (200, []),
+        (204, []),
+        (301, ["WEBHOOK_DELIVERY_FAILED: HTTP 301"]),
+        (302, ["WEBHOOK_DELIVERY_FAILED: HTTP 302"]),
+        (307, ["WEBHOOK_DELIVERY_FAILED: HTTP 307"]),
+        (400, ["WEBHOOK_DELIVERY_FAILED: HTTP 400"]),
+        (403, ["WEBHOOK_DELIVERY_FAILED: HTTP 403"]),
+        (404, ["WEBHOOK_DELIVERY_FAILED: HTTP 404"]),
+        (500, ["WEBHOOK_DELIVERY_FAILED: HTTP 500"]),
+    ],
+)
+def test_http_reply_status_is_reported_without_url_or_body(
+    installed: Path, tmp_path: Path, no_proxy_env, status: int, expected: list[str]
+):
+    """A real POST to a local receiver: 2xx prints nothing extra; any other
+    status, 3xx included, prints one line naming it, with no URL part and no
+    reply body. Redirects are never followed: exactly one request is sent."""
+    import requests
+
+    server = _reply_server(status)
+    try:
+        url = f"http://127.0.0.1:{server.server_address[1]}{_SECRET_PATH}?{_SECRET_QUERY}"
+        src = (installed / DEFAULT_TARGET_DIR / PIPELINE_SOURCE).read_text(encoding="utf-8")
+        ns = _hook_ns(src, str(tmp_path), url, "slack")
+        ns["requests"] = requests
+        ns["notify_on_expectation_violation"](_flow_progress_event({"pipeline_name": "p"}))
+    finally:
+        server.shutdown()
+        server.server_close()
+    assert ns["_printed"][0].startswith("EXPECTATION VIOLATION")
+    assert ns["_printed"][1:] == expected
+    _assert_no_url_part(ns["_printed"])
+    assert not any("echo" in line for line in ns["_printed"]), "reply body must not print"
+    assert server.seen == [("POST", _SECRET_PATH + "?" + _SECRET_QUERY)], "one POST, no redirect"
 
 
 def test_payload_formats_cover_all_channels(installed: Path):

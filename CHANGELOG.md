@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.13.1] - 2026-11-03
+
+### Fixed
+- **Asset `sdp-expectation-notifications`**:
+  - **Webhook delivery failures no longer print the URL.** A transport failure printed the exception text, which quotes the request URL (host, path, and query), and for an incoming webhook the URL is the credential. The line now names only the exception class and its underlying cause, for example `WEBHOOK_DELIVERY_FAILED: ConnectionError (NameResolutionError)`. If an earlier version printed `WEBHOOK_DELIVERY_FAILED` lines in your driver logs, treat that webhook as exposed to anyone who can read those logs, and rotate it.
+  - **Webhook error replies are reported.** A reply outside 2xx, such as Slack's 404 for a webhook path that does not exist, passed silently. It now prints `WEBHOOK_DELIVERY_FAILED: HTTP <status>`, without the reply body.
+  - **Redirects are no longer followed.** On a 301, 302, or 303, `requests` resent the POST as a GET without the payload, so a receiver that answered that GET with 2xx lost the notification silently. The hook now posts only to the exact URL in the secret and reports any 3xx as `WEBHOOK_DELIVERY_FAILED: HTTP <status>`, so store the final `https://` URL.
+  - Nothing else in the hook changed: still no retries, the same 5-second timeout, violation line, and payloads, and the throttle still records before the POST.
+
+### Changed
+- **Asset `sdp-expectation-notifications` (docs)**:
+  - The docs no longer say the install alone makes both lanes fire. The command installs files; you fill the placeholders, validate, deploy, and run. The hook always prints to the driver log and also posts to a webhook once a secret scope is set, and the backstop fires on its schedule or on a manual run. The hook now notifies "shortly after" an expectation fails rather than "the moment", in the README, the skill, and the install prompt.
+  - Two documented limits. The throttle stops repeats of a rule, but the first wave still makes one POST per newly failing rule, one after another, and fan-out across many rules is untested. The published event log name (`dq_notifications_event_log`) and the demo table name (`monitored_trips`) are fixed, so install each copy into its own schema; the pipeline resource comment that said otherwise is corrected.
+  - The README and the skill's self-verify step show the new failure lines.
+- **Product naming across the repo.** Following the Databricks naming note, prose now calls the Databricks product "Lakeflow pipelines" and keeps "SDP" for the Apache Spark Declarative Pipelines project. This covers the asset READMEs, in-bundle docs, skills, install prompts, comments in generated files, the core template's generated README and comments, and the repo docs. Asset names, file names, and default pipeline names are unchanged.
+- **Skill setup advice in install messages and READMEs** (`sdp-expectation-notifications`, `sdp-quarantine-pattern`, `dbx-ro-query`, `pyspark-test-runner`). These no longer tell you to reference the skill from `CLAUDE.md` or `AGENTS.md`. Skills load on demand from the folder an agent scans, so they now say where to put the skill.
+
 ## [1.13.0] - 2026-10-13
 
 ### Changed

@@ -1,6 +1,6 @@
-# SDP Expectation Notifications (in-bundle usage)
+# Expectation Notifications for Lakeflow Pipelines (in-bundle usage)
 
-This asset installs per-expectation data-quality notification for a Lakeflow Spark Declarative Pipeline as a pair: a native event hook fires the moment an expectation result with failed records is logged, whether the expectation's action is `warn` or `drop` (fast, best-effort, throttled to at most one notification per expectation per window), and one DABs-managed Databricks SQL alert sweeps the published pipeline event log on a schedule (guaranteed, one email per state change). The demo pipeline runs on the public `samples.nyctaxi.trips` dataset with a deliberately tight WARN expectation, so both paths fire on the first run.
+This asset installs per-expectation data-quality notification for a Lakeflow pipeline as a pair: a native event hook fires shortly after an expectation result with failed records is logged, whether the expectation's action is `warn` or `drop` (fast, best-effort, throttled to at most one notification per expectation per window), and one DABs-managed Databricks SQL alert sweeps the published pipeline event log on a schedule (guaranteed, one email per state change). The demo pipeline runs on the public `samples.nyctaxi.trips` dataset with a deliberately tight WARN expectation, so the first update has a violation to report. Installing only placed the files: fill the placeholders, then validate, deploy, and run (below). The hook prints the violation to the driver log, and posts it to a webhook only once you set a webhook secret scope; the backstop alert fires on its schedule, or when you run it manually.
 
 The full design rationale, the validated facts, and the honest caveats live in the asset README in the [databricks-bundle-template repo](https://github.com/vmariiechko/databricks-bundle-template/tree/main/assets/sdp-expectation-notifications). This file covers what you do after install.
 
@@ -8,7 +8,7 @@ The full design rationale, the validated facts, and the honest caveats live in t
 
 | Path | Purpose |
 |---|---|
-| `<target_dir>/expectation_notifications_pipeline.py` | The SDP pipeline source: demo table, WARN expectation, and the notifier event hook. |
+| `<target_dir>/expectation_notifications_pipeline.py` | The Lakeflow pipeline source: demo table, WARN expectation, and the notifier event hook. |
 | `<target_dir>/event_log_queries.sql` | Queries for expectation counts, `hook_progress` states, and the backstop's sweep. |
 | `resources/<pipeline_resource_key>.pipeline.yml` | The DABs pipeline resource (publishes the event log to a UC table). |
 | `resources/<pipeline_resource_key>_backstop.alert.yml` | The backstop alert resource (a Databricks SQL alert; scheduled sweep + email subscription). |
@@ -26,6 +26,7 @@ The full design rationale, the validated facts, and the honest caveats live in t
    ```
 
    If yours does, both resources are picked up automatically. The pipeline resource references the source with a path relative to the resource file (`../<target_dir>/expectation_notifications_pipeline.py`), so the default layout works without changes.
+3. **One install per schema.** The event log publishes to the fixed name `<catalog>.<schema>.dq_notifications_event_log` and the demo table is `<catalog>.<schema>.monitored_trips`, so a second install into the same schema collides on both tables. Install each copy into its own schema.
 
 ## Deploy and run
 
@@ -60,6 +61,8 @@ databricks secrets put-secret dq-notifications slack_webhook_url --string-value 
 
 Then set `dq_notify.webhook_secret_scope: dq-notifications` in the pipeline resource's `configuration` and redeploy; the pipeline resolves the URL at startup and, if the scope is missing, prints a notice (`DQ_NOTIFY_SECRET_UNAVAILABLE`) and runs print-only (your pipeline is never blocked by notification config). The secret scope is the only way to give the hook a URL; with no scope configured, the hook is print-only. Do not use `{{secrets/scope/key}}` in pipeline configuration; it is not interpolated and the literal string arrives.
 
+If a post fails, the driver log shows a line after the violation line, and neither form includes any part of the URL or the reply body: a transport failure prints `WEBHOOK_DELIVERY_FAILED: <exception class> (<cause class>)`, for example `WEBHOOK_DELIVERY_FAILED: ConnectionError (NameResolutionError)` on an unresolvable host, and a reply outside 2xx prints `WEBHOOK_DELIVERY_FAILED: HTTP <status>`, for example `WEBHOOK_DELIVERY_FAILED: HTTP 404` from a Slack webhook path that does not exist. The hook does not follow redirects, so a 3xx reply is reported the same way: store the final `https://` URL in the secret. The update still completes; the backstop covers the missed post.
+
 ## Wire the pattern into your own pipeline (companion skill)
 
 Point a coding agent (Claude Code, Codex, or Genie Code on Databricks) at `<skill_dir>/skills/sdp-expectation-notifications/SKILL.md` and it will adapt the pattern to your pipeline: add the hook to your pipeline source, publish your event log to a UC table, and point one backstop alert at it. It proposes and confirms with you; it does not rewrite your pipeline silently.
@@ -68,7 +71,7 @@ To start, paste a prompt like this into your agent and fill the placeholders:
 
 ```
 Use the sdp-expectation-notifications skill to add per-expectation notifications
-to my SDP pipeline.
+to my Lakeflow pipeline.
 
 - Pipeline source file(s): <path(s) in this repo; multiple pipelines welcome,
   the hook and state layout support them without per-pipeline config>
@@ -94,8 +97,8 @@ then apply them and guide me through (or do) the deploy and verification.
 
 ## References
 
-1. [Lakeflow SDP event hooks](https://docs.databricks.com/aws/en/ldp/event-hooks)
-2. [Lakeflow SDP expectations](https://docs.databricks.com/aws/en/ldp/expectations)
+1. [Lakeflow pipelines: event hooks](https://docs.databricks.com/aws/en/ldp/event-hooks)
+2. [Lakeflow pipelines: expectations](https://docs.databricks.com/aws/en/ldp/expectations)
 3. [Monitor pipelines with the event log](https://docs.databricks.com/aws/en/ldp/monitor-event-logs)
 4. [DABs alert resource](https://docs.databricks.com/aws/en/dev-tools/bundles/resources)
 5. [Databricks sample datasets (`samples.nyctaxi.trips`)](https://docs.databricks.com/aws/en/discover/databricks-datasets)

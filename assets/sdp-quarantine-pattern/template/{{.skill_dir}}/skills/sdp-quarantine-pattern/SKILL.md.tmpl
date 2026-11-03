@@ -1,11 +1,11 @@
 ---
 name: sdp-quarantine-pattern
-description: Use this skill to apply the inverse-expectations quarantine pattern to a Lakeflow Spark Declarative Pipeline on the user's own dataset. Critical (drop) checks route violating rows into a separate quarantine table while valid rows flow to a clean table; advisory (warn) checks are logged but not dropped. Use it whenever the user wants quarantine or dead-letter handling, expectation-based data-quality routing, or a "good rows here, bad rows there" split in an SDP pipeline. The skill adapts the shipped samples.nyctaxi.trips reference to the user's table, enforces NULL-safe drop predicates so clean and quarantine form a clean partition, wires the DABs pipeline resource into the bundle, and verifies the result (offline rule unit tests first, then live audits). It applies and verifies a pattern; it is not an auto-rewriter and does not guarantee correctness on arbitrary data.
+description: Use this skill to apply the inverse-expectations quarantine pattern to a Lakeflow pipeline on the user's own dataset. Critical (drop) checks route violating rows into a separate quarantine table while valid rows flow to a clean table; advisory (warn) checks are logged but not dropped. Use it whenever the user wants quarantine or dead-letter handling, expectation-based data-quality routing, or a "good rows here, bad rows there" split in a Lakeflow pipeline. The skill adapts the shipped samples.nyctaxi.trips reference to the user's table, enforces NULL-safe drop predicates so clean and quarantine form a clean partition, wires the DABs pipeline resource into the bundle, and verifies the result (offline rule unit tests first, then live audits). It applies and verifies a pattern; it is not an auto-rewriter and does not guarantee correctness on arbitrary data.
 ---
 
 # sdp-quarantine-pattern
 
-Apply the inverse-expectations quarantine pattern to the user's own Lakeflow Spark Declarative Pipeline (SDP), then prove it works.
+Apply the inverse-expectations quarantine pattern to the user's own Lakeflow pipeline, then prove it works.
 
 The pattern: critical data-quality rules ("drop" rules) decide which rows are valid. Valid rows flow to a clean table. The rows that fail at least one drop rule are captured in a separate quarantine table, which applies the **inverse** of the drop rules. Advisory rules ("warn" rules) annotate the pipeline event log but never drop or route anything.
 
@@ -96,7 +96,7 @@ This skill applies and verifies a pattern. It does not guarantee correctness on 
 
 Official Databricks docs:
 
-1. [Lakeflow SDP expectations](https://docs.databricks.com/aws/en/ldp/expectations)
+1. [Lakeflow pipelines: expectations](https://docs.databricks.com/aws/en/ldp/expectations)
 2. [Manage data quality with pipeline expectations](https://docs.databricks.com/aws/en/ldp/expectation-patterns)
 3. [Develop pipelines: create test datasets](https://docs.databricks.com/aws/en/ldp/develop)
 4. [Pipeline parameters (source parameterization)](https://docs.databricks.com/aws/en/ldp/parameters)

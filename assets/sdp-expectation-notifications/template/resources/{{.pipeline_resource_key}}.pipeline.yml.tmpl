@@ -1,4 +1,4 @@
-# Lakeflow SDP pipeline: per-expectation notification via an event hook.
+# Lakeflow pipeline: per-expectation notification via an event hook.
 #
 # The pipeline source (with the event hook inside) is referenced relative to
 # THIS file's directory (DABs translates library paths relative to the
@@ -25,8 +25,9 @@ resources:
       # Publish the pipeline event log to a queryable UC table. This is the
       # backstop alert's scan target and the durable record of every
       # expectation result, whether or not the hook got to run. The name is
-      # coupled to this pipeline so it does not collide with other pipelines
-      # publishing into the same schema.
+      # fixed (as is the demo table, monitored_trips), so a second install of
+      # this asset into the same schema collides on both tables: install each
+      # copy into its own schema.
       event_log:
         catalog: {{.catalog}}
         schema: {{.schema}}

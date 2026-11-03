@@ -1,11 +1,11 @@
 ---
 name: sdp-expectation-notifications
-description: Use this skill to add per-expectation data-quality notifications to the user's own Lakeflow Spark Declarative Pipeline (SDP). The pattern is a pair, an in-pipeline event hook that notifies the moment an expectation result with failures is logged (fast, best-effort, throttled to at most one notification per expectation per window) plus exactly one DABs-managed Databricks SQL alert that sweeps the published pipeline event log on a schedule (guaranteed, one email per state change). Use it whenever the user wants to be notified when expectations fail, wants alerting on WARN expectations that would otherwise only sit in the event log, or asks for event-hook-based monitoring, especially when they worry about notification noise or floods. The skill adapts the shipped samples.nyctaxi.trips reference to the user's pipelines (the same hook code works unchanged across any number of pipelines), keeps the hook on the supported notification surface (print and HTTP, never spark.sql writes; durable throttle state via UC Volume marker files), wires the backstop alert to the user's event log and recipients, and verifies the result with read-only queries. It proposes changes and confirms with the user; it is not an auto-rewriter.
+description: Use this skill to add per-expectation data-quality notifications to the user's own Lakeflow pipeline (the Databricks product built on Apache Spark Declarative Pipelines, SDP). The pattern is a pair, an in-pipeline event hook that notifies shortly after an expectation result with failures is logged (fast, best-effort, throttled to at most one notification per expectation per window) plus exactly one DABs-managed Databricks SQL alert that sweeps the published pipeline event log on a schedule (guaranteed, one email per state change). Use it whenever the user wants to be notified when expectations fail, wants alerting on WARN expectations that would otherwise only sit in the event log, or asks for event-hook-based monitoring, especially when they worry about notification noise or floods. The skill adapts the shipped samples.nyctaxi.trips reference to the user's pipelines (the same hook code works unchanged across any number of pipelines), keeps the hook on the supported notification surface (print and HTTP, never spark.sql writes; durable throttle state via UC Volume marker files), wires the backstop alert to the user's event log and recipients, and verifies the result with read-only queries. It proposes changes and confirms with the user; it is not an auto-rewriter.
 ---
 
 # sdp-expectation-notifications
 
-Add per-expectation notification to the user's own Lakeflow Spark Declarative Pipeline (SDP), then prove both paths work.
+Add per-expectation notification to the user's own Lakeflow pipeline, then prove both paths work.
 
 The pattern: an event hook in the pipeline source filters `flow_progress` events for expectation results with `failed_records > 0`, throttles (expectation counts arrive once per microbatch, so an unthrottled hook floods on multi-batch and continuous pipelines; measured live), and notifies (driver-log print, optionally a webhook in Slack, Teams, or generic format). Because hook delivery is explicitly best-effort (the platform does not guarantee every hook runs on every event before pipeline compute terminates), one scheduled Databricks SQL alert sweeps the published event log over a trailing time window as the guaranteed path. Hook = fast and quiet, alert = guaranteed. Neither replaces the other.
 
@@ -20,7 +20,7 @@ Paths in this skill are relative to the bundle root.
 ## The three rules you must not break
 
 1. **The hook is never the only notification path.** The docs state there is no guarantee all hooks run on all events before compute termination, and expectation events are emitted late in the update, closest to that window. Always keep (or add) the backstop alert. If the user asks you to drop it, explain the delivery gap and let them decide explicitly.
-2. **Never write Delta from inside a hook.** `spark.sql()` inside SDP pipeline Python is restricted to a read-oriented command allowlist: `INSERT INTO` and `CREATE TABLE` fail with `UNSUPPORTED_SPARK_SQL_COMMAND` (allowed: SELECT, DESCRIBE, SHOW variants, USE), and the SDP-patched `spark.sql()` rejects the parameterized-query `args=` kwarg (all observed live, 2026-07-11 and 2026-07-18). The supported surface inside a hook is `print`, HTTP calls such as `requests`, and plain-Python file I/O against a UC Volume (create, overwrite, read, exists, listdir all work; append does not: `OSError Errno 29`). The throttle's durable state uses exactly that volume surface; if the user wants violations in a table, they already have one: the published event log.
+2. **Never write Delta from inside a hook.** `spark.sql()` inside Lakeflow pipeline Python is restricted to a read-oriented command allowlist: `INSERT INTO` and `CREATE TABLE` fail with `UNSUPPORTED_SPARK_SQL_COMMAND` (allowed: SELECT, DESCRIBE, SHOW variants, USE), and the pipeline-patched `spark.sql()` rejects the parameterized-query `args=` kwarg (all observed live, 2026-07-11 and 2026-07-18). The supported surface inside a hook is `print`, HTTP calls such as `requests`, and plain-Python file I/O against a UC Volume (create, overwrite, read, exists, listdir all work; append does not: `OSError Errno 29`). The throttle's durable state uses exactly that volume surface; if the user wants violations in a table, they already have one: the published event log.
 3. **Keep the throttle time-aware and fail-open.** Never replace the timestamp-based throttle with a notify-once set (continuous pipelines keep one process alive for days and would go silent forever; measured live), and never let a state error suppress a notification: on any marker read or write failure the code notifies and prints the error. Notification code must never raise; a raising hook risks disable semantics.
 
 ## Workflow
@@ -85,8 +85,8 @@ This skill applies and verifies a notification pattern. It does not guarantee de
 
 Official Databricks docs:
 
-1. [Lakeflow SDP event hooks](https://docs.databricks.com/aws/en/ldp/event-hooks)
-2. [Lakeflow SDP expectations](https://docs.databricks.com/aws/en/ldp/expectations)
+1. [Lakeflow pipelines: event hooks](https://docs.databricks.com/aws/en/ldp/event-hooks)
+2. [Lakeflow pipelines: expectations](https://docs.databricks.com/aws/en/ldp/expectations)
 3. [Monitor pipelines with the event log](https://docs.databricks.com/aws/en/ldp/monitor-event-logs)
 4. [`event_log` table-valued function](https://docs.databricks.com/aws/en/sql/language-manual/functions/event_log)
 5. [DABs alert resource](https://docs.databricks.com/aws/en/dev-tools/bundles/resources)
