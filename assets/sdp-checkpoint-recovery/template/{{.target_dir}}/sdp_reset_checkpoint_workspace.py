@@ -1,8 +1,8 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Reset Lakeflow Spark Declarative Pipeline Checkpoints
+# MAGIC # Reset Lakeflow Pipeline Checkpoints
 # MAGIC
-# MAGIC This notebook resets the streaming checkpoints for specific flows in a Lakeflow Spark Declarative Pipeline (SDP). It is useful when recovering from a `DIFFERENT_DELTA_TABLE_READ_BY_STREAMING_SOURCE` error caused by a source table being recreated.
+# MAGIC This notebook resets the streaming checkpoints for specific flows in a Lakeflow pipeline. It is useful when recovering from a `DIFFERENT_DELTA_TABLE_READ_BY_STREAMING_SOURCE` error caused by a source table being recreated.
 # MAGIC
 # MAGIC **Instructions:**
 # MAGIC 1. Set the **Pipeline ID** widget.

@@ -1,6 +1,6 @@
 # sdp-quarantine-pattern
 
-A Lakeflow Spark Declarative Pipeline that demonstrates the inverse-expectations quarantine pattern on the public `samples.nyctaxi.trips` dataset. Critical (drop) expectations route violating rows into a `quarantine_trips` table; valid rows flow to `clean_trips`; advisory (warn) expectations log to the pipeline event log without dropping.
+A Lakeflow pipeline that demonstrates the inverse-expectations quarantine pattern on the public `samples.nyctaxi.trips` dataset. Critical (drop) expectations route violating rows into a `quarantine_trips` table; valid rows flow to `clean_trips`; advisory (warn) expectations log to the pipeline event log without dropping.
 
 ## Install
 
@@ -77,7 +77,7 @@ Repo-level tests (`tests/assets/test_sdp_quarantine_pattern.py`) verify the asse
 
 ## Validation results
 
-The pattern was validated live on serverless SDP against `samples.nyctaxi.trips`.
+The pattern was validated live on serverless Lakeflow pipelines against `samples.nyctaxi.trips`.
 
 - **Partition invariant holds exactly.** Baseline run: 21,932 raw rows split into 21,847 clean and 85 quarantine (21,847 + 85 = 21,932). The split stayed exact across every test.
 - **Quarantine works on real data out of the box.** The 85 baseline quarantine rows are naturally invalid rows in the public sample (74 zero-distance, 9 zero or negative fare, 2 with multiple violations). No injection needed to see the pattern work.
@@ -87,7 +87,7 @@ The pattern was validated live on serverless SDP against `samples.nyctaxi.trips`
 
 Two lived findings worth carrying into your own pipelines:
 
-- `spark.catalog.tableExists()` is not whitelisted inside SDP (it raises `Py4JSecurityException`). Avoid it in pipeline code; this asset does not use it.
+- `spark.catalog.tableExists()` is not whitelisted inside Lakeflow pipelines (it raises `Py4JSecurityException`). Avoid it in pipeline code; this asset does not use it.
 - A streaming table's set of input sources is fixed at its first run. Changing it later (for example, adding a union source) is incompatible with the existing checkpoint and requires a full refresh.
 
 ## What this asset is

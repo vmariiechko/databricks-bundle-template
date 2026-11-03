@@ -1,4 +1,4 @@
-# SDP Quarantine Pattern (in-bundle usage)
+# Quarantine Pattern for Lakeflow Pipelines (in-bundle usage)
 
 This pipeline demonstrates the inverse-expectations quarantine pattern on the public `samples.nyctaxi.trips` dataset. Critical (drop) expectations route violating rows into a separate `quarantine_trips` table; valid rows flow to `clean_trips`; advisory (warn) expectations log to the pipeline event log without dropping.
 
@@ -8,7 +8,7 @@ The full design rationale and the NULL trap live in the asset README in the [dat
 
 | Path | Purpose |
 |---|---|
-| `<target_dir>/quarantine_pipeline.py` | The SDP pipeline source (Databricks notebook): raw, clean, quarantine. |
+| `<target_dir>/quarantine_pipeline.py` | The Lakeflow pipeline source (Databricks notebook): raw, clean, quarantine. |
 | `<target_dir>/expectations.json` | Declarative drop/warn rule lists (source of truth). |
 | `<target_dir>/expectations.py` | Pure helper: loads rules, builds the clean and inverse predicates. |
 | `<target_dir>/tests/` | Offline unit tests (`pytest` + local Spark) that prove the partition invariant and NULL routing without a workspace. |
@@ -96,7 +96,7 @@ Add or change rules in `expectations.json` under `drop` (critical, routed to qua
 
 ## References
 
-1. [Lakeflow SDP expectations](https://docs.databricks.com/aws/en/ldp/expectations)
+1. [Lakeflow pipelines: expectations](https://docs.databricks.com/aws/en/ldp/expectations)
 2. [Manage data quality with pipeline expectations](https://docs.databricks.com/aws/en/ldp/expectation-patterns)
 3. [Monitor pipelines with the event log](https://docs.databricks.com/aws/en/ldp/monitor-event-logs)
 4. [DABs pipelines resource reference](https://docs.databricks.com/aws/en/dev-tools/bundles/resources.html#pipelines)

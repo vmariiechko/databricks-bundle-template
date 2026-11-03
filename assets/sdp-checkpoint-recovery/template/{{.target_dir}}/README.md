@@ -1,6 +1,6 @@
-# Lakeflow SDP Checkpoint Reset
+# Lakeflow Pipeline Checkpoint Reset
 
-Two Python scripts for recovering a Lakeflow Spark Declarative Pipeline from the `DIFFERENT_DELTA_TABLE_READ_BY_STREAMING_SOURCE` error by resetting the checkpoint selection for specific flows, without clearing target table data.
+Two Python scripts for recovering a Lakeflow pipeline from the `DIFFERENT_DELTA_TABLE_READ_BY_STREAMING_SOURCE` error by resetting the checkpoint selection for specific flows, without clearing target table data.
 
 | File | Runs where | Auth |
 |---|---|---|
@@ -9,7 +9,7 @@ Two Python scripts for recovering a Lakeflow Spark Declarative Pipeline from the
 
 ## When to use
 
-The pipeline fails with `DIFFERENT_DELTA_TABLE_READ_BY_STREAMING_SOURCE` after a source Delta table has been dropped and recreated. The streaming checkpoint references the old table ID; the new table has a new ID. Lakeflow SDP abstracts checkpoint management, so manual deletion is not possible, but the Pipelines API exposes `reset_checkpoint_selection` to reset specific flows.
+The pipeline fails with `DIFFERENT_DELTA_TABLE_READ_BY_STREAMING_SOURCE` after a source Delta table has been dropped and recreated. The streaming checkpoint references the old table ID; the new table has a new ID. Lakeflow pipelines abstract checkpoint management, so manual deletion is not possible, but the Pipelines API exposes `reset_checkpoint_selection` to reset specific flows.
 
 Downstream consequence: Bronze tables may contain duplicate events until your Silver layer's SCD / CDC logic processes them. Target data is not cleared.
 

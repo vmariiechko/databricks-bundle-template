@@ -77,7 +77,7 @@ This follows the Databricks guidance to create test datasets that include record
 
 PASS when the partition holds and every known row lands where you expect.
 
-A full, reusable integration-test harness for SDP pipelines (fixtures, CI wiring, golden outputs) is beyond this skill's scope. If the user wants that, treat it as its own effort.
+A full, reusable integration-test harness for Lakeflow pipelines (fixtures, CI wiring, golden outputs) is beyond this skill's scope. If the user wants that, treat it as its own effort.
 
 ## Interpreting results honestly
 

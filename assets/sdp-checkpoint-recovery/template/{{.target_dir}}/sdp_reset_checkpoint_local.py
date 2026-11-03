@@ -1,4 +1,4 @@
-"""Reset checkpoint selection for specific flows in a Lakeflow Spark Declarative Pipeline.
+"""Reset checkpoint selection for specific flows in a Lakeflow pipeline.
 
 Recovers a pipeline from `DIFFERENT_DELTA_TABLE_READ_BY_STREAMING_SOURCE` after a
 source table has been dropped and recreated, without clearing target table data.

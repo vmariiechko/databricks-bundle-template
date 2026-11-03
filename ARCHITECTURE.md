@@ -623,7 +623,7 @@ decision log behind this design and
 | Term | Definition |
 |------|------------|
 | **DAB** | Declarative Automation Bundle |
-| **SDP** | Lakeflow Spark Declarative Pipelines (formerly DLT) |
+| **Lakeflow pipelines** | The Databricks pipeline product (formerly Delta Live Tables / DLT), built on Apache Spark Declarative Pipelines (SDP) |
 | **UC** | Unity Catalog |
 | **SP** | Service Principal |
 | **Classic Compute** | Resource-specific clusters that spin up when job/pipeline runs |

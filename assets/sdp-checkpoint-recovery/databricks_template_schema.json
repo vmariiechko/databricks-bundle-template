@@ -1,5 +1,5 @@
 {
-  "welcome_message": "\nLakeflow SDP Checkpoint Recovery: Asset Installer\n\nInstalls two Python scripts, a usage README, and a pinned\nrequirements.txt for recovering a Lakeflow Spark Declarative Pipeline\nfrom the DIFFERENT_DELTA_TABLE_READ_BY_STREAMING_SOURCE error by\nresetting its checkpoint selection without clearing target data.\n\nThe local script supports a --dry-run flag (validate_only) so you\ncan exercise auth and payload before mutating any pipeline.\n\nLet's pick the install path...\n",
+  "welcome_message": "\nCheckpoint Recovery for Lakeflow Pipelines: Asset Installer\n\nInstalls two Python scripts, a usage README, and a pinned\nrequirements.txt for recovering a Lakeflow pipeline\nfrom the DIFFERENT_DELTA_TABLE_READ_BY_STREAMING_SOURCE error by\nresetting its checkpoint selection without clearing target data.\n\nThe local script supports a --dry-run flag (validate_only) so you\ncan exercise auth and payload before mutating any pipeline.\n\nLet's pick the install path...\n",
 
   "properties": {
     "target_dir": {

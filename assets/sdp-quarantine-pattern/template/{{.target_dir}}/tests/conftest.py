@@ -2,7 +2,7 @@
 
 These tests run locally with a real Spark session, no Databricks workspace
 required. The fixture and the UTC timestamp fix follow the standard PySpark
-unit-testing setup for Lakeflow SDP transform code.
+unit-testing setup for Lakeflow pipeline transform code.
 """
 
 import datetime

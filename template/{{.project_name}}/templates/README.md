@@ -18,7 +18,7 @@ Contains 6 ready-to-use cluster configurations:
 - `autoscale_cluster` - Variable workloads (auto-scaling)
 - `photon_cluster` - High-performance workloads (Photon-enabled)
 
-**For DLT Pipelines:**
+**For Lakeflow pipelines:**
 - `pipeline_cluster_small` - Development (1 worker)
 - `pipeline_cluster_autoscale` - Production (auto-scaling)
 
@@ -88,7 +88,7 @@ Common task patterns:
 - Python wheel tasks
 - Notebook tasks
 - SQL tasks
-- DLT pipeline tasks
+- Lakeflow pipeline tasks
 - JAR tasks
 - Run job tasks (job chaining)
 - For-each tasks (parallel processing)

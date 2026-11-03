@@ -283,14 +283,28 @@ def notify_on_expectation_violation(event):
             )
             print(msg)
             if WEBHOOK_URL:
+                # Failure lines carry class names and status codes only:
+                # `requests` exception text quotes the request URL, and for
+                # an incoming webhook the URL is the credential. The reply
+                # body is never printed either (a receiver may echo the URL).
                 try:
-                    requests.post(
+                    resp = requests.post(
                         WEBHOOK_URL,
                         json=_payload(msg, pipeline, dataset, expectation, failed, passed),
                         timeout=5,
                     )
+                    if not 200 <= resp.status_code < 300:
+                        print(f"WEBHOOK_DELIVERY_FAILED: HTTP {resp.status_code}")
                 except Exception as e:
-                    print(f"WEBHOOK_DELIVERY_FAILED: {type(e).__name__}: {e}")
+                    # `requests` wraps urllib3: ConnectionError(MaxRetryError),
+                    # whose `.reason` is the underlying cause (for example
+                    # NameResolutionError). Only its class name is printed.
+                    cause = e.args[0] if e.args else None
+                    cause = getattr(cause, "reason", cause)
+                    reason = ""
+                    if isinstance(cause, BaseException):
+                        reason = f" ({type(cause).__name__})"
+                    print(f"WEBHOOK_DELIVERY_FAILED: {type(e).__name__}{reason}")
     except Exception as e:
         # A raising hook risks racking up FAILED states; notification code
         # must never take the hook down.

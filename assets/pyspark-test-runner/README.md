@@ -26,13 +26,13 @@ The default `.agents` is vendor-neutral and matches the convention used by Codex
 
 | Agent | Override `target_dir` to | Notes |
 |---|---|---|
-| Claude Code | `.claude` | Auto-discovered via `.claude/skills/`. No further wiring needed. |
-| Codex | `.codex` (or keep `.agents`) | Reference the SKILL.md from `AGENTS.md`. |
-| Cursor | `.cursor` | Add a rule under `.cursor/rules/` referencing the SKILL.md. |
-| Gemini CLI | `.gemini` | Reference from `.gemini/` configuration. |
-| Multi-agent / unsure | `.agents` (default) | Wire each agent manually via its config file. |
+| Claude Code | `.claude` | Lands in `.claude/skills/`, where Claude Code looks for skills. No `CLAUDE.md` entry needed. |
+| Codex | `.codex` (or keep `.agents`) | Install into the folder Codex reads skills from. No `AGENTS.md` entry needed. |
+| Cursor | `.cursor` | Cursor does not auto-discover `.cursor/skills/`; add a rule under `.cursor/rules/` that names the SKILL.md. |
+| Gemini CLI | `.gemini` | Install into the folder Gemini CLI reads skills from. |
+| Multi-agent / unsure | `.agents` (default) | Copy or symlink the skill folder into each agent's own skills folder. |
 
-The post-install message prints the exact one-liner per agent.
+Skills load on demand: an agent reads a skill's description up front and the full `SKILL.md` only when a task needs it. So keep `CLAUDE.md` and `AGENTS.md` small and do not add an entry for this skill; put the skill where your agent looks for skills. If your agent has no skill support, name the `SKILL.md` path in your prompt. The post-install message summarizes this.
 
 ## Usage
 
